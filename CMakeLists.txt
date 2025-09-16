@@ -1,8 +1,12 @@
 cmake_minimum_required(VERSION 3.22.1)
+project(SimpleRustCompiler LANGUAGES CXX)   # 只启用 C++
 project(rust-compiler)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_CXX_STANDARD 20)
+
+add_subdirectory(test)
+
 
 file(GLOB_RECURSE LIB_SOURCES CONFIGURE_DEPENDS src/*.cpp)
 add_library(mylib ${LIB_SOURCES})

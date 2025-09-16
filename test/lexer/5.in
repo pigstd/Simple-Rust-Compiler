@@ -1,0 +1,11 @@
+/*
+Test Package: lexer-05
+Test Target: operator
+Author: Zemu Zhu
+Time: 2025-09-16
+Verdict: Failed
+Comment: test operator
+*/
+
++ == +/
+!= >> <<=

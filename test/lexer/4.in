@@ -1,0 +1,16 @@
+/*
+Test Package: lexer-04
+Test Target: raw string
+Author: Zemu Zhu
+Time: 2025-09-16
+Verdict: Success
+Comment: test string & raw string
+*/
+
+fn main() {
+    let str1 : string = "test-string";
+    let str2 : string = "test-string \" \' ";
+    let str3 : string = r"test-string \n \' ";
+    let str4 : string = r#"test-string \" \' "#;
+    exit(0);
+}
