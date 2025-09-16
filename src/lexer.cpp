@@ -46,6 +46,7 @@ Lexer::Lexer() {
         {"&", Token_type::AMPERSAND},
         {"|", Token_type::PIPE},
         {"^", Token_type::CARET},
+        {"==", Token_type::EQUAL_EQUAL},
         {"+=", Token_type::PLUS_EQUAL},
         {"-=", Token_type::MINUS_EQUAL},
         {"*=", Token_type::STAR_EQUAL},
@@ -153,8 +154,8 @@ void Token::show_token() const {
     std::cerr << "[" << token_type_to_string() << ", " << value << "]" << std::endl;
 }
 
-Token::Token(Token_type type, string value) {
-    this->type = type, this->value = value;
+Token::Token(Token_type _type, string _value) {
+    this->type = _type, this->value = _value;
 }
 
 string Lexer::get_escape_character(char ch) const {
@@ -165,7 +166,7 @@ string Lexer::get_escape_character(char ch) const {
         case '\\': return "\\";
         case '\'': return "\'";
         case '\"': return "\"";
-        default: throw "CE, no such escape character";
+        default: throw string("CE, no such escape character");
     }
 }
 bool Lexer::is_not_symbol(char ch) const {
@@ -194,7 +195,7 @@ void Lexer::add_number(string &now_str) {
     if (is_valid) {
         tokens.push_back(Token(Token_type::NUMBER, now_str));
     } else {
-        throw "CE, invalid number";
+        throw string("CE, invalid number");
     }
     now_str = "";
 }
@@ -227,16 +228,16 @@ void Lexer::read_and_get_tokens() {
                 continue;
             }
             if (is_in_char) {
-                if (now_ch == '\'') {throw "CE, find '' ";}
+                if (now_ch == '\'') {throw string("CE, find '' "); }
                 else if (now_ch == '\\') {
                     if (next_next_ch != '\'') {
-                        throw "CE, find no '";
+                        throw string("CE, find no '");
                     }
                     tokens.push_back(Token(Token_type::CHAR, get_escape_character(next_ch)));
                     i += 2;
                 } else {
                     if (next_ch != '\'') {
-                        throw "CE, find no '";
+                        throw string("CE, find no '");
                     }
                     tokens.push_back(Token(Token_type::CHAR, string(1, now_ch)));
                     i += 1;
@@ -301,7 +302,7 @@ void Lexer::read_and_get_tokens() {
                         if (j < line_len && line[j] == '\"') {
                             i = j;
                         } else {
-                            throw "CE, no starting of raw string";
+                            throw string("CE, no starting of raw string");
                         }
                     } else {
                         i++;
@@ -359,12 +360,12 @@ void Lexer::read_and_get_tokens() {
                         is_in_char = true;
                         continue;
                     }
-                    throw "CE, no such symbol";
+                    throw string("CE, no such symbol");
                 }
             }
         }
         if (is_in_char || is_in_common_string || is_in_raw_string) {
-            throw "CE, find no end char or string";
+            throw string("CE, find no end char or string");
         }
         if (is_in_number) {
             add_number(now_str);
@@ -373,6 +374,6 @@ void Lexer::read_and_get_tokens() {
         }
     }
     if (is_in_block_comment) {
-        throw "CE, find no end of block comment";
+        throw string("CE, find no end of block comment");
     }
 }

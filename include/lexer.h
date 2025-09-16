@@ -26,6 +26,7 @@ enum class Token_type {
     AMPERSAND,         // &
     PIPE,              // |
     CARET,             // ^
+    EQUAL_EQUAL,       // ==
     PLUS_EQUAL,        // +=
     MINUS_EQUAL,       // -=
     STAR_EQUAL,        // *=
@@ -88,7 +89,7 @@ struct Token {
     string value;
     string token_type_to_string() const;
     void show_token() const;
-    Token(Token_type type, string value);
+    Token(Token_type _type, string _value);
 };
 
 /*
