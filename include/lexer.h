@@ -86,11 +86,26 @@ enum class Token_type {
 struct Token {
     Token_type type;
     string value;
+    string token_type_to_string() const;
     void show_token() const;
+    Token(Token_type type, string value);
 };
 
+/*
+分词的时候，只有 string 和 char 我会存真正的值（只会存内容的字符串）
+其他的都只存原来的字符串（比如 114514_i32 我也会存 value = "114514_i32"）
+*/
 class Lexer {
     map<string, Token_type> keywords_map;
+    map<string, Token_type> symbol_map;
+    // 获得 / + ch 的转义字符
+    string get_escape_character(char ch) const;
+    // 判断是否不是符号(非字母，非数字，非 _ )
+    bool is_not_symbol(char ch) const;
+    // 添加一个标识符（需要判断是否是关键字）
+    void add_identifier(string &now_str);
+    // 添加一个数字（需要判断是否是合法的数字）
+    void add_number(string &now_str);
 public:
     // 初始化 keywords_map
     Lexer();
