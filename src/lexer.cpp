@@ -377,3 +377,17 @@ void Lexer::read_and_get_tokens() {
         throw string("CE, find no end of block comment");
     }
 }
+
+Token Lexer::peek_token() const {
+    if (current_token_index < tokens.size()) {
+        return tokens[current_token_index];
+    } else {
+        throw string("CE, no more token to peek");
+    }
+}
+
+Token Lexer::consume_token() {
+    Token token = peek_token();
+    current_token_index++;
+    return token;
+}

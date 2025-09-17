@@ -1,6 +1,7 @@
 #ifndef LEXER_H
 #define LEXER_H
 
+#include <cstddef>
 #include <map>
 #include <string>
 #include <vector>
@@ -107,11 +108,18 @@ class Lexer {
     void add_identifier(string &now_str);
     // 添加一个数字（需要判断是否是合法的数字）
     void add_number(string &now_str);
+    size_t current_token_index = 0; // 当前正在处理的 token 的下标
 public:
     // 初始化 keywords_map
     Lexer();
     vector<Token> tokens;
     void read_and_get_tokens();
+    // 看当前的第一个 token
+    Token peek_token() const;
+    // 消费掉当前的第一个 token
+    Token consume_token();
+    // 判断是否还有 token
+    bool has_more_tokens() const;
 };
 
 #endif // LEXER_H
