@@ -15,5 +15,6 @@ build/
 .cache/
 .vscode/
 test/build/
+test_rust/
 
 code
