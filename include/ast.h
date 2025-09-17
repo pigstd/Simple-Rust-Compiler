@@ -289,5 +289,30 @@ struct ItemStmt : public Stmt_Node {
     void accept(AST_visitor &v) override;
 };
 
+struct PathType : public Type_Node {
+    string name;
+    PathType(const string &name) : name(name) {}
+    void accept(AST_visitor &v) override;
+};
+struct ArrayType : public Type_Node {
+    Type_ptr element_type;
+    Expr_ptr size; // 数组大小必须是一个常量 或者常量表达式
+    ArrayType(Type_ptr elem_type, Expr_ptr sz)
+        : element_type(std::move(elem_type)), size(std::move(sz)) {}
+    void accept(AST_visitor &v) override;
+};
+
+enum class Mutibility {
+    IMMUTABLE,
+    MUTABLE
+};
+
+struct IdentifierPattern : public Pattern_Node {
+    string name;
+    Mutibility is_mut;
+    IdentifierPattern(const string &name, Mutibility mut) : name(name), is_mut(mut) {}
+    void accept(AST_visitor &v) override;
+};
+
 
 #endif // AST_H
