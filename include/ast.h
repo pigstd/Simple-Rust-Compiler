@@ -189,22 +189,22 @@ struct BlockExpr : public Expr_Node {
 struct IfExpr : public Expr_Node {
     Expr_ptr condition;
     // if 分支的大括号内可以是语句
-    BlockExpr then_branch;
-    BlockExpr else_branch; // 如果没有 else 分支则为 nullptr
-    IfExpr(Expr_ptr cond, BlockExpr then_br, BlockExpr else_br = BlockExpr({}))
+    Expr_ptr then_branch;
+    Expr_ptr else_branch; // 如果没有 else 分支则为 nullptr
+    IfExpr(Expr_ptr cond, Expr_ptr then_br, Expr_ptr else_br = nullptr)
         : condition(std::move(cond)), then_branch(std::move(then_br)), else_branch(std::move(else_br)) {}
     void accept(AST_visitor &v) override;
 };
 struct WhileExpr : public Expr_Node {
     Expr_ptr condition;
-    BlockExpr body;
-    WhileExpr(Expr_ptr cond, BlockExpr body)
+    Expr_ptr body;
+    WhileExpr(Expr_ptr cond, Expr_ptr body)
         : condition(std::move(cond)), body(std::move(body)) {}
     void accept(AST_visitor &v) override;
 };
 struct LoopExpr : public Expr_Node {
-    BlockExpr body;
-    LoopExpr(BlockExpr body) : body(std::move(body)) {}
+    Expr_ptr body;
+    LoopExpr(Expr_ptr body) : body(std::move(body)) {}
     void accept(AST_visitor &v) override;
 };
 struct ReturnExpr : public Expr_Node {
@@ -233,8 +233,8 @@ struct FnItem : public Item_Node {
     string function_name;
     vector<pair<string, Type_ptr>> parameters; // 参数名和参数类型
     Type_ptr return_type; // 返回类型，若是 nullptr 则说明返回 ()
-    BlockExpr body;
-    FnItem(const string &name, vector<pair<string, Type_ptr>> params, Type_ptr ret_type, BlockExpr body)
+    Expr_ptr body;
+    FnItem(const string &name, vector<pair<string, Type_ptr>> params, Type_ptr ret_type, Expr_ptr body)
         : function_name(name), parameters(std::move(params)), return_type(std::move(ret_type)), body(std::move(body)) {}
     void accept(AST_visitor &v) override;
 };
@@ -254,13 +254,15 @@ struct EnumItem : public Item_Node {
 };
 struct ImplItem : public Item_Node {
     string struct_name; // impl 后面的结构体名
-    vector<FnItem> methods; // 只考虑方法
-    ImplItem(const string &name, vector<FnItem> mets)
+    vector<Item_ptr> methods; // 只考虑方法
+    ImplItem(const string &name, vector<Item_ptr> mets)
         : struct_name(name), methods(std::move(mets)) {}
     void accept(AST_visitor &v) override;
 };
 struct ConstItem : public Item_Node {
     string const_name;
+    // remark : 貌似不用口考虑 const 的类型推导
+    // 直接要求必须有类型
     Type_ptr const_type;
     Expr_ptr value;
     ConstItem(const string &name, Type_ptr type, Expr_ptr val)
@@ -294,9 +296,9 @@ struct PathType : public Type_Node {
 };
 struct ArrayType : public Type_Node {
     Type_ptr element_type;
-    Expr_ptr size; // 数组大小必须是一个常量 或者常量表达式
+    Expr_ptr size_expr; // 数组大小必须是一个常量 但是也可以是常量表达式
     ArrayType(Type_ptr elem_type, Expr_ptr sz)
-        : element_type(std::move(elem_type)), size(std::move(sz)) {}
+        : element_type(std::move(elem_type)), size_expr(std::move(sz)) {}
     void accept(AST_visitor &v) override;
 };
 
