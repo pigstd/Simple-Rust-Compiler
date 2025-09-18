@@ -18,6 +18,8 @@ void ReturnExpr::accept(AST_visitor &v) { v.visit(*this); }
 void BreakExpr::accept(AST_visitor &v) { v.visit(*this); }
 void ContinueExpr::accept(AST_visitor &v) { v.visit(*this); }
 void CastExpr::accept(AST_visitor &v) { v.visit(*this); }
+void PathExpr::accept(AST_visitor &v) { v.visit(*this); }
+void SelfExpr::accept(AST_visitor &v) { v.visit(*this); }
 
 void FnItem::accept(AST_visitor &v) { v.visit(*this); }
 void StructItem::accept(AST_visitor &v) { v.visit(*this); }
@@ -99,6 +101,8 @@ void AST_Walker::visit(CastExpr &node) {
     node.expr->accept(*this);
     node.target_type->accept(*this);
 }
+void AST_Walker::visit(PathExpr &node) { node.base->accept(*this); }
+void AST_Walker::visit([[maybe_unused]] SelfExpr &node) { return; }
 void AST_Walker::visit(FnItem &node) {
     for (auto &[name, type] : node.parameters) {
         type->accept(*this);
@@ -168,6 +172,22 @@ FnItem_ptr Parser::parse_fn_item() {
     lexer.consume_expect_token(Token_type::FN);
     string function_name = lexer.consume_expect_token(Token_type::IDENTIFIER).value;
     lexer.consume_expect_token(Token_type::LEFT_PARENTHESIS);
+    fn_reciever_type receiver_type = fn_reciever_type::NO_RECEIVER;
+    if (lexer.peek_token().type == Token_type::SELF) {
+        receiver_type = fn_reciever_type::SELF;
+        lexer.consume_expect_token(Token_type::SELF); // 消费掉 self
+        lexer.consume_expect_token(Token_type::COMMA); // 消费掉逗号
+    } else if (lexer.peek_token().type == Token_type::REF) {
+        lexer.consume_expect_token(Token_type::REF); // 消费掉 &
+        if (lexer.peek_token().type == Token_type::MUT) {
+            receiver_type = fn_reciever_type::SELF_REF_MUT;
+            lexer.consume_expect_token(Token_type::MUT); // 消费掉 mut
+        } else {
+            receiver_type = fn_reciever_type::SELF_REF;
+        }
+        lexer.consume_expect_token(Token_type::SELF); // 消费掉 self
+        lexer.consume_expect_token(Token_type::COMMA); // 消费掉逗号
+    }
     vector<pair<string, Type_ptr>> parameters;
     while(lexer.peek_token().type != Token_type::RIGHT_PARENTHESIS) {
         string param_name = lexer.consume_expect_token(Token_type::IDENTIFIER).value;
@@ -187,7 +207,7 @@ FnItem_ptr Parser::parse_fn_item() {
         return_type = parse_type();
     }
     BlockExpr_ptr body = parse_block_expression();
-    return std::make_unique<FnItem>(function_name,
+    return std::make_unique<FnItem>(function_name, receiver_type,
         std::move(parameters), std::move(return_type), std::move(body));
 }
 
@@ -230,4 +250,31 @@ EnumItem_ptr Parser::parse_enum_item() {
     }
     lexer.consume_expect_token(Token_type::RIGHT_BRACE);
     return std::make_unique<EnumItem>(enum_name, std::move(variants));
+}
+ImplItem_ptr Parser::parse_impl_item() {
+    // example :
+    // impl StructName { fn method1(...) { ... } fn method2(...) { ... } ... }
+    lexer.consume_expect_token(Token_type::IMPL);
+    string struct_name = lexer.consume_expect_token(Token_type::IDENTIFIER).value;
+    lexer.consume_expect_token(Token_type::LEFT_BRACE);
+    vector<Item_ptr> methods;
+    while(lexer.peek_token().type != Token_type::RIGHT_BRACE) {
+        // 只能有函数方法
+        methods.push_back(parse_fn_item());
+    }
+    lexer.consume_expect_token(Token_type::RIGHT_BRACE);
+    return std::make_unique<ImplItem>(struct_name, std::move(methods));
+}
+
+ConstItem_ptr Parser::parse_const_item() {
+    // example :
+    // const CONST_NAME: Type = value;
+    lexer.consume_expect_token(Token_type::CONST);
+    string const_name = lexer.consume_expect_token(Token_type::IDENTIFIER).value;
+    lexer.consume_expect_token(Token_type::COLON);
+    Type_ptr const_type = parse_type();
+    lexer.consume_expect_token(Token_type::EQUAL);
+    Expr_ptr value = parse_expression();
+    lexer.consume_expect_token(Token_type::SEMICOLON);
+    return std::make_unique<ConstItem>(const_name, std::move(const_type), std::move(value));
 }
