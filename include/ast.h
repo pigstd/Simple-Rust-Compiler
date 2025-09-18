@@ -8,6 +8,7 @@
 */
 
 #include "lexer.h"
+#include <cfloat>
 #include <memory>
 #include <string>
 #include <utility>
@@ -73,6 +74,8 @@ struct ReturnExpr; // return 表达式 return expr;
 struct BreakExpr; // break 表达式 break;
 struct ContinueExpr; // continue 表达式 continue;
 struct CastExpr; // 类型转换表达式 expr as Type
+struct PathExpr; // 路径表达式 std::io::Result
+struct SelfExpr; // self 表达式 只有 self 本身
 
 struct FnItem; // 函数项 fn foo() { ... }
 struct StructItem; // 结构体项 struct Point { x: i32, y: i32 }
@@ -107,6 +110,8 @@ using ReturnExpr_ptr = unique_ptr<ReturnExpr>;
 using BreakExpr_ptr = unique_ptr<BreakExpr>;
 using ContinueExpr_ptr = unique_ptr<ContinueExpr>;
 using CastExpr_ptr = unique_ptr<CastExpr>;
+using PathExpr_ptr = unique_ptr<PathExpr>;
+using SelfExpr_ptr = unique_ptr<SelfExpr>;
 using FnItem_ptr = unique_ptr<FnItem>;
 using StructItem_ptr = unique_ptr<StructItem>;
 using EnumItem_ptr = unique_ptr<EnumItem>;
@@ -152,9 +157,9 @@ enum class Binary_Operator {
     AND_ASSIGN, OR_ASSIGN, XOR_ASSIGN,
     SHL_ASSIGN, SHR_ASSIGN
 };
-// 不用考虑引用，哈哈
+// 妈的，要考虑引用
 enum class Unary_Operator {
-    NEG, NOT
+    NEG, NOT, REF, REF_MUT, DEREF
 };
 
 struct BinaryExpr : public Expr_Node {
@@ -255,14 +260,32 @@ struct CastExpr : public Expr_Node {
     CastExpr(Expr_ptr e, Type_ptr t) : expr(std::move(e)), target_type(std::move(t)) {}
     void accept(AST_visitor &v) override;
 };
+// base::name
+struct PathExpr : public Expr_Node {
+    Expr_ptr base; // 可以是另一个 PathExpr
+    string name;
+    PathExpr(Expr_ptr b, const string &n) : base(std::move(b)), name(n) {}
+    void accept(AST_visitor &v) override;
+};
+struct SelfExpr : public Expr_Node {
+    void accept(AST_visitor &v) override;
+};
+
+enum class fn_reciever_type {
+    NO_RECEIVER,
+    SELF,
+    SELF_REF,
+    SELF_REF_MUT
+};
 
 struct FnItem : public Item_Node {
     string function_name;
+    fn_reciever_type receiver_type;
     vector<pair<string, Type_ptr>> parameters; // 参数名和参数类型
     Type_ptr return_type; // 返回类型，若是 nullptr 则说明返回 ()
     Expr_ptr body;
-    FnItem(const string &name, vector<pair<string, Type_ptr>> params, Type_ptr ret_type, Expr_ptr body)
-        : function_name(name), parameters(std::move(params)), return_type(std::move(ret_type)), body(std::move(body)) {}
+    FnItem(const string &name, fn_reciever_type recv_type, vector<pair<string, Type_ptr>> params, Type_ptr ret_type, Expr_ptr body)
+        : function_name(name), receiver_type(recv_type), parameters(std::move(params)), return_type(std::move(ret_type)), body(std::move(body)) {}
     void accept(AST_visitor &v) override;
 };
 struct StructItem : public Item_Node {
@@ -333,11 +356,16 @@ enum class Mutibility {
     IMMUTABLE,
     MUTABLE
 };
+enum class ReferenceType {
+    NO_REF,
+    REF
+};
 
 struct IdentifierPattern : public Pattern_Node {
     string name;
     Mutibility is_mut;
-    IdentifierPattern(const string &name, Mutibility mut) : name(name), is_mut(mut) {}
+    ReferenceType is_ref;
+    IdentifierPattern(const string &name, Mutibility mut, ReferenceType ref) : name(name), is_mut(mut), is_ref(ref) {}
     void accept(AST_visitor &v) override;
 };
 
@@ -359,6 +387,8 @@ struct AST_visitor {
     virtual void visit(BreakExpr &node) = 0;
     virtual void visit(ContinueExpr &node) = 0;
     virtual void visit(CastExpr &node) = 0;
+    virtual void visit(PathExpr &node) = 0;
+    virtual void visit(SelfExpr &node) = 0;
     virtual void visit(FnItem &node) = 0;
     virtual void visit(StructItem &node) = 0;
     virtual void visit(EnumItem &node) = 0;
@@ -390,6 +420,8 @@ struct AST_Walker : public AST_visitor {
     virtual void visit(BreakExpr &node) override;
     virtual void visit(ContinueExpr &node) override;
     virtual void visit(CastExpr &node) override;
+    virtual void visit(PathExpr &node) override;
+    virtual void visit(SelfExpr &node) override;
     virtual void visit(FnItem &node) override;
     virtual void visit(StructItem &node) override;
     virtual void visit(EnumItem &node) override;
