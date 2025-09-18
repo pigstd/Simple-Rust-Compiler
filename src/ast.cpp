@@ -1,4 +1,6 @@
 #include "ast.h"
+#include "lexer.h"
+#include <memory>
 
 void LiteralExpr::accept(AST_visitor &v) { v.visit(*this); }
 void IdentifierExpr::accept(AST_visitor &v) { v.visit(*this); }
@@ -133,3 +135,99 @@ void AST_Walker::visit(ArrayType &node) {
     node.size_expr->accept(*this);
 }
 void AST_Walker::visit([[maybe_unused]] IdentifierPattern &node) { return; }
+
+vector<Item_ptr> Parser::parse() {
+    vector<Item_ptr> items;
+    while (lexer.has_more_tokens()) {
+        items.push_back(parse_item());
+    }
+    return items;
+}
+
+Item_ptr Parser::parse_item() {
+    // 这里只需要考虑 fn, struct, enum, impl, const 五种 item
+    Token token = lexer.peek_token();
+    if (token.type == Token_type::FN) {
+        return parse_fn_item();
+    } else if (token.type == Token_type::STRUCT) {
+        return parse_struct_item();
+    } else if (token.type == Token_type::ENUM) {
+        return parse_enum_item();
+    } else if (token.type == Token_type::IMPL) {
+        return parse_impl_item();
+    } else if (token.type == Token_type::CONST) {
+        return parse_const_item();
+    } else {
+        throw string("CE, expected item but got ") + token.value;
+    }
+}
+
+FnItem_ptr Parser::parse_fn_item() {
+    // example :
+    // fn function_name(param1: Type1, param2: Type2, ...) -> ReturnType { body }
+    lexer.consume_expect_token(Token_type::FN);
+    string function_name = lexer.consume_expect_token(Token_type::IDENTIFIER).value;
+    lexer.consume_expect_token(Token_type::LEFT_PARENTHESIS);
+    vector<pair<string, Type_ptr>> parameters;
+    while(lexer.peek_token().type != Token_type::RIGHT_PARENTHESIS) {
+        string param_name = lexer.consume_expect_token(Token_type::IDENTIFIER).value;
+        lexer.consume_expect_token(Token_type::COLON);
+        Type_ptr param_type = parse_type();
+        parameters.emplace_back(param_name, std::move(param_type));
+        if (lexer.peek_token().type == Token_type::COMMA) {
+            lexer.consume_token(); // 消费掉逗号
+        } else {
+            break; // 没有逗号说明参数列表结束
+        }
+    }
+    lexer.consume_expect_token(Token_type::RIGHT_PARENTHESIS);
+    Type_ptr return_type = nullptr;
+    if (lexer.peek_token().type == Token_type::ARROW) {
+        lexer.consume_token();
+        return_type = parse_type();
+    }
+    BlockExpr_ptr body = parse_block_expression();
+    return std::make_unique<FnItem>(function_name,
+        std::move(parameters), std::move(return_type), std::move(body));
+}
+
+StructItem_ptr Parser::parse_struct_item() {
+    // example :
+    // struct StructName { field1: Type1, field2: Type2, ... }
+    lexer.consume_expect_token(Token_type::STRUCT);
+    string struct_name = lexer.consume_expect_token(Token_type::IDENTIFIER).value;
+    lexer.consume_expect_token(Token_type::LEFT_BRACE);
+    vector<pair<string, Type_ptr>> fields;
+    while(lexer.peek_token().type != Token_type::RIGHT_BRACE) {
+        string field_name = lexer.consume_expect_token(Token_type::IDENTIFIER).value;
+        lexer.consume_expect_token(Token_type::COLON);
+        Type_ptr field_type = parse_type();
+        fields.emplace_back(field_name, std::move(field_type));
+        if (lexer.peek_token().type == Token_type::COMMA) {
+            lexer.consume_token(); // 消费掉逗号
+        } else {
+            break; // 没有逗号说明字段列表结束
+        }
+    }
+    lexer.consume_expect_token(Token_type::RIGHT_BRACE);
+    return std::make_unique<StructItem>(struct_name, std::move(fields));
+}
+EnumItem_ptr Parser::parse_enum_item() {
+    // example :
+    // enum EnumName { Variant1, Variant2, ... }
+    lexer.consume_expect_token(Token_type::ENUM);
+    string enum_name = lexer.consume_expect_token(Token_type::IDENTIFIER).value;
+    lexer.consume_expect_token(Token_type::LEFT_BRACE);
+    vector<string> variants;
+    while(lexer.peek_token().type != Token_type::RIGHT_BRACE) {
+        string variant_name = lexer.consume_expect_token(Token_type::IDENTIFIER).value;
+        variants.push_back(variant_name);
+        if (lexer.peek_token().type == Token_type::COMMA) {
+            lexer.consume_token(); // 消费掉逗号
+        } else {
+            break; // 没有逗号说明变体列表结束
+        }
+    }
+    lexer.consume_expect_token(Token_type::RIGHT_BRACE);
+    return std::make_unique<EnumItem>(enum_name, std::move(variants));
+}
