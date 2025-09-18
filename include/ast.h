@@ -91,6 +91,33 @@ struct ArrayType; // 数组类型 [T; n]
 // Patterns 只需要考虑 IdentifierPattern 即可
 struct IdentifierPattern; // 标识符模式 let x = expr; 的 x
 
+using LiteralExpr_ptr = unique_ptr<LiteralExpr>;
+using IdentifierExpr_ptr = unique_ptr<IdentifierExpr>;
+using BinaryExpr_ptr = unique_ptr<BinaryExpr>;
+using UnaryExpr_ptr = unique_ptr<UnaryExpr>;
+using CallExpr_ptr = unique_ptr<CallExpr>;
+using FieldExpr_ptr = unique_ptr<FieldExpr>;
+using StructExpr_ptr = unique_ptr<StructExpr>;
+using IndexExpr_ptr = unique_ptr<IndexExpr>;
+using BlockExpr_ptr = unique_ptr<BlockExpr>;
+using IfExpr_ptr = unique_ptr<IfExpr>;
+using WhileExpr_ptr = unique_ptr<WhileExpr>;
+using LoopExpr_ptr = unique_ptr<LoopExpr>;
+using ReturnExpr_ptr = unique_ptr<ReturnExpr>;
+using BreakExpr_ptr = unique_ptr<BreakExpr>;
+using ContinueExpr_ptr = unique_ptr<ContinueExpr>;
+using CastExpr_ptr = unique_ptr<CastExpr>;
+using FnItem_ptr = unique_ptr<FnItem>;
+using StructItem_ptr = unique_ptr<StructItem>;
+using EnumItem_ptr = unique_ptr<EnumItem>;
+using ImplItem_ptr = unique_ptr<ImplItem>;
+using ConstItem_ptr = unique_ptr<ConstItem>;
+using LetStmt_ptr = unique_ptr<LetStmt>;
+using ExprStmt_ptr = unique_ptr<ExprStmt>;
+using ItemStmt_ptr = unique_ptr<ItemStmt>;
+using PathType_ptr = unique_ptr<PathType>;
+using ArrayType_ptr = unique_ptr<ArrayType>;
+using IdentifierPattern_ptr = unique_ptr<IdentifierPattern>;
 
 enum class LiteralType {
     NUMBER,
@@ -385,20 +412,21 @@ public:
 private:
     Lexer lexer;
     Item_ptr parse_item();
-    FnItem parse_fn_item();
-    StructItem parse_struct_item();
-    EnumItem parse_enum_item();
-    ImplItem parse_impl_item();
-    ConstItem parse_const_item();
+    FnItem_ptr parse_fn_item();
+    StructItem_ptr parse_struct_item();
+    EnumItem_ptr parse_enum_item();
+    ImplItem_ptr parse_impl_item();
+    ConstItem_ptr parse_const_item();
     Stmt_ptr parse_statement();
-    LetStmt parse_let_statement();
-    ExprStmt parse_expr_statement();
-    ItemStmt parse_item_statement();
+    LetStmt_ptr parse_let_statement();
+    ExprStmt_ptr parse_expr_statement();
+    ItemStmt_ptr parse_item_statement();
     Pattern_ptr parse_pattern();
-    IfExpr parse_if_expression();
-    WhileExpr parse_while_expression();
-    LoopExpr parse_loop_expression();
-    BlockExpr parse_block_expression();
+    IfExpr_ptr parse_if_expression();
+    WhileExpr_ptr parse_while_expression();
+    LoopExpr_ptr parse_loop_expression();
+    BlockExpr_ptr parse_block_expression();
+    Type_ptr parse_type();
     Expr_ptr parse_expression(int rbp = 0);
     Expr_ptr nud(Token token);
     Expr_ptr led(Token token, Expr_ptr left);
