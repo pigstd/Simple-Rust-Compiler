@@ -76,7 +76,7 @@ Lexer::Lexer() {
     };
 }
 
-string Token::token_type_to_string() const {
+string token_type_to_string(Token_type type) {
     switch (type) {
         case Token_type::LEFT_PARENTHESIS: return "LEFT_PARENTHESIS";
         case Token_type::RIGHT_PARENTHESIS: return "RIGHT_PARENTHESIS";
@@ -151,7 +151,7 @@ string Token::token_type_to_string() const {
 }
 
 void Token::show_token() const {
-    std::cerr << "[" << token_type_to_string() << ", " << value << "]" << std::endl;
+    std::cerr << "[" << token_type_to_string(type) << ", " << value << "]" << std::endl;
 }
 
 Token::Token(Token_type _type, string _value) {
@@ -389,5 +389,17 @@ Token Lexer::peek_token() const {
 Token Lexer::consume_token() {
     Token token = peek_token();
     current_token_index++;
+    return token;
+}
+
+bool Lexer::has_more_tokens() const {
+    return current_token_index < tokens.size();
+}
+
+Token Lexer::consume_expect_token(Token_type type) {
+    Token token = consume_token();
+    if (token.type != type) {
+        throw string("CE, expected ") + token_type_to_string(type) + string(" but got ") + token.value;
+    }
     return token;
 }

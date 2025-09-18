@@ -85,10 +85,12 @@ enum class Token_type {
     // 还有些不确定也不会搞的，后面再加
 };
 
+
+string token_type_to_string();
+
 struct Token {
     Token_type type;
     string value;
-    string token_type_to_string() const;
     void show_token() const;
     Token(Token_type _type, string _value);
 };
@@ -120,6 +122,8 @@ public:
     Token consume_token();
     // 判断是否还有 token
     bool has_more_tokens() const;
+    // 消费一个期望是 type 的 token，否则报错
+    Token consume_expect_token(Token_type type);
 };
 
 #endif // LEXER_H
