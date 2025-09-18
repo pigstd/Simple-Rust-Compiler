@@ -18,9 +18,7 @@ using std::vector;
 using std::pair;
 using std::unique_ptr;
 
-struct AST_visitor {
-    virtual ~AST_visitor() = default;
-};
+struct AST_visitor;
 
 struct AST_Node {
     virtual ~AST_Node() = default;
@@ -68,8 +66,8 @@ struct FieldExpr; // 结构体字段访问表达式 point.x
 struct StructExpr; // 结构体构造表达式 point { x: 1, y: 2 }
 struct IndexExpr; // 数组索引表达式 arr[0]
 struct BlockExpr; // 代码块 { ... }
-struct IfExpr; // if 表达式 if cond { ... } else { ... }
-struct WhileExpr; // while 表达式 while cond { ... }
+struct IfExpr; // if 表达式 if (cond) { ... } else { ... }
+struct WhileExpr; // while 表达式 while (cond) { ... }
 struct LoopExpr; // loop 表达式 loop { ... }
 struct ReturnExpr; // return 表达式 return expr;
 struct BreakExpr; // break 表达式 break;
@@ -314,5 +312,97 @@ struct IdentifierPattern : public Pattern_Node {
     void accept(AST_visitor &v) override;
 };
 
+struct AST_visitor {
+    virtual ~AST_visitor() = default;
+    virtual void visit(LiteralExpr &node) = 0;
+    virtual void visit(IdentifierExpr &node) = 0;
+    virtual void visit(BinaryExpr &node) = 0;
+    virtual void visit(UnaryExpr &node) = 0;
+    virtual void visit(CallExpr &node) = 0;
+    virtual void visit(FieldExpr &node) = 0;
+    virtual void visit(StructExpr &node) = 0;
+    virtual void visit(IndexExpr &node) = 0;
+    virtual void visit(BlockExpr &node) = 0;
+    virtual void visit(IfExpr &node) = 0;
+    virtual void visit(WhileExpr &node) = 0;
+    virtual void visit(LoopExpr &node) = 0;
+    virtual void visit(ReturnExpr &node) = 0;
+    virtual void visit(BreakExpr &node) = 0;
+    virtual void visit(ContinueExpr &node) = 0;
+    virtual void visit(CastExpr &node) = 0;
+    virtual void visit(FnItem &node) = 0;
+    virtual void visit(StructItem &node) = 0;
+    virtual void visit(EnumItem &node) = 0;
+    virtual void visit(ImplItem &node) = 0;
+    virtual void visit(ConstItem &node) = 0;
+    virtual void visit(LetStmt &node) = 0;
+    virtual void visit(ExprStmt &node) = 0;
+    virtual void visit(ItemStmt &node) = 0;
+    virtual void visit(PathType &node) = 0;
+    virtual void visit(ArrayType &node) = 0;
+    virtual void visit(IdentifierPattern &node) = 0;
+};
+
+// AST_Walker: 遍历 AST 的基类
+struct AST_Walker : public AST_visitor {
+    virtual void visit(LiteralExpr &node) override;
+    virtual void visit(IdentifierExpr &node) override;
+    virtual void visit(BinaryExpr &node) override;
+    virtual void visit(UnaryExpr &node) override;
+    virtual void visit(CallExpr &node) override;
+    virtual void visit(FieldExpr &node) override;
+    virtual void visit(StructExpr &node) override;
+    virtual void visit(IndexExpr &node) override;
+    virtual void visit(BlockExpr &node) override;
+    virtual void visit(IfExpr &node) override;
+    virtual void visit(WhileExpr &node) override;
+    virtual void visit(LoopExpr &node) override;
+    virtual void visit(ReturnExpr &node) override;
+    virtual void visit(BreakExpr &node) override;
+    virtual void visit(ContinueExpr &node) override;
+    virtual void visit(CastExpr &node) override;
+    virtual void visit(FnItem &node) override;
+    virtual void visit(StructItem &node) override;
+    virtual void visit(EnumItem &node) override;
+    virtual void visit(ImplItem &node) override;
+    virtual void visit(ConstItem &node) override;
+    virtual void visit(LetStmt &node) override;
+    virtual void visit(ExprStmt &node) override;
+    virtual void visit(ItemStmt &node) override;
+    virtual void visit(PathType &node) override;
+    virtual void visit(ArrayType &node) override;
+    virtual void visit(IdentifierPattern &node) override;
+};
+
+class Parser {
+public:
+    // 将分词后的结果传给 Parser
+    Parser(Lexer lexer) : lexer(lexer) {}
+    ~Parser() = default;
+    vector<Item_ptr> parse();
+private:
+    Lexer lexer;
+    Item_ptr parse_item();
+    FnItem parse_fn_item();
+    StructItem parse_struct_item();
+    EnumItem parse_enum_item();
+    ImplItem parse_impl_item();
+    ConstItem parse_const_item();
+    Stmt_ptr parse_statement();
+    LetStmt parse_let_statement();
+    ExprStmt parse_expr_statement();
+    ItemStmt parse_item_statement();
+    Pattern_ptr parse_pattern();
+    IfExpr parse_if_expression();
+    WhileExpr parse_while_expression();
+    LoopExpr parse_loop_expression();
+    BlockExpr parse_block_expression();
+    Expr_ptr parse_expression(int rbp = 0);
+    Expr_ptr nud(Token token);
+    Expr_ptr led(Token token, Expr_ptr left);
+    int get_left_binding_power(Token_type type);
+    int get_nud_binding_power(Token_type type);
+    // 处理表达式
+};
 
 #endif // AST_H
