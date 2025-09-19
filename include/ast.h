@@ -90,6 +90,7 @@ struct ItemStmt; // 项目语句 item;
 
 struct PathType; // 类型路径 i32, String, MyStruct ()
 struct ArrayType; // 数组类型 [T; n]
+struct UnitType; // 单元类型 ()
 
 // Patterns 只需要考虑 IdentifierPattern 即可
 struct IdentifierPattern; // 标识符模式 let x = expr; 的 x
@@ -122,6 +123,7 @@ using ExprStmt_ptr = unique_ptr<ExprStmt>;
 using ItemStmt_ptr = unique_ptr<ItemStmt>;
 using PathType_ptr = unique_ptr<PathType>;
 using ArrayType_ptr = unique_ptr<ArrayType>;
+using UnitType_ptr = unique_ptr<UnitType>;
 using IdentifierPattern_ptr = unique_ptr<IdentifierPattern>;
 
 enum class LiteralType {
@@ -218,13 +220,19 @@ struct BlockExpr : public Expr_Node {
     void accept(AST_visitor &v) override;
 };
 
+// If While Loop 全部当成表达式，返回值可以是值也可以是 ()
+// 有个特殊情况，如果返回值是 () 的时候，后面可以不加分号，但是如果返回值不是 () 的时候，必须加分号
+// 因此，如果 if/While/Loop 后面没有分号，那么一定得返回 ()
+// 特别的 While 一定返回的是 ()，所以没关系
+// 这个在 ast 里面需要记录，是否一定返回 ()
 struct IfExpr : public Expr_Node {
     Expr_ptr condition;
     // if 分支的大括号内可以是语句
     Expr_ptr then_branch;
     Expr_ptr else_branch; // 如果没有 else 分支则为 nullptr
+    bool must_return_unit;
     IfExpr(Expr_ptr cond, Expr_ptr then_br, Expr_ptr else_br = nullptr)
-        : condition(std::move(cond)), then_branch(std::move(then_br)), else_branch(std::move(else_br)) {}
+        : condition(std::move(cond)), then_branch(std::move(then_br)), else_branch(std::move(else_br)), must_return_unit(false) {}
     void accept(AST_visitor &v) override;
 };
 struct WhileExpr : public Expr_Node {
@@ -236,7 +244,8 @@ struct WhileExpr : public Expr_Node {
 };
 struct LoopExpr : public Expr_Node {
     Expr_ptr body;
-    LoopExpr(Expr_ptr body) : body(std::move(body)) {}
+    bool must_return_unit;
+    LoopExpr(Expr_ptr body) : body(std::move(body)), must_return_unit(false) {}
     void accept(AST_visitor &v) override;
 };
 struct ReturnExpr : public Expr_Node {
@@ -339,19 +348,6 @@ struct ItemStmt : public Stmt_Node {
     void accept(AST_visitor &v) override;
 };
 
-struct PathType : public Type_Node {
-    string name;
-    PathType(const string &name) : name(name) {}
-    void accept(AST_visitor &v) override;
-};
-struct ArrayType : public Type_Node {
-    Type_ptr element_type;
-    Expr_ptr size_expr; // 数组大小必须是一个常量 但是也可以是常量表达式
-    ArrayType(Type_ptr elem_type, Expr_ptr sz)
-        : element_type(std::move(elem_type)), size_expr(std::move(sz)) {}
-    void accept(AST_visitor &v) override;
-};
-
 enum class Mutibility {
     IMMUTABLE,
     MUTABLE
@@ -359,6 +355,29 @@ enum class Mutibility {
 enum class ReferenceType {
     NO_REF,
     REF
+};
+
+struct PathType : public Type_Node {
+    string name;
+    Mutibility is_mut;
+    ReferenceType is_ref;
+    PathType(const string &name, Mutibility mut, ReferenceType ref) : name(name), is_mut(mut), is_ref(ref) {}
+    void accept(AST_visitor &v) override;
+};
+struct ArrayType : public Type_Node {
+    Type_ptr element_type;
+    Expr_ptr size_expr; // 数组大小必须是一个常量 但是也可以是常量表达式
+    Mutibility is_mut;
+    ReferenceType is_ref;
+    ArrayType(Type_ptr elem_type, Expr_ptr sz, Mutibility mut, ReferenceType ref)
+        : element_type(std::move(elem_type)), size_expr(std::move(sz)), is_mut(mut), is_ref(ref) {}
+    void accept(AST_visitor &v) override;
+};
+struct UnitType : public Type_Node {
+    Mutibility is_mut;
+    ReferenceType is_ref;
+    UnitType(Mutibility mut, ReferenceType ref) : is_mut(mut), is_ref(ref) {}
+    void accept(AST_visitor &v) override;
 };
 
 struct IdentifierPattern : public Pattern_Node {
@@ -399,6 +418,7 @@ struct AST_visitor {
     virtual void visit(ItemStmt &node) = 0;
     virtual void visit(PathType &node) = 0;
     virtual void visit(ArrayType &node) = 0;
+    virtual void visit(UnitType &node) = 0;
     virtual void visit(IdentifierPattern &node) = 0;
 };
 
@@ -432,6 +452,7 @@ struct AST_Walker : public AST_visitor {
     virtual void visit(ItemStmt &node) override;
     virtual void visit(PathType &node) override;
     virtual void visit(ArrayType &node) override;
+    virtual void visit(UnitType &node) override;
     virtual void visit(IdentifierPattern &node) override;
 };
 
