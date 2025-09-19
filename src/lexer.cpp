@@ -63,7 +63,7 @@ Lexer::Lexer() {
         {"->", Token_type::ARROW},
         {":", Token_type::COLON},
         {"::", Token_type::COLON_COLON},
-        {"~", Token_type::TILDE},
+        // {"~", Token_type::TILDE},
         {"!", Token_type::BANG},
         {"=", Token_type::EQUAL},
         {"!=", Token_type::NOT_EQUAL},
@@ -110,7 +110,7 @@ string token_type_to_string(Token_type type) {
         case Token_type::ARROW: return "ARROW";
         case Token_type::COLON: return "COLON";
         case Token_type::COLON_COLON: return "COLON_COLON";
-        case Token_type::TILDE: return "TILDE";
+        // case Token_type::TILDE: return "TILDE";
         case Token_type::BANG: return "BANG";
         case Token_type::EQUAL: return "EQUAL";
         case Token_type::NOT_EQUAL: return "NOT_EQUAL";

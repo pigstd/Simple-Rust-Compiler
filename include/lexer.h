@@ -44,7 +44,8 @@ enum class Token_type {
     ARROW,             // ->
     COLON,             // :
     COLON_COLON,       // ::
-    TILDE,             // ~
+    // TILDE,             // ~
+    // remark : Rust 好像没有 ~
     BANG,              // !
     EQUAL,             // =
     NOT_EQUAL,         // !=
