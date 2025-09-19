@@ -76,6 +76,7 @@ struct ContinueExpr; // continue 表达式 continue;
 struct CastExpr; // 类型转换表达式 expr as Type
 struct PathExpr; // 路径表达式 std::io::Result
 struct SelfExpr; // self 表达式 只有 self 本身
+struct UnitExpr; // 单元表达式 ()
 
 struct FnItem; // 函数项 fn foo() { ... }
 struct StructItem; // 结构体项 struct Point { x: i32, y: i32 }
@@ -113,6 +114,7 @@ using ContinueExpr_ptr = unique_ptr<ContinueExpr>;
 using CastExpr_ptr = unique_ptr<CastExpr>;
 using PathExpr_ptr = unique_ptr<PathExpr>;
 using SelfExpr_ptr = unique_ptr<SelfExpr>;
+using UnitExpr_ptr = unique_ptr<UnitExpr>;
 using FnItem_ptr = unique_ptr<FnItem>;
 using StructItem_ptr = unique_ptr<StructItem>;
 using EnumItem_ptr = unique_ptr<EnumItem>;
@@ -131,7 +133,9 @@ enum class LiteralType {
     STRING,
     CHAR,
     BOOL,
-    CSTRING
+    // CSTRING
+    // remark : 我前面忘记考虑 CSTRING 了
+    // 先写完 Parser 再说，这个 CSTRING 后面在加，主要是要在 lexer 里面加内容
 };
 
 struct LiteralExpr : public Expr_Node {
@@ -279,6 +283,9 @@ struct PathExpr : public Expr_Node {
 struct SelfExpr : public Expr_Node {
     void accept(AST_visitor &v) override;
 };
+struct UnitExpr : public Expr_Node {
+    void accept(AST_visitor &v) override;
+};
 
 enum class fn_reciever_type {
     NO_RECEIVER,
@@ -408,6 +415,7 @@ struct AST_visitor {
     virtual void visit(CastExpr &node) = 0;
     virtual void visit(PathExpr &node) = 0;
     virtual void visit(SelfExpr &node) = 0;
+    virtual void visit(UnitExpr &node) = 0;
     virtual void visit(FnItem &node) = 0;
     virtual void visit(StructItem &node) = 0;
     virtual void visit(EnumItem &node) = 0;
@@ -442,6 +450,7 @@ struct AST_Walker : public AST_visitor {
     virtual void visit(CastExpr &node) override;
     virtual void visit(PathExpr &node) override;
     virtual void visit(SelfExpr &node) override;
+    virtual void visit(UnitExpr &node) override;
     virtual void visit(FnItem &node) override;
     virtual void visit(StructItem &node) override;
     virtual void visit(EnumItem &node) override;
