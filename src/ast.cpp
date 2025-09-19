@@ -20,6 +20,7 @@ void ContinueExpr::accept(AST_visitor &v) { v.visit(*this); }
 void CastExpr::accept(AST_visitor &v) { v.visit(*this); }
 void PathExpr::accept(AST_visitor &v) { v.visit(*this); }
 void SelfExpr::accept(AST_visitor &v) { v.visit(*this); }
+void UnitExpr::accept(AST_visitor &v) { v.visit(*this); }
 
 void FnItem::accept(AST_visitor &v) { v.visit(*this); }
 void StructItem::accept(AST_visitor &v) { v.visit(*this); }
@@ -104,6 +105,8 @@ void AST_Walker::visit(CastExpr &node) {
 }
 void AST_Walker::visit(PathExpr &node) { node.base->accept(*this); }
 void AST_Walker::visit([[maybe_unused]] SelfExpr &node) { return; }
+void AST_Walker::visit([[maybe_unused]] UnitExpr &node) { return; }
+
 void AST_Walker::visit(FnItem &node) {
     for (auto &[name, type] : node.parameters) {
         type->accept(*this);
@@ -473,19 +476,216 @@ Type_ptr Parser::parse_type() {
 }
 
 // 递归下降解析表达式，基于 Pratt 解析器
-// 先考虑掉 loop if while return break continue 这些表达式，然后再使用 Pratt 解析器
-// TO DO !!!
 Expr_ptr Parser::parse_expression(int rbp) {
-
+    Token token = lexer.peek_token();
+    Expr_ptr left = nud(token);
+    while (lexer.has_more_tokens() && rbp < get_left_binding_power(lexer.peek_token().type)) {
+        token = lexer.consume_token();
+        left = led(token, std::move(left));
+    }
+    return left;
 }
 
-// 处理前缀表达式
-// TO DO !!!
 Expr_ptr Parser::nud(Token token) {
-
+    if (token.type == Token_type::IF) {
+        return parse_if_expression();
+    } else if (token.type == Token_type::WHILE) {
+        return parse_while_expression();
+    } else if (token.type == Token_type::LOOP) {
+        return parse_loop_expression();
+    } else if (token.type == Token_type::LEFT_BRACE) {
+        return parse_block_expression();
+    } else if (token.type == Token_type::LEFT_PARENTHESIS) {
+        lexer.consume_expect_token(Token_type::LEFT_PARENTHESIS);
+        if (lexer.peek_token().type == Token_type::RIGHT_PARENTHESIS) {
+            // ()
+            lexer.consume_expect_token(Token_type::RIGHT_PARENTHESIS);
+            return std::make_unique<UnitExpr>();
+        } else {
+            // (expr)
+            Expr_ptr expr = parse_expression();
+            lexer.consume_expect_token(Token_type::RIGHT_PARENTHESIS);
+            return expr;
+        }
+    } else if (token.type == Token_type::IDENTIFIER) {
+        lexer.consume_expect_token(Token_type::IDENTIFIER);
+        return std::make_unique<IdentifierExpr>(token.value);
+    } else if (token.type == Token_type::SELF) {
+        lexer.consume_expect_token(Token_type::SELF);
+        return std::make_unique<SelfExpr>();
+    } else if (token.type == Token_type::NUMBER) {
+        lexer.consume_expect_token(Token_type::NUMBER);
+        return std::make_unique<LiteralExpr>(LiteralType::NUMBER, token.value);
+    } else if (token.type == Token_type::TRUE || 
+               token.type == Token_type::FALSE) {
+        lexer.consume_token();
+        return std::make_unique<LiteralExpr>(LiteralType::BOOL, token.value);
+    } else if (token.type == Token_type::STRING) {
+        lexer.consume_expect_token(Token_type::STRING);
+        return std::make_unique<LiteralExpr>(LiteralType::STRING, token.value);
+    } else if (token.type == Token_type::CHAR) {
+        lexer.consume_expect_token(Token_type::CHAR);
+        return std::make_unique<LiteralExpr>(LiteralType::CHAR, token.value);
+    } else if (token.type == Token_type::MINUS) {
+        lexer.consume_expect_token(Token_type::MINUS);
+        Expr_ptr right = parse_expression(get_nud_binding_power(Token_type::MINUS));
+        return std::make_unique<UnaryExpr>(Unary_Operator::NEG, std::move(right));
+    } else if (token.type == Token_type::BANG) {
+        lexer.consume_expect_token(Token_type::BANG);
+        Expr_ptr right = parse_expression(get_nud_binding_power(Token_type::BANG));
+        return std::make_unique<UnaryExpr>(Unary_Operator::NOT, std::move(right));
+    } else if (token.type == Token_type::AMPERSAND) {
+        lexer.consume_expect_token(Token_type::AMPERSAND);
+        if (lexer.peek_token().type == Token_type::MUT) {
+            lexer.consume_expect_token(Token_type::MUT);
+            Expr_ptr right = parse_expression(get_nud_binding_power(Token_type::AMPERSAND));
+            return std::make_unique<UnaryExpr>(Unary_Operator::REF_MUT, std::move(right));
+        } else {
+            Expr_ptr right = parse_expression(get_nud_binding_power(Token_type::AMPERSAND));
+            return std::make_unique<UnaryExpr>(Unary_Operator::REF, std::move(right));
+        }
+    } else if (token.type == Token_type::STAR) {
+        lexer.consume_expect_token(Token_type::STAR);
+        Expr_ptr right = parse_expression(get_nud_binding_power(Token_type::STAR));
+        return std::make_unique<UnaryExpr>(Unary_Operator::DEREF, std::move(right));
+    } else {
+        throw string("CE in parser nud !!! unexpected token in expression: ") + token.value;
+    }
 }
 // 处理中缀表达式
-// TO DO !!!
 Expr_ptr Parser::led(Token token, Expr_ptr left) {
+    if (token.type == Token_type::PLUS) {
+        Expr_ptr right = parse_expression(get_left_binding_power(Token_type::PLUS));
+        return std::make_unique<BinaryExpr>(Binary_Operator::ADD, std::move(left), std::move(right));
+    } else if (token.type == Token_type::MINUS) {
+        Expr_ptr right = parse_expression(get_left_binding_power(Token_type::MINUS));
+        return std::make_unique<BinaryExpr>(Binary_Operator::SUB, std::move(left), std::move(right));
+    } else if (token.type == Token_type::STAR) {
+        Expr_ptr right = parse_expression(get_left_binding_power(Token_type::STAR));
+        return std::make_unique<BinaryExpr>(Binary_Operator::MUL, std::move(left), std::move(right));
+    } else if (token.type == Token_type::SLASH) {
+        Expr_ptr right = parse_expression(get_left_binding_power(Token_type::SLASH));
+        return std::make_unique<BinaryExpr>(Binary_Operator::DIV, std::move(left), std::move(right));
+    } else if (token.type == Token_type::PERCENT) {
+        Expr_ptr right = parse_expression(get_left_binding_power(Token_type::PERCENT));
+        return std::make_unique<BinaryExpr>(Binary_Operator::MOD, std::move(left), std::move(right));
+    } else if (token.type == Token_type::AMPERSAND) {
+        Expr_ptr right = parse_expression(get_left_binding_power(Token_type::AMPERSAND));
+        return std::make_unique<BinaryExpr>(Binary_Operator::AND, std::move(left), std::move(right));
+    } else if (token.type == Token_type::PIPE) {
+        Expr_ptr right = parse_expression(get_left_binding_power(Token_type::PIPE));
+        return std::make_unique<BinaryExpr>(Binary_Operator::OR, std::move(left), std::move(right));
+    } else if (token.type == Token_type::CARET) {
+        Expr_ptr right = parse_expression(get_left_binding_power(Token_type::CARET));
+        return std::make_unique<BinaryExpr>(Binary_Operator::XOR, std::move(left), std::move(right));
+    } else if (token.type == Token_type::LEFT_SHIFT) {
+        Expr_ptr right = parse_expression(get_left_binding_power(Token_type::LEFT_SHIFT));
+        return std::make_unique<BinaryExpr>(Binary_Operator::SHL, std::move(left), std::move(right));
+    } else if (token.type == Token_type::RIGHT_SHIFT) {
+        Expr_ptr right = parse_expression(get_left_binding_power(Token_type::RIGHT_SHIFT));
+        return std::make_unique<BinaryExpr>(Binary_Operator::SHR, std::move(left), std::move(right));
+    } else if (token.type == Token_type::EQUAL_EQUAL) {
+        Expr_ptr right = parse_expression(get_left_binding_power(Token_type::EQUAL_EQUAL));
+        return std::make_unique<BinaryExpr>(Binary_Operator::EQ, std::move(left), std::move(right));
+    } else if (token.type == Token_type::NOT_EQUAL) {
+        Expr_ptr right = parse_expression(get_left_binding_power(Token_type::NOT_EQUAL));
+        return std::make_unique<BinaryExpr>(Binary_Operator::NEQ, std::move(left), std::move(right));
+    } else if (token.type == Token_type::LESS) {
+        Expr_ptr right = parse_expression(get_left_binding_power(Token_type::LESS));
+        return std::make_unique<BinaryExpr>(Binary_Operator::LT, std::move(left), std::move(right));
+    } else if (token.type == Token_type::LESS_EQUAL) {
+        Expr_ptr right = parse_expression(get_left_binding_power(Token_type::LESS_EQUAL));
+        return std::make_unique<BinaryExpr>(Binary_Operator::LEQ, std::move(left), std::move(right));
+    } else if (token.type == Token_type::GREATER) {
+        Expr_ptr right = parse_expression(get_left_binding_power(Token_type::GREATER));
+        return std::make_unique<BinaryExpr>(Binary_Operator::GT, std::move(left), std::move(right));
+    } else if (token.type == Token_type::GREATER_EQUAL) {
+        Expr_ptr right = parse_expression(get_left_binding_power(Token_type::GREATER_EQUAL));
+        return std::make_unique<BinaryExpr>(Binary_Operator::GEQ, std::move(left), std::move(right));
+    } else if (token.type == Token_type::AMPERSAND_AMPERSAND) {
+        Expr_ptr right = parse_expression(get_left_binding_power(Token_type::AMPERSAND_AMPERSAND));
+        return std::make_unique<BinaryExpr>(Binary_Operator::AND_AND, std::move(left), std::move(right));
+    } else if (token.type == Token_type::PIPE_PIPE) {
+        Expr_ptr right = parse_expression(get_left_binding_power(Token_type::PIPE_PIPE));
+        return std::make_unique<BinaryExpr>(Binary_Operator::OR_OR, std::move(left), std::move(right));
+    } else if (token.type == Token_type::EQUAL) {
+        Expr_ptr right = parse_expression(get_left_binding_power(Token_type::EQUAL));
+        return std::make_unique<BinaryExpr>(Binary_Operator::ASSIGN, std::move(left), std::move(right));
+    } else if (token.type == Token_type::PLUS_EQUAL) {
+        Expr_ptr right = parse_expression(get_left_binding_power(Token_type::PLUS_EQUAL));
+        return std::make_unique<BinaryExpr>(Binary_Operator::ADD_ASSIGN, std::move(left), std::move(right));
+    } else if (token.type == Token_type::MINUS_EQUAL) {
+        Expr_ptr right = parse_expression(get_left_binding_power(Token_type::MINUS_EQUAL));
+        return std::make_unique<BinaryExpr>(Binary_Operator::SUB_ASSIGN, std::move(left), std::move(right));
+    } else if (token.type == Token_type::STAR_EQUAL) {
+        Expr_ptr right = parse_expression(get_left_binding_power(Token_type::STAR_EQUAL));
+        return std::make_unique<BinaryExpr>(Binary_Operator::MUL_ASSIGN, std::move(left), std::move(right));
+    } else if (token.type == Token_type::SLASH_EQUAL) {
+        Expr_ptr right = parse_expression(get_left_binding_power(Token_type::SLASH_EQUAL));
+        return std::make_unique<BinaryExpr>(Binary_Operator::DIV_ASSIGN, std::move(left), std::move(right));
+    } else if (token.type == Token_type::PERCENT_EQUAL) {
+        Expr_ptr right = parse_expression(get_left_binding_power(Token_type::PERCENT_EQUAL));
+        return std::make_unique<BinaryExpr>(Binary_Operator::MOD_ASSIGN, std::move(left), std::move(right));
+    } else if (token.type == Token_type::CARET_EQUAL) {
+        Expr_ptr right = parse_expression(get_left_binding_power(Token_type::CARET_EQUAL));
+        return std::make_unique<BinaryExpr>(Binary_Operator::XOR_ASSIGN, std::move(left), std::move(right));
+    } else if (token.type == Token_type::AMPERSAND_EQUAL) {
+        Expr_ptr right = parse_expression(get_left_binding_power(Token_type::AMPERSAND_EQUAL));
+        return std::make_unique<BinaryExpr>(Binary_Operator::AND_ASSIGN, std::move(left), std::move(right));
+    } else if (token.type == Token_type::PIPE_EQUAL) {
+        Expr_ptr right = parse_expression(get_left_binding_power(Token_type::PIPE_EQUAL));
+        return std::make_unique<BinaryExpr>(Binary_Operator::OR_ASSIGN, std::move(left), std::move(right));
+    } else if (token.type == Token_type::LEFT_SHIFT_EQUAL) {
+        Expr_ptr right = parse_expression(get_left_binding_power(Token_type::LEFT_SHIFT_EQUAL));
+        return std::make_unique<BinaryExpr>(Binary_Operator::SHL_ASSIGN, std::move(left), std::move(right));
+    } else if (token.type == Token_type::RIGHT_SHIFT_EQUAL) {
+        Expr_ptr right = parse_expression(get_left_binding_power(Token_type::RIGHT_SHIFT_EQUAL));
+        return std::make_unique<BinaryExpr>(Binary_Operator::SHR_ASSIGN, std::move(left), std::move(right));
+    } else if (token.type == Token_type::LEFT_PARENTHESIS) {
+        // 函数调用
+        vector<Expr_ptr> arguments;
+        while (lexer.peek_token().type != Token_type::RIGHT_PARENTHESIS) {
+            Expr_ptr arg = parse_expression();
+            arguments.push_back(std::move(arg));
+            if (lexer.peek_token().type == Token_type::COMMA) {
+                lexer.consume_expect_token(Token_type::COMMA);
+            } else {
+                break;
+            }
+        }
+        lexer.consume_expect_token(Token_type::RIGHT_PARENTHESIS);
+        return std::make_unique<CallExpr>(std::move(left), std::move(arguments));
+    } else if (token.type == Token_type::DOT) {
+        // 字段访问
+        string field_name = lexer.consume_expect_token(Token_type::IDENTIFIER).value;
+        return std::make_unique<FieldExpr>(std::move(left), field_name);
+    } else if (token.type == Token_type::LEFT_BRACKET) {
+        // 数组下标访问
+        Expr_ptr index = parse_expression();
+        lexer.consume_expect_token(Token_type::RIGHT_BRACKET);
+        return std::make_unique<IndexExpr>(std::move(left), std::move(index));
+    } else if (token.type == Token_type::AS) {
+        // 类型转换
+        Type_ptr target_type = parse_type();
+        return std::make_unique<CastExpr>(std::move(left), std::move(target_type));
+    } else if (token.type == Token_type::COLON_COLON) {
+        // 路径表达式
+        string path_segment = lexer.consume_expect_token(Token_type::IDENTIFIER).value;
+        return std::make_unique<PathExpr>(std::move(left), path_segment);
+    } else {
+        throw string("CE in parser led !!! unexpected token in expression: ") + token.value;
+    }
+}
+
+// 中缀表达式的结合力
+// 从大到小考虑
+// TO DO !!!
+int get_left_binding_power(Token_type type) {
+
+}
+
+// 前缀表达式的结合力
+// TO DO !!!
+int get_nud_binding_power(Token_type type) {
 
 }
