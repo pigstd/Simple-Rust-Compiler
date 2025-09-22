@@ -1,5 +1,10 @@
 #include "visitor.h"
 #include "ast.h"
+#include <iostream>
+#include <ostream>
+
+using std::cout;
+using std::endl;
 
 // AST_Walker 递归遍历子节点
 
@@ -116,3 +121,71 @@ void AST_Walker::visit(ArrayType &node) {
 }
 void AST_Walker::visit([[maybe_unused]] UnitType &node) { return; }
 void AST_Walker::visit([[maybe_unused]] IdentifierPattern &node) { return; }
+
+// AST_Printer: 有些调用 AST_Walker 遍历会比较方便，但是有些还是要自己写遍历
+void AST_Printer::visit(LiteralExpr &node) {
+    string tab = string("\t", depth);
+    cout << tab << "LiteralExpr, type =  " << literal_type_to_string(node.literal_type)
+         << ", value = " << node.value << endl;
+    depth++;
+    AST_Walker::visit(node);
+    depth--;
+}
+void AST_Printer::visit(IdentifierExpr &node) {
+    string tab = string("\t", depth);
+    cout << tab << "IdentifierExpr, name =  " << node.name << endl;
+    depth++;
+    AST_Walker::visit(node);
+    depth--;
+}
+void AST_Printer::visit(BinaryExpr &node) {
+    string tab = string("\t", depth);
+    cout << tab << "BinaryExpr, op =  " << binary_operator_to_string(node.op) << endl;
+    cout << tab << "Left: " << endl;
+    depth++;
+    node.left->accept(*this);
+    cout << tab << "Right: " << endl;
+    node.right->accept(*this);
+    depth--;
+}
+void AST_Printer::visit(UnaryExpr &node) {
+    string tab = string("\t", depth);
+    cout << tab << "UnaryExpr, op =  " << unary_operator_to_string(node.op) << endl;
+    cout << tab << "Right : " << endl;
+    depth++;
+    AST_Walker::visit(node);
+    depth--;
+}
+void AST_Printer::visit(CallExpr &node) {
+    string tab = string("\t", depth);
+    cout << tab << "CallExpr, arguments size =  " << node.arguments.size() << endl;
+    cout << tab << "Callee: " << endl;
+    depth++;
+    node.callee->accept(*this);
+    cout << tab << "Arguments: " << endl;
+    for (auto &args : node.arguments)
+        args->accept(*this);
+    depth--;
+}
+void AST_Printer::visit(FieldExpr &node) {
+    string tab = string("\t", depth);
+    cout << tab << "FieldExpr, field name =  " << node.field_name << endl;
+    cout << tab << "Base : " << endl;
+    depth++;
+    AST_Walker::visit(node);
+    depth--;
+}
+void AST_Printer::visit(StructExpr &node) {
+    string tab = string("\t", depth);
+    cout << tab << "StructExpr, struct name =  " << node.struct_name << endl;
+    cout << tab << "Fields : " << endl;
+    depth++;
+    for (auto &[name, value] : node.fields) {
+        cout << tab << "name = " << name << ", value : " << endl;
+        value->accept(*this);
+    }
+    depth--;
+}
+
+// NOT FINISH
+// TO DO !!!
