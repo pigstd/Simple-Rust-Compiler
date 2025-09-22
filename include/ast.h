@@ -142,6 +142,7 @@ enum class LiteralType {
     // remark : 我前面忘记考虑 CSTRING 了
     // 先写完 Parser 再说，这个 CSTRING 后面在加，主要是要在 lexer 里面加内容
 };
+string literal_type_to_string(LiteralType type);
 
 struct LiteralExpr : public Expr_Node {
     LiteralType literal_type;
@@ -168,10 +169,13 @@ enum class Binary_Operator {
     AND_ASSIGN, OR_ASSIGN, XOR_ASSIGN,
     SHL_ASSIGN, SHR_ASSIGN
 };
+string binary_operator_to_string(Binary_Operator op);
+
 // 妈的，要考虑引用
 enum class Unary_Operator {
     NEG, NOT, REF, REF_MUT, DEREF
 };
+string unary_operator_to_string(Unary_Operator op);
 
 struct BinaryExpr : public Expr_Node {
     Binary_Operator op;
