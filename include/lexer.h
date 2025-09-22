@@ -87,7 +87,7 @@ enum class Token_type {
 };
 
 
-string token_type_to_string();
+string token_type_to_string(Token_type type);
 
 struct Token {
     Token_type type;
