@@ -590,6 +590,33 @@ Expr_ptr Parser::led(Token token, Expr_ptr left) {
         Expr_ptr index = parse_expression();
         lexer.consume_expect_token(Token_type::RIGHT_BRACKET);
         return std::make_unique<IndexExpr>(std::move(left), std::move(index));
+    } else if (token.type == Token_type::LEFT_BRACE) {
+        // struct 初始化
+        // example: StructName { field1: value1, field2: value2, ... }
+        // left 一定是 identifier expr
+        string struct_name;
+        if (auto id_expr = dynamic_cast<IdentifierExpr*>(left.get())) {
+            struct_name = id_expr->name;
+        }
+        else {
+            throw "CE, struct name must be a identifier!";
+        }
+        lexer.consume_expect_token(Token_type::LEFT_BRACE);
+        vector<pair<string, Expr_ptr>> fields;
+        while (lexer.peek_token().type != Token_type::RIGHT_BRACE) {
+            string field_name = lexer.consume_expect_token(Token_type::IDENTIFIER).value;
+            lexer.consume_expect_token(Token_type::COLON);
+            Expr_ptr field_value = parse_expression();
+            fields.emplace_back(field_name, std::move(field_value));
+            if (lexer.peek_token().type == Token_type::COMMA) {
+                lexer.consume_expect_token(Token_type::COMMA);
+            } else {
+                break;
+            }
+        }
+        lexer.consume_expect_token(Token_type::RIGHT_BRACE);
+        return std::make_unique<StructExpr>(struct_name, std::move(fields));
+
     } else if (token.type == Token_type::AS) {
         // 类型转换
         Type_ptr target_type = parse_type();
@@ -616,6 +643,7 @@ std::tuple<int, int, int> get_binding_power(Token_type type) {
         case Token_type::LEFT_PARENTHESIS:  // 函数调用
         case Token_type::DOT:               // 字段访问
         case Token_type::LEFT_BRACKET:      // 数组下标访问
+        case Token_type::LEFT_BRACE:        // struct 初始化
         case Token_type::AS:                // 类型转换
         case Token_type::COLON_COLON:       // 路径表达式
             return {-1, 100, 100};
@@ -700,4 +728,57 @@ int get_nbp(Token_type type) {
         throw string("CE, unexpected token in prefix expression: ") + token_type_to_string(type);
     }
     return res;
+}
+
+string literal_type_to_string(LiteralType type) {
+    switch (type) {
+        case LiteralType::NUMBER: return "number";
+        case LiteralType::STRING: return "string";
+        case LiteralType::CHAR: return "char";
+        case LiteralType::BOOL: return "bool";
+    }
+}
+
+string binary_operator_to_string(Binary_Operator op) {
+    switch (op) {
+        case Binary_Operator::ADD: return "+";
+        case Binary_Operator::SUB: return "-";
+        case Binary_Operator::MUL: return "*";
+        case Binary_Operator::DIV: return "/";
+        case Binary_Operator::MOD: return "%";
+        case Binary_Operator::AND: return "&";
+        case Binary_Operator::OR: return "|";
+        case Binary_Operator::XOR: return "^";
+        case Binary_Operator::AND_AND: return "&&";
+        case Binary_Operator::OR_OR: return "||";
+        case Binary_Operator::EQ: return "==";
+        case Binary_Operator::NEQ: return "!=";
+        case Binary_Operator::LT: return "<";
+        case Binary_Operator::GT: return ">";
+        case Binary_Operator::LEQ: return "<=";
+        case Binary_Operator::GEQ: return ">=";
+        case Binary_Operator::SHL: return "<<";
+        case Binary_Operator::SHR: return ">>";
+        case Binary_Operator::ASSIGN: return "=";
+        case Binary_Operator::ADD_ASSIGN: return "+=";
+        case Binary_Operator::SUB_ASSIGN: return "-=";
+        case Binary_Operator::MUL_ASSIGN: return "*=";
+        case Binary_Operator::DIV_ASSIGN: return "/=";
+        case Binary_Operator::MOD_ASSIGN: return "%=";
+        case Binary_Operator::AND_ASSIGN: return "&=";
+        case Binary_Operator::OR_ASSIGN: return "|=";
+        case Binary_Operator::XOR_ASSIGN: return "^=";
+        case Binary_Operator::SHL_ASSIGN: return "<<=";
+        case Binary_Operator::SHR_ASSIGN: return ">>=";
+    }
+}
+
+string unary_operator_to_string(Unary_Operator op) {
+    switch (op) {
+        case Unary_Operator::NEG: return "-";
+        case Unary_Operator::NOT: return "!";
+        case Unary_Operator::REF: return "&";
+        case Unary_Operator::REF_MUT: return "&mut";
+        case Unary_Operator::DEREF: return "*";
+    }
 }
