@@ -11,6 +11,7 @@
 #include <cfloat>
 #include <memory>
 #include <string>
+#include <tuple>
 #include <utility>
 #include <vector>
 
@@ -77,6 +78,8 @@ struct CastExpr; // 类型转换表达式 expr as Type
 struct PathExpr; // 路径表达式 std::io::Result
 struct SelfExpr; // self 表达式 只有 self 本身
 struct UnitExpr; // 单元表达式 ()
+struct ArrayExpr; // 数组表达式 [expr1, expr2, ...]
+struct RepeatArrayExpr; // 重复数组表达式 [expr; n]
 
 struct FnItem; // 函数项 fn foo() { ... }
 struct StructItem; // 结构体项 struct Point { x: i32, y: i32 }
@@ -115,6 +118,8 @@ using CastExpr_ptr = unique_ptr<CastExpr>;
 using PathExpr_ptr = unique_ptr<PathExpr>;
 using SelfExpr_ptr = unique_ptr<SelfExpr>;
 using UnitExpr_ptr = unique_ptr<UnitExpr>;
+using ArrayExpr_ptr = unique_ptr<ArrayExpr>;
+using RepeatArrayExpr_ptr = unique_ptr<RepeatArrayExpr>;
 using FnItem_ptr = unique_ptr<FnItem>;
 using StructItem_ptr = unique_ptr<StructItem>;
 using EnumItem_ptr = unique_ptr<EnumItem>;
@@ -286,6 +291,17 @@ struct SelfExpr : public Expr_Node {
 struct UnitExpr : public Expr_Node {
     void accept(AST_visitor &v) override;
 };
+struct RepeatArrayExpr : public Expr_Node {
+    Expr_ptr element;
+    Expr_ptr size; // 数组大小必须是一个常量 但是也可以是常量表达式
+    RepeatArrayExpr(Expr_ptr elem, Expr_ptr sz) : element(std::move(elem)), size(std::move(sz)) {}
+    void accept(AST_visitor &v) override;
+};
+struct ArrayExpr : public Expr_Node {
+    vector<Expr_ptr> elements;
+    ArrayExpr(vector<Expr_ptr> elems) : elements(std::move(elems)) {}
+    void accept(AST_visitor &v) override;
+};
 
 enum class fn_reciever_type {
     NO_RECEIVER,
@@ -416,6 +432,8 @@ struct AST_visitor {
     virtual void visit(PathExpr &node) = 0;
     virtual void visit(SelfExpr &node) = 0;
     virtual void visit(UnitExpr &node) = 0;
+    virtual void visit(ArrayExpr &node) = 0;
+    virtual void visit(RepeatArrayExpr &node) = 0;
     virtual void visit(FnItem &node) = 0;
     virtual void visit(StructItem &node) = 0;
     virtual void visit(EnumItem &node) = 0;
@@ -451,6 +469,8 @@ struct AST_Walker : public AST_visitor {
     virtual void visit(PathExpr &node) override;
     virtual void visit(SelfExpr &node) override;
     virtual void visit(UnitExpr &node) override;
+    virtual void visit(ArrayExpr &node) override;
+    virtual void visit(RepeatArrayExpr &node) override;
     virtual void visit(FnItem &node) override;
     virtual void visit(StructItem &node) override;
     virtual void visit(EnumItem &node) override;
@@ -492,8 +512,11 @@ private:
     Expr_ptr parse_expression(int rbp = 0);
     Expr_ptr nud(Token token);
     Expr_ptr led(Token token, Expr_ptr left);
-    int get_left_binding_power(Token_type type);
-    int get_nud_binding_power(Token_type type);
+    int get_lbp(Token_type type);
+    int get_rbp(Token_type type);
+    int get_nbp(Token_type type);
+    // nbp lbp rbp
+    std::tuple<int, int, int> get_binding_power(Token_type type);
     // 处理表达式
 };
 
