@@ -18,7 +18,7 @@
 using std::string;
 using std::vector;
 using std::pair;
-using std::unique_ptr;
+using std::shared_ptr;
 
 struct AST_visitor;
 
@@ -32,11 +32,11 @@ struct Item_Node;
 struct Type_Node;
 struct Pattern_Node;
 
-using Expr_ptr = unique_ptr<Expr_Node>;
-using Stmt_ptr = unique_ptr<Stmt_Node>;
-using Item_ptr = unique_ptr<Item_Node>;
-using Type_ptr = unique_ptr<Type_Node>;
-using Pattern_ptr = unique_ptr<Pattern_Node>;
+using Expr_ptr = shared_ptr<Expr_Node>;
+using Stmt_ptr = shared_ptr<Stmt_Node>;
+using Item_ptr = shared_ptr<Item_Node>;
+using Type_ptr = shared_ptr<Type_Node>;
+using Pattern_ptr = shared_ptr<Pattern_Node>;
 
 struct Expr_Node : public AST_Node {
     virtual ~Expr_Node() = default;
@@ -99,39 +99,39 @@ struct UnitType; // 单元类型 ()
 // Patterns 只需要考虑 IdentifierPattern 即可
 struct IdentifierPattern; // 标识符模式 let x = expr; 的 x
 
-using LiteralExpr_ptr = unique_ptr<LiteralExpr>;
-using IdentifierExpr_ptr = unique_ptr<IdentifierExpr>;
-using BinaryExpr_ptr = unique_ptr<BinaryExpr>;
-using UnaryExpr_ptr = unique_ptr<UnaryExpr>;
-using CallExpr_ptr = unique_ptr<CallExpr>;
-using FieldExpr_ptr = unique_ptr<FieldExpr>;
-using StructExpr_ptr = unique_ptr<StructExpr>;
-using IndexExpr_ptr = unique_ptr<IndexExpr>;
-using BlockExpr_ptr = unique_ptr<BlockExpr>;
-using IfExpr_ptr = unique_ptr<IfExpr>;
-using WhileExpr_ptr = unique_ptr<WhileExpr>;
-using LoopExpr_ptr = unique_ptr<LoopExpr>;
-using ReturnExpr_ptr = unique_ptr<ReturnExpr>;
-using BreakExpr_ptr = unique_ptr<BreakExpr>;
-using ContinueExpr_ptr = unique_ptr<ContinueExpr>;
-using CastExpr_ptr = unique_ptr<CastExpr>;
-using PathExpr_ptr = unique_ptr<PathExpr>;
-using SelfExpr_ptr = unique_ptr<SelfExpr>;
-using UnitExpr_ptr = unique_ptr<UnitExpr>;
-using ArrayExpr_ptr = unique_ptr<ArrayExpr>;
-using RepeatArrayExpr_ptr = unique_ptr<RepeatArrayExpr>;
-using FnItem_ptr = unique_ptr<FnItem>;
-using StructItem_ptr = unique_ptr<StructItem>;
-using EnumItem_ptr = unique_ptr<EnumItem>;
-using ImplItem_ptr = unique_ptr<ImplItem>;
-using ConstItem_ptr = unique_ptr<ConstItem>;
-using LetStmt_ptr = unique_ptr<LetStmt>;
-using ExprStmt_ptr = unique_ptr<ExprStmt>;
-using ItemStmt_ptr = unique_ptr<ItemStmt>;
-using PathType_ptr = unique_ptr<PathType>;
-using ArrayType_ptr = unique_ptr<ArrayType>;
-using UnitType_ptr = unique_ptr<UnitType>;
-using IdentifierPattern_ptr = unique_ptr<IdentifierPattern>;
+using LiteralExpr_ptr = shared_ptr<LiteralExpr>;
+using IdentifierExpr_ptr = shared_ptr<IdentifierExpr>;
+using BinaryExpr_ptr = shared_ptr<BinaryExpr>;
+using UnaryExpr_ptr = shared_ptr<UnaryExpr>;
+using CallExpr_ptr = shared_ptr<CallExpr>;
+using FieldExpr_ptr = shared_ptr<FieldExpr>;
+using StructExpr_ptr = shared_ptr<StructExpr>;
+using IndexExpr_ptr = shared_ptr<IndexExpr>;
+using BlockExpr_ptr = shared_ptr<BlockExpr>;
+using IfExpr_ptr = shared_ptr<IfExpr>;
+using WhileExpr_ptr = shared_ptr<WhileExpr>;
+using LoopExpr_ptr = shared_ptr<LoopExpr>;
+using ReturnExpr_ptr = shared_ptr<ReturnExpr>;
+using BreakExpr_ptr = shared_ptr<BreakExpr>;
+using ContinueExpr_ptr = shared_ptr<ContinueExpr>;
+using CastExpr_ptr = shared_ptr<CastExpr>;
+using PathExpr_ptr = shared_ptr<PathExpr>;
+using SelfExpr_ptr = shared_ptr<SelfExpr>;
+using UnitExpr_ptr = shared_ptr<UnitExpr>;
+using ArrayExpr_ptr = shared_ptr<ArrayExpr>;
+using RepeatArrayExpr_ptr = shared_ptr<RepeatArrayExpr>;
+using FnItem_ptr = shared_ptr<FnItem>;
+using StructItem_ptr = shared_ptr<StructItem>;
+using EnumItem_ptr = shared_ptr<EnumItem>;
+using ImplItem_ptr = shared_ptr<ImplItem>;
+using ConstItem_ptr = shared_ptr<ConstItem>;
+using LetStmt_ptr = shared_ptr<LetStmt>;
+using ExprStmt_ptr = shared_ptr<ExprStmt>;
+using ItemStmt_ptr = shared_ptr<ItemStmt>;
+using PathType_ptr = shared_ptr<PathType>;
+using ArrayType_ptr = shared_ptr<ArrayType>;
+using UnitType_ptr = shared_ptr<UnitType>;
+using IdentifierPattern_ptr = shared_ptr<IdentifierPattern>;
 
 enum class LiteralType {
     NUMBER,

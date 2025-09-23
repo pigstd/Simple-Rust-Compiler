@@ -109,7 +109,7 @@ FnItem_ptr Parser::parse_fn_item() {
         return_type = parse_type();
     }
     BlockExpr_ptr body = parse_block_expression();
-    return std::make_unique<FnItem>(function_name, receiver_type,
+    return std::make_shared<FnItem>(function_name, receiver_type,
         std::move(parameters), std::move(return_type), std::move(body));
 }
 
@@ -132,7 +132,7 @@ StructItem_ptr Parser::parse_struct_item() {
         }
     }
     lexer.consume_expect_token(Token_type::RIGHT_BRACE);
-    return std::make_unique<StructItem>(struct_name, std::move(fields));
+    return std::make_shared<StructItem>(struct_name, std::move(fields));
 }
 EnumItem_ptr Parser::parse_enum_item() {
     // example :
@@ -151,7 +151,7 @@ EnumItem_ptr Parser::parse_enum_item() {
         }
     }
     lexer.consume_expect_token(Token_type::RIGHT_BRACE);
-    return std::make_unique<EnumItem>(enum_name, std::move(variants));
+    return std::make_shared<EnumItem>(enum_name, std::move(variants));
 }
 ImplItem_ptr Parser::parse_impl_item() {
     // example :
@@ -165,7 +165,7 @@ ImplItem_ptr Parser::parse_impl_item() {
         methods.push_back(parse_fn_item());
     }
     lexer.consume_expect_token(Token_type::RIGHT_BRACE);
-    return std::make_unique<ImplItem>(struct_name, std::move(methods));
+    return std::make_shared<ImplItem>(struct_name, std::move(methods));
 }
 
 ConstItem_ptr Parser::parse_const_item() {
@@ -178,7 +178,7 @@ ConstItem_ptr Parser::parse_const_item() {
     lexer.consume_expect_token(Token_type::EQUAL);
     Expr_ptr value = parse_expression();
     lexer.consume_expect_token(Token_type::SEMICOLON);
-    return std::make_unique<ConstItem>(const_name, std::move(const_type), std::move(value));
+    return std::make_shared<ConstItem>(const_name, std::move(const_type), std::move(value));
 }
 
 Pattern_ptr Parser::parse_pattern() {
@@ -195,7 +195,7 @@ Pattern_ptr Parser::parse_pattern() {
         mut_type = Mutibility::MUTABLE;
     }
     string identifier_name = lexer.consume_expect_token(Token_type::IDENTIFIER).value;
-    return std::make_unique<IdentifierPattern>(identifier_name, mut_type, ref_type);
+    return std::make_shared<IdentifierPattern>(identifier_name, mut_type, ref_type);
 }
 
 LetStmt_ptr Parser::parse_let_statement() {
@@ -212,7 +212,7 @@ LetStmt_ptr Parser::parse_let_statement() {
         initializer = parse_expression();
     }
     lexer.consume_expect_token(Token_type::SEMICOLON);
-    return std::make_unique<LetStmt>(std::move(pattern), std::move(initializer));
+    return std::make_shared<LetStmt>(std::move(pattern), std::move(initializer));
 }
 ExprStmt_ptr Parser::parse_expr_statement() {
     // example :
@@ -223,13 +223,13 @@ ExprStmt_ptr Parser::parse_expr_statement() {
         lexer.consume_expect_token(Token_type::SEMICOLON);
         is_semi = true;
     }
-    return std::make_unique<ExprStmt>(std::move(expr), is_semi);
+    return std::make_shared<ExprStmt>(std::move(expr), is_semi);
 }
 ItemStmt_ptr Parser::parse_item_statement() {
     // example :
     // item
     Item_ptr item = parse_item();
-    return std::make_unique<ItemStmt>(std::move(item));
+    return std::make_shared<ItemStmt>(std::move(item));
 }
 
 Stmt_ptr Parser::parse_statement() {
@@ -294,10 +294,10 @@ BlockExpr_ptr Parser::parse_block_expression() {
             statements.push_back(std::move(tail_statement));
         }
         tail_statement = nullptr;
-        return std::make_unique<BlockExpr>(std::move(statements), nullptr);
+        return std::make_shared<BlockExpr>(std::move(statements), nullptr);
     }
     else {
-        return std::make_unique<BlockExpr>(std::move(statements), std::move(tail_statement));
+        return std::make_shared<BlockExpr>(std::move(statements), std::move(tail_statement));
     }
 }
 
@@ -318,7 +318,7 @@ IfExpr_ptr Parser::parse_if_expression() {
         if (lexer.peek_token().type == Token_type::IF) { else_branch = parse_if_expression(); }
         else  {else_branch = parse_block_expression(); }
     }
-    return std::make_unique<IfExpr>(std::move(condition), std::move(then_branch), std::move(else_branch));
+    return std::make_shared<IfExpr>(std::move(condition), std::move(then_branch), std::move(else_branch));
 }
 WhileExpr_ptr Parser::parse_while_expression() {
     // example :
@@ -328,14 +328,14 @@ WhileExpr_ptr Parser::parse_while_expression() {
     Expr_ptr condition = parse_expression();
     lexer.consume_expect_token(Token_type::RIGHT_PARENTHESIS);
     Expr_ptr body = parse_block_expression();
-    return std::make_unique<WhileExpr>(std::move(condition), std::move(body));
+    return std::make_shared<WhileExpr>(std::move(condition), std::move(body));
 }
 LoopExpr_ptr Parser::parse_loop_expression() {
     // example :
     // loop { body }
     lexer.consume_expect_token(Token_type::LOOP);
     Expr_ptr body = parse_block_expression();
-    return std::make_unique<LoopExpr>(std::move(body));
+    return std::make_shared<LoopExpr>(std::move(body));
 }
 Type_ptr Parser::parse_type() {
     // example :
@@ -357,18 +357,18 @@ Type_ptr Parser::parse_type() {
         lexer.consume_expect_token(Token_type::SEMICOLON);
         Expr_ptr size_expr = parse_expression();
         lexer.consume_expect_token(Token_type::RIGHT_BRACKET);
-        return std::make_unique<ArrayType>(std::move(element_type), std::move(size_expr), mut_type, ref_type);
+        return std::make_shared<ArrayType>(std::move(element_type), std::move(size_expr), mut_type, ref_type);
     }
     else if (lexer.peek_token().type == Token_type::LEFT_PARENTHESIS) {
         // ()
         lexer.consume_expect_token(Token_type::LEFT_PARENTHESIS);
         lexer.consume_expect_token(Token_type::RIGHT_PARENTHESIS);
-        return std::make_unique<UnitType>(mut_type, ref_type);
+        return std::make_shared<UnitType>(mut_type, ref_type);
     }
     else {
         // identifier
         string type_name = lexer.consume_expect_token(Token_type::IDENTIFIER).value;
-        return std::make_unique<PathType>(type_name, mut_type, ref_type);
+        return std::make_shared<PathType>(type_name, mut_type, ref_type);
     }
 }
 
@@ -397,7 +397,7 @@ Expr_ptr Parser::nud(Token token) {
         if (lexer.peek_token().type == Token_type::RIGHT_PARENTHESIS) {
             // ()
             lexer.consume_expect_token(Token_type::RIGHT_PARENTHESIS);
-            return std::make_unique<UnitExpr>();
+            return std::make_shared<UnitExpr>();
         } else {
             // (expr)
             Expr_ptr expr = parse_expression();
@@ -411,14 +411,14 @@ Expr_ptr Parser::nud(Token token) {
         if (lexer.peek_token().type == Token_type::RIGHT_BRACKET) {
             // []
             lexer.consume_expect_token(Token_type::RIGHT_BRACKET);
-            return std::make_unique<ArrayExpr>(std::vector<Expr_ptr>{});
+            return std::make_shared<ArrayExpr>(std::vector<Expr_ptr>{});
         } else {
             if (lexer.peek_token().type == Token_type::SEMICOLON) {
                 // repeat array [expr; n]
                 lexer.consume_expect_token(Token_type::SEMICOLON);
                 Expr_ptr size_expr = parse_expression();
                 lexer.consume_expect_token(Token_type::RIGHT_BRACKET);
-                return std::make_unique<RepeatArrayExpr>(std::move(first_expr), std::move(size_expr));
+                return std::make_shared<RepeatArrayExpr>(std::move(first_expr), std::move(size_expr));
             } else {
                 // normal array [expr1, expr2, ...(,)]
                 std::vector<Expr_ptr> elements; elements.push_back(std::move(first_expr));
@@ -430,50 +430,50 @@ Expr_ptr Parser::nud(Token token) {
                     elements.push_back(parse_expression());
                 }
                 lexer.consume_expect_token(Token_type::RIGHT_BRACKET);
-                return std::make_unique<ArrayExpr>(std::move(elements));
+                return std::make_shared<ArrayExpr>(std::move(elements));
             }
         }
     } else if (token.type == Token_type::IDENTIFIER) {
         lexer.consume_expect_token(Token_type::IDENTIFIER);
-        return std::make_unique<IdentifierExpr>(token.value);
+        return std::make_shared<IdentifierExpr>(token.value);
     } else if (token.type == Token_type::SELF) {
         lexer.consume_expect_token(Token_type::SELF);
-        return std::make_unique<SelfExpr>();
+        return std::make_shared<SelfExpr>();
     } else if (token.type == Token_type::NUMBER) {
         lexer.consume_expect_token(Token_type::NUMBER);
-        return std::make_unique<LiteralExpr>(LiteralType::NUMBER, token.value);
+        return std::make_shared<LiteralExpr>(LiteralType::NUMBER, token.value);
     } else if (token.type == Token_type::TRUE || 
                token.type == Token_type::FALSE) {
         lexer.consume_token();
-        return std::make_unique<LiteralExpr>(LiteralType::BOOL, token.value);
+        return std::make_shared<LiteralExpr>(LiteralType::BOOL, token.value);
     } else if (token.type == Token_type::STRING) {
         lexer.consume_expect_token(Token_type::STRING);
-        return std::make_unique<LiteralExpr>(LiteralType::STRING, token.value);
+        return std::make_shared<LiteralExpr>(LiteralType::STRING, token.value);
     } else if (token.type == Token_type::CHAR) {
         lexer.consume_expect_token(Token_type::CHAR);
-        return std::make_unique<LiteralExpr>(LiteralType::CHAR, token.value);
+        return std::make_shared<LiteralExpr>(LiteralType::CHAR, token.value);
     } else if (token.type == Token_type::MINUS) {
         lexer.consume_expect_token(Token_type::MINUS);
         Expr_ptr right = parse_expression(get_nbp(Token_type::MINUS));
-        return std::make_unique<UnaryExpr>(Unary_Operator::NEG, std::move(right));
+        return std::make_shared<UnaryExpr>(Unary_Operator::NEG, std::move(right));
     } else if (token.type == Token_type::BANG) {
         lexer.consume_expect_token(Token_type::BANG);
         Expr_ptr right = parse_expression(get_nbp(Token_type::BANG));
-        return std::make_unique<UnaryExpr>(Unary_Operator::NOT, std::move(right));
+        return std::make_shared<UnaryExpr>(Unary_Operator::NOT, std::move(right));
     } else if (token.type == Token_type::AMPERSAND) {
         lexer.consume_expect_token(Token_type::AMPERSAND);
         if (lexer.peek_token().type == Token_type::MUT) {
             lexer.consume_expect_token(Token_type::MUT);
             Expr_ptr right = parse_expression(get_nbp(Token_type::AMPERSAND));
-            return std::make_unique<UnaryExpr>(Unary_Operator::REF_MUT, std::move(right));
+            return std::make_shared<UnaryExpr>(Unary_Operator::REF_MUT, std::move(right));
         } else {
             Expr_ptr right = parse_expression(get_nbp(Token_type::AMPERSAND));
-            return std::make_unique<UnaryExpr>(Unary_Operator::REF, std::move(right));
+            return std::make_shared<UnaryExpr>(Unary_Operator::REF, std::move(right));
         }
     } else if (token.type == Token_type::STAR) {
         lexer.consume_expect_token(Token_type::STAR);
         Expr_ptr right = parse_expression(get_nbp(Token_type::STAR));
-        return std::make_unique<UnaryExpr>(Unary_Operator::DEREF, std::move(right));
+        return std::make_shared<UnaryExpr>(Unary_Operator::DEREF, std::move(right));
     } else {
         throw string("CE in parser nud !!! unexpected token in expression: ") + token.value;
     }
@@ -482,91 +482,91 @@ Expr_ptr Parser::nud(Token token) {
 Expr_ptr Parser::led(Token token, Expr_ptr left) {
     if (token.type == Token_type::PLUS) {
         Expr_ptr right = parse_expression(get_rbp(Token_type::PLUS));
-        return std::make_unique<BinaryExpr>(Binary_Operator::ADD, std::move(left), std::move(right));
+        return std::make_shared<BinaryExpr>(Binary_Operator::ADD, std::move(left), std::move(right));
     } else if (token.type == Token_type::MINUS) {
         Expr_ptr right = parse_expression(get_rbp(Token_type::MINUS));
-        return std::make_unique<BinaryExpr>(Binary_Operator::SUB, std::move(left), std::move(right));
+        return std::make_shared<BinaryExpr>(Binary_Operator::SUB, std::move(left), std::move(right));
     } else if (token.type == Token_type::STAR) {
         Expr_ptr right = parse_expression(get_rbp(Token_type::STAR));
-        return std::make_unique<BinaryExpr>(Binary_Operator::MUL, std::move(left), std::move(right));
+        return std::make_shared<BinaryExpr>(Binary_Operator::MUL, std::move(left), std::move(right));
     } else if (token.type == Token_type::SLASH) {
         Expr_ptr right = parse_expression(get_rbp(Token_type::SLASH));
-        return std::make_unique<BinaryExpr>(Binary_Operator::DIV, std::move(left), std::move(right));
+        return std::make_shared<BinaryExpr>(Binary_Operator::DIV, std::move(left), std::move(right));
     } else if (token.type == Token_type::PERCENT) {
         Expr_ptr right = parse_expression(get_rbp(Token_type::PERCENT));
-        return std::make_unique<BinaryExpr>(Binary_Operator::MOD, std::move(left), std::move(right));
+        return std::make_shared<BinaryExpr>(Binary_Operator::MOD, std::move(left), std::move(right));
     } else if (token.type == Token_type::AMPERSAND) {
         Expr_ptr right = parse_expression(get_rbp(Token_type::AMPERSAND));
-        return std::make_unique<BinaryExpr>(Binary_Operator::AND, std::move(left), std::move(right));
+        return std::make_shared<BinaryExpr>(Binary_Operator::AND, std::move(left), std::move(right));
     } else if (token.type == Token_type::PIPE) {
         Expr_ptr right = parse_expression(get_rbp(Token_type::PIPE));
-        return std::make_unique<BinaryExpr>(Binary_Operator::OR, std::move(left), std::move(right));
+        return std::make_shared<BinaryExpr>(Binary_Operator::OR, std::move(left), std::move(right));
     } else if (token.type == Token_type::CARET) {
         Expr_ptr right = parse_expression(get_rbp(Token_type::CARET));
-        return std::make_unique<BinaryExpr>(Binary_Operator::XOR, std::move(left), std::move(right));
+        return std::make_shared<BinaryExpr>(Binary_Operator::XOR, std::move(left), std::move(right));
     } else if (token.type == Token_type::LEFT_SHIFT) {
         Expr_ptr right = parse_expression(get_rbp(Token_type::LEFT_SHIFT));
-        return std::make_unique<BinaryExpr>(Binary_Operator::SHL, std::move(left), std::move(right));
+        return std::make_shared<BinaryExpr>(Binary_Operator::SHL, std::move(left), std::move(right));
     } else if (token.type == Token_type::RIGHT_SHIFT) {
         Expr_ptr right = parse_expression(get_rbp(Token_type::RIGHT_SHIFT));
-        return std::make_unique<BinaryExpr>(Binary_Operator::SHR, std::move(left), std::move(right));
+        return std::make_shared<BinaryExpr>(Binary_Operator::SHR, std::move(left), std::move(right));
     } else if (token.type == Token_type::EQUAL_EQUAL) {
         Expr_ptr right = parse_expression(get_rbp(Token_type::EQUAL_EQUAL));
-        return std::make_unique<BinaryExpr>(Binary_Operator::EQ, std::move(left), std::move(right));
+        return std::make_shared<BinaryExpr>(Binary_Operator::EQ, std::move(left), std::move(right));
     } else if (token.type == Token_type::NOT_EQUAL) {
         Expr_ptr right = parse_expression(get_rbp(Token_type::NOT_EQUAL));
-        return std::make_unique<BinaryExpr>(Binary_Operator::NEQ, std::move(left), std::move(right));
+        return std::make_shared<BinaryExpr>(Binary_Operator::NEQ, std::move(left), std::move(right));
     } else if (token.type == Token_type::LESS) {
         Expr_ptr right = parse_expression(get_rbp(Token_type::LESS));
-        return std::make_unique<BinaryExpr>(Binary_Operator::LT, std::move(left), std::move(right));
+        return std::make_shared<BinaryExpr>(Binary_Operator::LT, std::move(left), std::move(right));
     } else if (token.type == Token_type::LESS_EQUAL) {
         Expr_ptr right = parse_expression(get_rbp(Token_type::LESS_EQUAL));
-        return std::make_unique<BinaryExpr>(Binary_Operator::LEQ, std::move(left), std::move(right));
+        return std::make_shared<BinaryExpr>(Binary_Operator::LEQ, std::move(left), std::move(right));
     } else if (token.type == Token_type::GREATER) {
         Expr_ptr right = parse_expression(get_rbp(Token_type::GREATER));
-        return std::make_unique<BinaryExpr>(Binary_Operator::GT, std::move(left), std::move(right));
+        return std::make_shared<BinaryExpr>(Binary_Operator::GT, std::move(left), std::move(right));
     } else if (token.type == Token_type::GREATER_EQUAL) {
         Expr_ptr right = parse_expression(get_rbp(Token_type::GREATER_EQUAL));
-        return std::make_unique<BinaryExpr>(Binary_Operator::GEQ, std::move(left), std::move(right));
+        return std::make_shared<BinaryExpr>(Binary_Operator::GEQ, std::move(left), std::move(right));
     } else if (token.type == Token_type::AMPERSAND_AMPERSAND) {
         Expr_ptr right = parse_expression(get_rbp(Token_type::AMPERSAND_AMPERSAND));
-        return std::make_unique<BinaryExpr>(Binary_Operator::AND_AND, std::move(left), std::move(right));
+        return std::make_shared<BinaryExpr>(Binary_Operator::AND_AND, std::move(left), std::move(right));
     } else if (token.type == Token_type::PIPE_PIPE) {
         Expr_ptr right = parse_expression(get_rbp(Token_type::PIPE_PIPE));
-        return std::make_unique<BinaryExpr>(Binary_Operator::OR_OR, std::move(left), std::move(right));
+        return std::make_shared<BinaryExpr>(Binary_Operator::OR_OR, std::move(left), std::move(right));
     } else if (token.type == Token_type::EQUAL) {
         Expr_ptr right = parse_expression(get_rbp(Token_type::EQUAL));
-        return std::make_unique<BinaryExpr>(Binary_Operator::ASSIGN, std::move(left), std::move(right));
+        return std::make_shared<BinaryExpr>(Binary_Operator::ASSIGN, std::move(left), std::move(right));
     } else if (token.type == Token_type::PLUS_EQUAL) {
         Expr_ptr right = parse_expression(get_rbp(Token_type::PLUS_EQUAL));
-        return std::make_unique<BinaryExpr>(Binary_Operator::ADD_ASSIGN, std::move(left), std::move(right));
+        return std::make_shared<BinaryExpr>(Binary_Operator::ADD_ASSIGN, std::move(left), std::move(right));
     } else if (token.type == Token_type::MINUS_EQUAL) {
         Expr_ptr right = parse_expression(get_rbp(Token_type::MINUS_EQUAL));
-        return std::make_unique<BinaryExpr>(Binary_Operator::SUB_ASSIGN, std::move(left), std::move(right));
+        return std::make_shared<BinaryExpr>(Binary_Operator::SUB_ASSIGN, std::move(left), std::move(right));
     } else if (token.type == Token_type::STAR_EQUAL) {
         Expr_ptr right = parse_expression(get_rbp(Token_type::STAR_EQUAL));
-        return std::make_unique<BinaryExpr>(Binary_Operator::MUL_ASSIGN, std::move(left), std::move(right));
+        return std::make_shared<BinaryExpr>(Binary_Operator::MUL_ASSIGN, std::move(left), std::move(right));
     } else if (token.type == Token_type::SLASH_EQUAL) {
         Expr_ptr right = parse_expression(get_rbp(Token_type::SLASH_EQUAL));
-        return std::make_unique<BinaryExpr>(Binary_Operator::DIV_ASSIGN, std::move(left), std::move(right));
+        return std::make_shared<BinaryExpr>(Binary_Operator::DIV_ASSIGN, std::move(left), std::move(right));
     } else if (token.type == Token_type::PERCENT_EQUAL) {
         Expr_ptr right = parse_expression(get_rbp(Token_type::PERCENT_EQUAL));
-        return std::make_unique<BinaryExpr>(Binary_Operator::MOD_ASSIGN, std::move(left), std::move(right));
+        return std::make_shared<BinaryExpr>(Binary_Operator::MOD_ASSIGN, std::move(left), std::move(right));
     } else if (token.type == Token_type::CARET_EQUAL) {
         Expr_ptr right = parse_expression(get_rbp(Token_type::CARET_EQUAL));
-        return std::make_unique<BinaryExpr>(Binary_Operator::XOR_ASSIGN, std::move(left), std::move(right));
+        return std::make_shared<BinaryExpr>(Binary_Operator::XOR_ASSIGN, std::move(left), std::move(right));
     } else if (token.type == Token_type::AMPERSAND_EQUAL) {
         Expr_ptr right = parse_expression(get_rbp(Token_type::AMPERSAND_EQUAL));
-        return std::make_unique<BinaryExpr>(Binary_Operator::AND_ASSIGN, std::move(left), std::move(right));
+        return std::make_shared<BinaryExpr>(Binary_Operator::AND_ASSIGN, std::move(left), std::move(right));
     } else if (token.type == Token_type::PIPE_EQUAL) {
         Expr_ptr right = parse_expression(get_rbp(Token_type::PIPE_EQUAL));
-        return std::make_unique<BinaryExpr>(Binary_Operator::OR_ASSIGN, std::move(left), std::move(right));
+        return std::make_shared<BinaryExpr>(Binary_Operator::OR_ASSIGN, std::move(left), std::move(right));
     } else if (token.type == Token_type::LEFT_SHIFT_EQUAL) {
         Expr_ptr right = parse_expression(get_rbp(Token_type::LEFT_SHIFT_EQUAL));
-        return std::make_unique<BinaryExpr>(Binary_Operator::SHL_ASSIGN, std::move(left), std::move(right));
+        return std::make_shared<BinaryExpr>(Binary_Operator::SHL_ASSIGN, std::move(left), std::move(right));
     } else if (token.type == Token_type::RIGHT_SHIFT_EQUAL) {
         Expr_ptr right = parse_expression(get_rbp(Token_type::RIGHT_SHIFT_EQUAL));
-        return std::make_unique<BinaryExpr>(Binary_Operator::SHR_ASSIGN, std::move(left), std::move(right));
+        return std::make_shared<BinaryExpr>(Binary_Operator::SHR_ASSIGN, std::move(left), std::move(right));
     } else if (token.type == Token_type::LEFT_PARENTHESIS) {
         // 函数调用
         vector<Expr_ptr> arguments;
@@ -580,16 +580,16 @@ Expr_ptr Parser::led(Token token, Expr_ptr left) {
             }
         }
         lexer.consume_expect_token(Token_type::RIGHT_PARENTHESIS);
-        return std::make_unique<CallExpr>(std::move(left), std::move(arguments));
+        return std::make_shared<CallExpr>(std::move(left), std::move(arguments));
     } else if (token.type == Token_type::DOT) {
         // 字段访问
         string field_name = lexer.consume_expect_token(Token_type::IDENTIFIER).value;
-        return std::make_unique<FieldExpr>(std::move(left), field_name);
+        return std::make_shared<FieldExpr>(std::move(left), field_name);
     } else if (token.type == Token_type::LEFT_BRACKET) {
         // 数组下标访问
         Expr_ptr index = parse_expression();
         lexer.consume_expect_token(Token_type::RIGHT_BRACKET);
-        return std::make_unique<IndexExpr>(std::move(left), std::move(index));
+        return std::make_shared<IndexExpr>(std::move(left), std::move(index));
     } else if (token.type == Token_type::LEFT_BRACE) {
         // struct 初始化
         // example: StructName { field1: value1, field2: value2, ... }
@@ -615,16 +615,16 @@ Expr_ptr Parser::led(Token token, Expr_ptr left) {
             }
         }
         lexer.consume_expect_token(Token_type::RIGHT_BRACE);
-        return std::make_unique<StructExpr>(struct_name, std::move(fields));
+        return std::make_shared<StructExpr>(struct_name, std::move(fields));
 
     } else if (token.type == Token_type::AS) {
         // 类型转换
         Type_ptr target_type = parse_type();
-        return std::make_unique<CastExpr>(std::move(left), std::move(target_type));
+        return std::make_shared<CastExpr>(std::move(left), std::move(target_type));
     } else if (token.type == Token_type::COLON_COLON) {
         // 路径表达式
         string path_segment = lexer.consume_expect_token(Token_type::IDENTIFIER).value;
-        return std::make_unique<PathExpr>(std::move(left), path_segment);
+        return std::make_shared<PathExpr>(std::move(left), path_segment);
     } else {
         throw string("CE in parser led !!! unexpected token in expression: ") + token.value;
     }
