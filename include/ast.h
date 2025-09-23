@@ -313,6 +313,7 @@ enum class fn_reciever_type {
     SELF_REF,
     SELF_REF_MUT
 };
+string fn_reciever_type_to_string(fn_reciever_type type);
 
 struct FnItem : public Item_Node {
     string function_name;
@@ -383,6 +384,8 @@ enum class ReferenceType {
     NO_REF,
     REF
 };
+string mutibility_to_string(Mutibility mut);
+string reference_type_to_string(ReferenceType ref);
 
 struct PathType : public Type_Node {
     string name;

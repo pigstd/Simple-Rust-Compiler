@@ -782,3 +782,26 @@ string unary_operator_to_string(Unary_Operator op) {
         case Unary_Operator::DEREF: return "*";
     }
 }
+
+string fn_reciever_type_to_string(fn_reciever_type type) {
+    switch (type) {
+        case fn_reciever_type::NO_RECEIVER: return "no receiver";
+        case fn_reciever_type::SELF: return "self";
+        case fn_reciever_type::SELF_REF: return "&self";
+        case fn_reciever_type::SELF_REF_MUT: return "&mut self";
+    }
+}
+
+string mutibility_to_string(Mutibility mut) {
+    switch (mut) {
+        case Mutibility::IMMUTABLE: return "immutable";
+        case Mutibility::MUTABLE: return "mutable";
+    }
+}
+
+string reference_type_to_string(ReferenceType ref) {
+    switch (ref) {
+        case ReferenceType::NO_REF: return "no_ref";
+        case ReferenceType::REF: return "ref";
+    }
+}
