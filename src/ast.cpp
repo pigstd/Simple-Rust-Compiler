@@ -90,9 +90,9 @@ FnItem_ptr Parser::parse_fn_item() {
         lexer.consume_expect_token(Token_type::SELF); // 消费掉 self
         lexer.consume_expect_token(Token_type::COMMA); // 消费掉逗号
     }
-    vector<pair<string, Type_ptr>> parameters;
+    vector<pair<Pattern_ptr, Type_ptr>> parameters;
     while(lexer.peek_token().type != Token_type::RIGHT_PARENTHESIS) {
-        string param_name = lexer.consume_expect_token(Token_type::IDENTIFIER).value;
+        Pattern_ptr param_name = parse_pattern();
         lexer.consume_expect_token(Token_type::COLON);
         Type_ptr param_type = parse_type();
         parameters.emplace_back(param_name, std::move(param_type));
@@ -105,7 +105,7 @@ FnItem_ptr Parser::parse_fn_item() {
     lexer.consume_expect_token(Token_type::RIGHT_PARENTHESIS);
     Type_ptr return_type = nullptr;
     if (lexer.peek_token().type == Token_type::ARROW) {
-        lexer.consume_token();
+        lexer.consume_expect_token(Token_type::ARROW);
         return_type = parse_type();
     }
     BlockExpr_ptr body = parse_block_expression();

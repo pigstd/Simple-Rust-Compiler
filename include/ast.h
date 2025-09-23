@@ -318,10 +318,10 @@ string fn_reciever_type_to_string(fn_reciever_type type);
 struct FnItem : public Item_Node {
     string function_name;
     fn_reciever_type receiver_type;
-    vector<pair<string, Type_ptr>> parameters; // 参数名和参数类型
+    vector<pair<Pattern_ptr, Type_ptr>> parameters; // 参数名和参数类型
     Type_ptr return_type; // 返回类型，若是 nullptr 则说明返回 ()
     Expr_ptr body;
-    FnItem(const string &name, fn_reciever_type recv_type, vector<pair<string, Type_ptr>> params, Type_ptr ret_type, Expr_ptr body)
+    FnItem(const string &name, fn_reciever_type recv_type, vector<pair<Pattern_ptr, Type_ptr>> params, Type_ptr ret_type, Expr_ptr body)
         : function_name(name), receiver_type(recv_type), parameters(std::move(params)), return_type(std::move(ret_type)), body(std::move(body)) {}
     void accept(AST_visitor &v) override;
 };

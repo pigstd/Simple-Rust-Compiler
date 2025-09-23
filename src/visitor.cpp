@@ -86,6 +86,7 @@ void AST_Walker::visit(RepeatArrayExpr &node) {
 
 void AST_Walker::visit(FnItem &node) {
     for (auto &[name, type] : node.parameters) {
+        name->accept(*this);
         type->accept(*this);
     }
     if (node.return_type) {
@@ -309,7 +310,9 @@ void AST_Printer::visit(FnItem &node) {
     depth++;
     cout << tab() << "Parameters : " << endl;
     for (auto &[name, type] : node.parameters) {
-        cout << tab() << "Parameter name = " << name << ", type : " << endl;
+        cout << tab() << "Parameter name : " << endl;
+        name->accept(*this);
+        cout << tab() << "Parameter type : " << endl;
         type->accept(*this);
     }
     if (node.return_type) {
