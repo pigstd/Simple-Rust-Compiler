@@ -92,7 +92,11 @@ public:
 
 // AST_Printer: 打印 AST 树的结构
 struct AST_Printer : public AST_Walker {
+private:
     size_t depth = 0;
+    string tab() const {
+        return string(depth, '\t');
+    }
 public:
     AST_Printer() : depth(0) {}
     ~AST_Printer() override = default;

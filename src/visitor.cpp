@@ -124,68 +124,297 @@ void AST_Walker::visit([[maybe_unused]] IdentifierPattern &node) { return; }
 
 // AST_Printer: 有些调用 AST_Walker 遍历会比较方便，但是有些还是要自己写遍历
 void AST_Printer::visit(LiteralExpr &node) {
-    string tab = string("\t", depth);
-    cout << tab << "LiteralExpr, type =  " << literal_type_to_string(node.literal_type)
+    cout << tab() << "LiteralExpr, type =  " << literal_type_to_string(node.literal_type)
          << ", value = " << node.value << endl;
     depth++;
     AST_Walker::visit(node);
     depth--;
 }
 void AST_Printer::visit(IdentifierExpr &node) {
-    string tab = string("\t", depth);
-    cout << tab << "IdentifierExpr, name =  " << node.name << endl;
+    cout << tab() << "IdentifierExpr, name =  " << node.name << endl;
     depth++;
     AST_Walker::visit(node);
     depth--;
 }
 void AST_Printer::visit(BinaryExpr &node) {
-    string tab = string("\t", depth);
-    cout << tab << "BinaryExpr, op =  " << binary_operator_to_string(node.op) << endl;
-    cout << tab << "Left: " << endl;
+    cout << tab() << "BinaryExpr, op =  " << binary_operator_to_string(node.op) << endl;
     depth++;
+    cout << tab() << "Left: " << endl;
     node.left->accept(*this);
-    cout << tab << "Right: " << endl;
+    cout << tab() << "Right: " << endl;
     node.right->accept(*this);
     depth--;
 }
 void AST_Printer::visit(UnaryExpr &node) {
-    string tab = string("\t", depth);
-    cout << tab << "UnaryExpr, op =  " << unary_operator_to_string(node.op) << endl;
-    cout << tab << "Right : " << endl;
+    cout << tab() << "UnaryExpr, op =  " << unary_operator_to_string(node.op) << endl;
     depth++;
+    cout << tab() << "Right : " << endl;
     AST_Walker::visit(node);
     depth--;
 }
 void AST_Printer::visit(CallExpr &node) {
-    string tab = string("\t", depth);
-    cout << tab << "CallExpr, arguments size =  " << node.arguments.size() << endl;
-    cout << tab << "Callee: " << endl;
+    cout << tab() << "CallExpr, arguments size =  " << node.arguments.size() << endl;
     depth++;
+    cout << tab() << "Callee: " << endl;
     node.callee->accept(*this);
-    cout << tab << "Arguments: " << endl;
+    cout << tab() << "Arguments: " << endl;
     for (auto &args : node.arguments)
         args->accept(*this);
     depth--;
 }
 void AST_Printer::visit(FieldExpr &node) {
-    string tab = string("\t", depth);
-    cout << tab << "FieldExpr, field name =  " << node.field_name << endl;
-    cout << tab << "Base : " << endl;
+    cout << tab() << "FieldExpr, field name =  " << node.field_name << endl;
     depth++;
+    cout << tab() << "Base : " << endl;
     AST_Walker::visit(node);
     depth--;
 }
 void AST_Printer::visit(StructExpr &node) {
-    string tab = string("\t", depth);
-    cout << tab << "StructExpr, struct name =  " << node.struct_name << endl;
-    cout << tab << "Fields : " << endl;
+    cout << tab() << "StructExpr, struct name =  " << node.struct_name << endl;
     depth++;
+    cout << tab() << "Fields : " << endl;
     for (auto &[name, value] : node.fields) {
-        cout << tab << "name = " << name << ", value : " << endl;
+        cout << tab() << "name = " << name << ", value : " << endl;
         value->accept(*this);
     }
     depth--;
 }
-
-// NOT FINISH
-// TO DO !!!
+void AST_Printer::visit(IndexExpr &node) {
+    cout << tab() << "IndexExpr" << endl;
+    depth++;
+    cout << tab() << "Base : " << endl;
+    node.base->accept(*this);
+    cout << tab() << "Index : " << endl;
+    node.index->accept(*this);
+    depth--;
+}
+void AST_Printer::visit(BlockExpr &node) {
+    cout << tab() << "BlockExpr, statements size =  " << node.statements.size() << endl;
+    depth++;
+    cout << tab() << "Statements : " << endl;
+    for (auto &stmt : node.statements) {
+        stmt->accept(*this);
+    }
+    if (node.tail_statement) {
+        cout << tab() << "Tail Statement : " << endl;
+        node.tail_statement->accept(*this);
+    }
+    depth--;
+}
+void AST_Printer::visit(IfExpr &node) {
+    cout << tab() << "IfExpr" << endl;
+    depth++;
+    cout << tab() << "Condition : " << endl;
+    node.condition->accept(*this);
+    cout << tab() << "Then Branch : " << endl;
+    node.then_branch->accept(*this);
+    if (node.else_branch) {
+        cout << tab() << "Else Branch : " << endl;
+        node.else_branch->accept(*this);
+    }
+    depth--;
+}
+void AST_Printer::visit(WhileExpr &node) {
+    cout << tab() << "WhileExpr" << endl;
+    depth++;
+    cout << tab() << "Condition : " << endl;
+    node.condition->accept(*this);
+    cout << tab() << "Body : " << endl;
+    node.body->accept(*this);
+    depth--;
+}
+void AST_Printer::visit(LoopExpr &node) {
+    cout << tab() << "LoopExpr" << endl;
+    depth++;
+    cout << tab() << "Body : " << endl;
+    node.body->accept(*this);
+    depth--;
+}
+void AST_Printer::visit(ReturnExpr &node) {
+    cout << tab() << "ReturnExpr" << endl;
+    depth++;
+    if (node.return_value) {
+        cout << tab() << "Return Value : " << endl;
+        node.return_value->accept(*this);
+    }
+    depth--;
+}
+void AST_Printer::visit(BreakExpr &node) {
+    cout << tab() << "BreakExpr" << endl;
+    depth++;
+    if (node.break_value) {
+        cout << tab() << "Break Value : " << endl;
+        node.break_value->accept(*this);
+    }
+    depth--;
+}
+void AST_Printer::visit(ContinueExpr &node) {
+    cout << tab() << "ContinueExpr" << endl;
+    depth++;
+    if (node.continue_value) {
+        cout << tab() << "Continue Value : " << endl;
+        node.continue_value->accept(*this);
+    }
+    depth--;
+}
+void AST_Printer::visit(CastExpr &node) {
+    cout << tab() << "CastExpr" << endl;
+    depth++;
+    cout << tab() << "Expr : " << endl;
+    node.expr->accept(*this);
+    cout << tab() << "Target Type : " << endl;
+    node.target_type->accept(*this);
+    depth--;
+}
+void AST_Printer::visit(PathExpr &node) {
+    cout << tab() << "PathExpr, name =  " << node.name << endl;
+    depth++;
+    cout << tab() << "Base : " << endl;
+    node.base->accept(*this);
+    depth--;
+}
+void AST_Printer::visit(SelfExpr &node) {
+    cout << tab() << "SelfExpr" << endl;
+    depth++;
+    AST_Walker::visit(node);
+    depth--;
+}
+void AST_Printer::visit(UnitExpr &node) {
+    cout << tab() << "UnitExpr" << endl;
+    depth++;
+    AST_Walker::visit(node);
+    depth--;
+}
+void AST_Printer::visit(ArrayExpr &node) {
+    cout << tab() << "ArrayExpr, elements size =  " << node.elements.size() << endl;
+    depth++;
+    cout << tab() << "Elements : " << endl;
+    for (auto &elem : node.elements) {
+        elem->accept(*this);
+    }
+    depth--;
+}
+void AST_Printer::visit(RepeatArrayExpr &node) {
+    cout << tab() << "RepeatArrayExpr" << endl;
+    depth++;
+    cout << tab() << "Element : " << endl;
+    node.element->accept(*this);
+    cout << tab() << "Size : " << endl;
+    node.size->accept(*this);
+    depth--;
+}
+void AST_Printer::visit(FnItem &node) {
+    cout << tab() << "FnItem, function name =  " << node.function_name <<
+    ", receiver type = " << fn_reciever_type_to_string(node.receiver_type) << endl;
+    depth++;
+    cout << tab() << "Parameters : " << endl;
+    for (auto &[name, type] : node.parameters) {
+        cout << tab() << "Parameter name = " << name << ", type : " << endl;
+        type->accept(*this);
+    }
+    if (node.return_type) {
+        cout << tab() << "Return Type : " << endl;
+        node.return_type->accept(*this);
+    }
+    cout << tab() << "Body : " << endl;
+    node.body->accept(*this);
+    depth--;
+}
+void AST_Printer::visit(StructItem &node) {
+    cout << tab() << "StructItem, struct name =  " << node.struct_name << endl;
+    depth++;
+    cout << tab() << "Fields : " << endl;
+    for (auto &[name, type] : node.fields) {
+        cout << tab() << "Field name = " << name << ", type : " << endl;
+        type->accept(*this);
+    }
+    depth--;
+}
+void AST_Printer::visit(EnumItem &node) {
+    cout << tab() << "EnumItem, enum name =  " << node.enum_name << endl;
+    depth++;
+    cout << tab() << "Variants : " << endl;
+    for (auto &variant : node.variants) {
+        cout << tab() << "Variant name = " << variant << endl;
+    }
+    AST_Walker::visit(node);
+    depth--;
+}
+void AST_Printer::visit(ImplItem &node) {
+    cout << tab() << "ImplItem, struct name =  " << node.struct_name << endl;
+    depth++;
+    cout << tab() << "Methods : " << endl;
+    for (auto &item : node.methods) {
+        item->accept(*this);
+    }
+    depth--;
+}
+void AST_Printer::visit(ConstItem &node) {
+    cout << tab() << "ConstItem, const name =  " << node.const_name << endl;
+    depth++;
+    cout << tab() << "Const Type : " << endl;
+    node.const_type->accept(*this);
+    cout << tab() << "Value : " << endl;
+    node.value->accept(*this);
+    depth--;
+}
+void AST_Printer::visit(LetStmt &node) {
+    cout << tab() << "LetStmt" << endl;
+    depth++;
+    cout << tab() << "Pattern : " << endl;
+    node.pattern->accept(*this);
+    if (node.initializer) {
+        cout << tab() << "Initializer : " << endl;
+        node.initializer->accept(*this);
+    }
+    depth--;
+}
+void AST_Printer::visit(ExprStmt &node) {
+    cout << tab() << "ExprStmt, is_semi =  " << (node.is_semi ? "true" : "false") << endl;
+    depth++;
+    cout << tab() << "Expr : " << endl;
+    node.expr->accept(*this);
+    depth--;
+}
+void AST_Printer::visit(ItemStmt &node) {
+    cout << tab() << "ItemStmt" << endl;
+    depth++;
+    cout << tab() << "Item : " << endl;
+    node.item->accept(*this);
+    depth--;
+}
+void AST_Printer::visit(PathType &node) {
+    cout << tab() << "PathType, name =  " << node.name << endl;
+    cout << tab() << "Mutibility = " << mutibility_to_string(node.is_mut)
+         << ", Reference Type = " << reference_type_to_string(node.is_ref) << endl;
+    depth++;
+    AST_Walker::visit(node);
+    depth--;
+}
+void AST_Printer::visit(ArrayType &node) {
+    cout << tab() << "ArrayType" << endl;
+    cout << tab() << "Mutibility = " << mutibility_to_string(node.is_mut)
+         << ", Reference Type = " << reference_type_to_string(node.is_ref) << endl;
+    depth++;
+    cout << tab() << "Element Type : " << endl;
+    node.element_type->accept(*this);
+    cout << tab() << "Size Expr : " << endl;
+    node.size_expr->accept(*this);
+    depth--;
+}
+void AST_Printer::visit(UnitType &node) {
+    cout << tab() << "UnitType" << endl;
+    cout << tab() << "Mutibility = " << mutibility_to_string(node.is_mut)
+         << ", Reference Type = " << reference_type_to_string(node.is_ref) << endl;
+    depth++;
+    AST_Walker::visit(node);
+    depth--;
+}
+void AST_Printer::visit(IdentifierPattern &node) {
+    cout << tab() << "IdentifierPattern, name =  " << node.name << endl;
+    cout << tab() << "Mutibility = " << mutibility_to_string(node.is_mut)
+         << ", Reference Type = " << reference_type_to_string(node.is_ref) << endl;
+    depth++;
+    AST_Walker::visit(node);
+    depth--;
+}
