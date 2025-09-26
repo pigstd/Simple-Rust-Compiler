@@ -26,6 +26,8 @@ struct AST_Node {
     virtual ~AST_Node() = default;
     virtual void accept(AST_visitor &v) = 0;
 };
+using AST_Node_ptr = shared_ptr<AST_Node>;
+
 struct Expr_Node;
 struct Stmt_Node;
 struct Item_Node;

@@ -77,6 +77,9 @@ enum class ScopeKind {
 
 struct Scope {
     // 我玉玉症大发作：shared_ptr 不能循环引用
+    // 所以 parent 用 weak_ptr
+    // children 用 shared_ptr
+    // 之后也要注意
     weak_ptr<Scope> parent;
     ScopeKind kind;
     vector<Scope_ptr> children;
@@ -84,10 +87,10 @@ struct Scope {
     map<string, ValueDecl_ptr> value_namespace; // 值命名空间
 
     // for impl
-    Type_ptr impl_for_type; // impl 作用于 AST 树上的哪个类型
+    string impl_struct; // impl 作用于 struct 的名字
     RealType_ptr self_struct; // impl 作用的类型，在第二轮被解析出来
 
-    Scope(Scope_ptr parent_, ScopeKind kind_, Type_ptr impl_for_type_ = nullptr) : parent(parent_), kind(kind_), impl_for_type(impl_for_type_), self_struct(nullptr) {}
+    Scope(Scope_ptr parent_, ScopeKind kind_, string impl_struct_ = "") : parent(parent_), kind(kind_), impl_struct(impl_struct_), self_struct(nullptr) {}
 };
 
 struct TypeDecl { };
@@ -197,10 +200,11 @@ struct UsizeRealType : public RealType {
 
 struct ScopeBuilder_Visitor : public AST_Walker {
     vector<Scope_ptr> scope_stack; // 作用域栈，最后一个即为当前作用域
-    ScopeBuilder_Visitor() {
-        // 初始化作用域栈，加入根作用域
-        scope_stack.push_back(std::make_shared<Scope>(nullptr, ScopeKind::Root));
-    }
+    map<AST_Node_ptr, shared_ptr<Scope>> &node_scope_map;
+    bool block_is_in_function;
+    // 下一个 block 是不是一定是 fn foo() {} 的 body
+    // 如果是 block，那么在遍历的时候才加入，否则在遍历到 Fn 的时候就加入
+    ScopeBuilder_Visitor(Scope_ptr root_scope, map<AST_Node_ptr, shared_ptr<Scope>> &node_scope_map_);
     ~ScopeBuilder_Visitor() override = default;
     Scope_ptr current_scope() { return scope_stack.back(); }
     virtual void visit(LiteralExpr &node) override;
@@ -237,5 +241,14 @@ struct ScopeBuilder_Visitor : public AST_Walker {
     virtual void visit(UnitType &node) override;
     virtual void visit(IdentifierPattern &node) override;
 };
+
+struct Semantic_Checker {
+    // 这里用 shared_ptr 没有问题，应该
+    map<AST_Node_ptr, shared_ptr<Scope>> node_scope_map;
+    Scope_ptr root_scope;
+    Semantic_Checker();
+    void step1_build_scopes_and_collect_symbols(vector<Item_ptr> &items);
+};
+// 用来记录 AST 节点对应的作用域
 
 #endif // SEMANTIC_STEP1_H
