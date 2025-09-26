@@ -153,7 +153,7 @@ struct LiteralExpr : public Expr_Node {
 
 struct IdentifierExpr : public Expr_Node {
     string name;
-    IdentifierExpr(const string &name) : name(name) {}
+    IdentifierExpr(const string &name_) : name(name_) {}
     void accept(AST_visitor &v) override;
 };
 
@@ -181,32 +181,32 @@ struct BinaryExpr : public Expr_Node {
     Binary_Operator op;
     Expr_ptr left;
     Expr_ptr right;
-    BinaryExpr(Binary_Operator oper, Expr_ptr lhs, Expr_ptr rhs)
-        : op(oper), left(std::move(lhs)), right(std::move(rhs)) {}
+    BinaryExpr(Binary_Operator oper, Expr_ptr left_, Expr_ptr right_)
+        : op(oper), left(std::move(left_)), right(std::move(right_)) {}
     void accept(AST_visitor &v) override;
 };
 
 struct UnaryExpr : public Expr_Node {
     Unary_Operator op;
     Expr_ptr right;
-    UnaryExpr(Unary_Operator oper, Expr_ptr expr)
-        : op(oper), right(std::move(expr)) {}
+    UnaryExpr(Unary_Operator oper, Expr_ptr right_)
+        : op(oper), right(std::move(right_)) {}
     void accept(AST_visitor &v) override;
 };
 
 struct CallExpr : public Expr_Node {
     Expr_ptr callee;
     vector<Expr_ptr> arguments;
-    CallExpr(Expr_ptr callee, vector<Expr_ptr> args)
-        : callee(std::move(callee)), arguments(std::move(args)) {}
+    CallExpr(Expr_ptr callee_, vector<Expr_ptr> args_)
+        : callee(std::move(callee_)), arguments(std::move(args_)) {}
     void accept(AST_visitor &v) override;
 };
 
 struct FieldExpr : public Expr_Node {
     Expr_ptr base;
     string field_name;
-    FieldExpr(Expr_ptr base, const string &field)
-        : base(std::move(base)), field_name(field) {}
+    FieldExpr(Expr_ptr base_, const string &field_)
+        : base(std::move(base_)), field_name(field_) {}
     void accept(AST_visitor &v) override;
 };
 
@@ -221,15 +221,15 @@ struct StructExpr : public Expr_Node {
 struct IndexExpr : public Expr_Node {
     Expr_ptr base;
     Expr_ptr index;
-    IndexExpr(Expr_ptr base, Expr_ptr index)
-        : base(std::move(base)), index(std::move(index)) {}
+    IndexExpr(Expr_ptr base_, Expr_ptr index_)
+        : base(std::move(base_)), index(std::move(index_)) {}
     void accept(AST_visitor &v) override;
 };
 
 struct BlockExpr : public Expr_Node {
     vector<Stmt_ptr> statements;
     Stmt_ptr tail_statement; // 可选的尾随表达式，若最后有 ; 那么就是 nullptr
-    BlockExpr(vector<Stmt_ptr> stmts, Stmt_ptr tail = nullptr) : statements(std::move(stmts)), tail_statement(std::move(tail)) {}
+    BlockExpr(vector<Stmt_ptr> stmts_, Stmt_ptr tail_ = nullptr) : statements(std::move(stmts_)), tail_statement(std::move(tail_)) {}
     void accept(AST_visitor &v) override;
 };
 
@@ -244,49 +244,49 @@ struct IfExpr : public Expr_Node {
     Expr_ptr then_branch;
     Expr_ptr else_branch; // 如果没有 else 分支则为 nullptr
     bool must_return_unit;
-    IfExpr(Expr_ptr cond, Expr_ptr then_br, Expr_ptr else_br = nullptr)
-        : condition(std::move(cond)), then_branch(std::move(then_br)), else_branch(std::move(else_br)), must_return_unit(false) {}
+    IfExpr(Expr_ptr condition_, Expr_ptr then_branch_, Expr_ptr else_branch_ = nullptr)
+        : condition(std::move(condition_)), then_branch(std::move(then_branch_)), else_branch(std::move(else_branch_)), must_return_unit(false) {}
     void accept(AST_visitor &v) override;
 };
 struct WhileExpr : public Expr_Node {
     Expr_ptr condition;
     Expr_ptr body;
-    WhileExpr(Expr_ptr cond, Expr_ptr body)
-        : condition(std::move(cond)), body(std::move(body)) {}
+    WhileExpr(Expr_ptr condition_, Expr_ptr body_)
+        : condition(std::move(condition_)), body(std::move(body_)) {}
     void accept(AST_visitor &v) override;
 };
 struct LoopExpr : public Expr_Node {
     Expr_ptr body;
     bool must_return_unit;
-    LoopExpr(Expr_ptr body) : body(std::move(body)), must_return_unit(false) {}
+    LoopExpr(Expr_ptr body_) : body(std::move(body_)), must_return_unit(false) {}
     void accept(AST_visitor &v) override;
 };
 struct ReturnExpr : public Expr_Node {
     Expr_ptr return_value; // return 后面可以没有表达式，若没有则为 nullptr
-    ReturnExpr(Expr_ptr val = nullptr) : return_value(std::move(val)) {}
+    ReturnExpr(Expr_ptr return_value_ = nullptr) : return_value(std::move(return_value_)) {}
     void accept(AST_visitor &v) override;
 };
 struct BreakExpr : public Expr_Node {
     Expr_ptr break_value; // break 后面可以没有表达式，若没有则为 nullptr
-    BreakExpr(Expr_ptr val = nullptr) : break_value(std::move(val)) {}
+    BreakExpr(Expr_ptr break_value_ = nullptr) : break_value(std::move(break_value_)) {}
     void accept(AST_visitor &v) override;
 };
 struct ContinueExpr : public Expr_Node {
     Expr_ptr continue_value; // continue 后面可以没有表达式，若没有则为 nullptr
-    ContinueExpr(Expr_ptr val = nullptr) : continue_value(std::move(val)) {}
+    ContinueExpr(Expr_ptr continue_value_ = nullptr) : continue_value(std::move(continue_value_)) {}
     void accept(AST_visitor &v) override;
 };
 struct CastExpr : public Expr_Node {
     Expr_ptr expr;
     Type_ptr target_type;
-    CastExpr(Expr_ptr e, Type_ptr t) : expr(std::move(e)), target_type(std::move(t)) {}
+    CastExpr(Expr_ptr expr_, Type_ptr target_type_) : expr(std::move(expr_)), target_type(std::move(target_type_)) {}
     void accept(AST_visitor &v) override;
 };
 // base::name
 struct PathExpr : public Expr_Node {
     Expr_ptr base; // 可以是另一个 PathExpr
     string name;
-    PathExpr(Expr_ptr b, const string &n) : base(std::move(b)), name(n) {}
+    PathExpr(Expr_ptr base_, const string &name_) : base(std::move(base_)), name(name_) {}
     void accept(AST_visitor &v) override;
 };
 struct SelfExpr : public Expr_Node {
@@ -298,12 +298,12 @@ struct UnitExpr : public Expr_Node {
 struct RepeatArrayExpr : public Expr_Node {
     Expr_ptr element;
     Expr_ptr size; // 数组大小必须是一个常量 但是也可以是常量表达式
-    RepeatArrayExpr(Expr_ptr elem, Expr_ptr sz) : element(std::move(elem)), size(std::move(sz)) {}
+    RepeatArrayExpr(Expr_ptr element_, Expr_ptr size_) : element(std::move(element_)), size(std::move(size_)) {}
     void accept(AST_visitor &v) override;
 };
 struct ArrayExpr : public Expr_Node {
     vector<Expr_ptr> elements;
-    ArrayExpr(vector<Expr_ptr> elems) : elements(std::move(elems)) {}
+    ArrayExpr(vector<Expr_ptr> elements_) : elements(std::move(elements_)) {}
     void accept(AST_visitor &v) override;
 };
 
@@ -321,8 +321,8 @@ struct FnItem : public Item_Node {
     vector<pair<Pattern_ptr, Type_ptr>> parameters; // 参数名和参数类型
     Type_ptr return_type; // 返回类型，若是 nullptr 则说明返回 ()
     Expr_ptr body;
-    FnItem(const string &name, fn_reciever_type recv_type, vector<pair<Pattern_ptr, Type_ptr>> params, Type_ptr ret_type, Expr_ptr body)
-        : function_name(name), receiver_type(recv_type), parameters(std::move(params)), return_type(std::move(ret_type)), body(std::move(body)) {}
+    FnItem(const string &function_name_, fn_reciever_type receiver_type_, vector<pair<Pattern_ptr, Type_ptr>> parameters_, Type_ptr return_type_, Expr_ptr body_)
+        : function_name(function_name_), receiver_type(receiver_type_), parameters(std::move(parameters_)), return_type(std::move(return_type_)), body(std::move(body_)) {}
     void accept(AST_visitor &v) override;
 };
 struct StructItem : public Item_Node {
@@ -335,15 +335,15 @@ struct StructItem : public Item_Node {
 struct EnumItem : public Item_Node {
     string enum_name;
     vector<string> variants; // 只考虑简单的常量枚举
-    EnumItem(const string &name, vector<string> vars)
-        : enum_name(name), variants(std::move(vars)) {}
+    EnumItem(const string &enum_name_, vector<string> variants_)
+        : enum_name(enum_name_), variants(std::move(variants_)) {}
     void accept(AST_visitor &v) override;
 };
 struct ImplItem : public Item_Node {
     string struct_name; // impl 后面的结构体名
     vector<Item_ptr> methods; // 只考虑方法
-    ImplItem(const string &name, vector<Item_ptr> mets)
-        : struct_name(name), methods(std::move(mets)) {}
+    ImplItem(const string &struct_name_, vector<Item_ptr> methods_)
+        : struct_name(struct_name_), methods(std::move(methods_)) {}
     void accept(AST_visitor &v) override;
 };
 struct ConstItem : public Item_Node {
@@ -352,27 +352,27 @@ struct ConstItem : public Item_Node {
     // 直接要求必须有类型
     Type_ptr const_type;
     Expr_ptr value;
-    ConstItem(const string &name, Type_ptr type, Expr_ptr val)
-        : const_name(name), const_type(std::move(type)), value(std::move(val)) {}
+    ConstItem(const string &const_name_, Type_ptr const_type_, Expr_ptr value_)
+        : const_name(const_name_), const_type(std::move(const_type_)), value(std::move(value_)) {}
     void accept(AST_visitor &v) override;
 };
 
 struct LetStmt : public Stmt_Node {
     Pattern_ptr pattern;
     Expr_ptr initializer; // 可以没有初始化表达式，若没有则为 nullptr
-    LetStmt(Pattern_ptr pat, Expr_ptr init = nullptr)
-        : pattern(std::move(pat)), initializer(std::move(init)) {}
+    LetStmt(Pattern_ptr pattern_, Expr_ptr initializer_ = nullptr)
+        : pattern(std::move(pattern_)), initializer(std::move(initializer_)) {}
     void accept(AST_visitor &v) override;
 };
 struct ExprStmt : public Stmt_Node {
     Expr_ptr expr;
     bool is_semi; // 是否以分号结尾
-    ExprStmt(Expr_ptr e, bool semi = false) : expr(std::move(e)), is_semi(semi) {}
+    ExprStmt(Expr_ptr expr_, bool is_semi_ = false) : expr(std::move(expr_)), is_semi(is_semi_) {}
     void accept(AST_visitor &v) override;
 };
 struct ItemStmt : public Stmt_Node {
     Item_ptr item;
-    ItemStmt(Item_ptr it) : item(std::move(it)) {}
+    ItemStmt(Item_ptr item_) : item(std::move(item_)) {}
     void accept(AST_visitor &v) override;
 };
 
@@ -391,7 +391,7 @@ struct PathType : public Type_Node {
     string name;
     Mutibility is_mut;
     ReferenceType is_ref;
-    PathType(const string &name, Mutibility mut, ReferenceType ref) : name(name), is_mut(mut), is_ref(ref) {}
+    PathType(const string &name_, Mutibility is_mut_, ReferenceType is_ref_) : name(name_), is_mut(is_mut_), is_ref(is_ref_) {}
     void accept(AST_visitor &v) override;
 };
 struct ArrayType : public Type_Node {
@@ -399,14 +399,14 @@ struct ArrayType : public Type_Node {
     Expr_ptr size_expr; // 数组大小必须是一个常量 但是也可以是常量表达式
     Mutibility is_mut;
     ReferenceType is_ref;
-    ArrayType(Type_ptr elem_type, Expr_ptr sz, Mutibility mut, ReferenceType ref)
-        : element_type(std::move(elem_type)), size_expr(std::move(sz)), is_mut(mut), is_ref(ref) {}
+    ArrayType(Type_ptr element_type_, Expr_ptr size_expr_, Mutibility is_mut_, ReferenceType is_ref_)
+        : element_type(std::move(element_type_)), size_expr(std::move(size_expr_)), is_mut(is_mut_), is_ref(is_ref_) {}
     void accept(AST_visitor &v) override;
 };
 struct UnitType : public Type_Node {
     Mutibility is_mut;
     ReferenceType is_ref;
-    UnitType(Mutibility mut, ReferenceType ref) : is_mut(mut), is_ref(ref) {}
+    UnitType(Mutibility is_mut_, ReferenceType is_ref_) : is_mut(is_mut_), is_ref(is_ref_) {}
     void accept(AST_visitor &v) override;
 };
 
@@ -414,14 +414,14 @@ struct IdentifierPattern : public Pattern_Node {
     string name;
     Mutibility is_mut;
     ReferenceType is_ref;
-    IdentifierPattern(const string &name, Mutibility mut, ReferenceType ref) : name(name), is_mut(mut), is_ref(ref) {}
+    IdentifierPattern(const string &name_, Mutibility is_mut_, ReferenceType is_ref_) : name(name_), is_mut(is_mut_), is_ref(is_ref_) {}
     void accept(AST_visitor &v) override;
 };
 
 class Parser {
 public:
     // 将分词后的结果传给 Parser
-    Parser(Lexer lexer) : lexer(lexer) {}
+    Parser(Lexer lexer_) : lexer(lexer_) {}
     ~Parser() = default;
     vector<Item_ptr> parse();
 private:

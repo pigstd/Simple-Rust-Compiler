@@ -269,14 +269,14 @@ BlockExpr_ptr Parser::parse_block_expression() {
         }
         if (tail_statement) {
             if (!tail_statement_has_semi) {
-                // 如果是 if, loop，那么打上标记，返回值一定是 ()
+                // 如果是 if, loop，那么打上标记，返回值一定是 () 或者 NeverType
                 // 如果 While，不用管
                 // 否则 CE
                 if (auto if_expr = dynamic_cast<IfExpr*>(tail_statement.get())) {
                     if_expr->must_return_unit = true;
                 } else if (auto loop_expr = dynamic_cast<LoopExpr*>(tail_statement.get())) {
                     loop_expr->must_return_unit = true;
-                } else if (auto while_expr = dynamic_cast<WhileExpr*>(tail_statement.get())) {
+                } else if ([[maybe_unused]]auto while_expr = dynamic_cast<WhileExpr*>(tail_statement.get())) {
                     // do nothing
                     // while 一定返回 ()
                 } else {
@@ -736,6 +736,7 @@ string literal_type_to_string(LiteralType type) {
         case LiteralType::STRING: return "string";
         case LiteralType::CHAR: return "char";
         case LiteralType::BOOL: return "bool";
+        default: return "unknown_literal_type";
     }
 }
 
@@ -770,6 +771,7 @@ string binary_operator_to_string(Binary_Operator op) {
         case Binary_Operator::XOR_ASSIGN: return "^=";
         case Binary_Operator::SHL_ASSIGN: return "<<=";
         case Binary_Operator::SHR_ASSIGN: return ">>=";
+        default: return "unknown_binary_operator";
     }
 }
 
@@ -780,6 +782,7 @@ string unary_operator_to_string(Unary_Operator op) {
         case Unary_Operator::REF: return "&";
         case Unary_Operator::REF_MUT: return "&mut";
         case Unary_Operator::DEREF: return "*";
+        default: return "unknown_unary_operator";
     }
 }
 
@@ -789,6 +792,7 @@ string fn_reciever_type_to_string(fn_reciever_type type) {
         case fn_reciever_type::SELF: return "self";
         case fn_reciever_type::SELF_REF: return "&self";
         case fn_reciever_type::SELF_REF_MUT: return "&mut self";
+        default: return "unknown receiver type";
     }
 }
 
@@ -796,6 +800,7 @@ string mutibility_to_string(Mutibility mut) {
     switch (mut) {
         case Mutibility::IMMUTABLE: return "immutable";
         case Mutibility::MUTABLE: return "mutable";
+        default: return "unknown_mutibility";
     }
 }
 
@@ -803,5 +808,6 @@ string reference_type_to_string(ReferenceType ref) {
     switch (ref) {
         case ReferenceType::NO_REF: return "no_ref";
         case ReferenceType::REF: return "ref";
+        default: return "unknown_reference_type";
     }
 }

@@ -87,7 +87,7 @@ struct Scope {
     Type_ptr impl_for_type; // impl 作用于 AST 树上的哪个类型
     RealType_ptr self_struct; // impl 作用的类型，在第二轮被解析出来
 
-    Scope(Scope_ptr parent, ScopeKind kind, Type_ptr impl_for_type = nullptr) : parent(parent), kind(kind), impl_for_type(impl_for_type), self_struct(nullptr) {}
+    Scope(Scope_ptr parent_, ScopeKind kind_, Type_ptr impl_for_type_ = nullptr) : parent(parent_), kind(kind_), impl_for_type(impl_for_type_), self_struct(nullptr) {}
 };
 
 struct TypeDecl { };
@@ -101,13 +101,13 @@ struct StructDecl : public TypeDecl {
     // example : point.len() -> methods, point::len() -> associated_func
     map<string, ConstDecl_ptr> associated_const;
     // example : point::ZERO -> associated_const
-    StructDecl(StructItem_ptr ast_node) : ast_node(ast_node) {}
+    StructDecl(StructItem_ptr ast_node_) : ast_node(ast_node_) {}
 };
 
 struct EnumDecl : public TypeDecl {
     EnumItem_ptr ast_node;
     map<string, int> variants; // 变体名和对应的值，第二轮填
-    EnumDecl(EnumItem_ptr ast_node) : ast_node(ast_node) {}
+    EnumDecl(EnumItem_ptr ast_node_) : ast_node(ast_node_) {}
 };
 
 struct FnDecl : public ValueDecl {
@@ -115,14 +115,14 @@ struct FnDecl : public ValueDecl {
     Scope_ptr function_scope; // 函数的作用域
     vector<pair<string, RealType_ptr>> parameters; // 参数名和参数类型，第二轮填
     RealType_ptr return_type; // 返回类型，第二轮填
-    FnDecl(FnItem_ptr ast_node, Scope_ptr function_scope)
-        : ast_node(ast_node), function_scope(function_scope) {}
+    FnDecl(FnItem_ptr ast_node_, Scope_ptr function_scope_)
+        : ast_node(ast_node_), function_scope(function_scope_) {}
 };
 
 struct ConstDecl : public ValueDecl {
     ConstItem_ptr ast_node;
     RealType_ptr const_type; // 常量类型，第二轮填
-    ConstDecl(ConstItem_ptr ast_node) : ast_node(ast_node) {}
+    ConstDecl(ConstItem_ptr ast_node_) : ast_node(ast_node_) {}
 };
 
 struct ImplDecl : public ValueDecl {
@@ -131,8 +131,8 @@ struct ImplDecl : public ValueDecl {
     Type_ptr impl_for_type; // impl 作用于哪个类型，存引用
     RealType_ptr self_struct; // impl 作用的类型，在第二轮被解析出来
     map<string, FnDecl_ptr> methods;
-    ImplDecl(ImplItem_ptr ast_node, Scope_ptr impl_scope, Type_ptr impl_for_type)
-        : ast_node(ast_node), impl_scope(impl_scope), impl_for_type(impl_for_type), self_struct(nullptr) {}
+    ImplDecl(ImplItem_ptr ast_node_, Scope_ptr impl_scope_, Type_ptr impl_for_type_)
+        : ast_node(ast_node_), impl_scope(impl_scope_), impl_for_type(impl_for_type_), self_struct(nullptr) {}
 
 };
 
@@ -170,14 +170,14 @@ struct ArrayRealType : public RealType {
 struct StructRealType : public RealType {
     string name;
     StructDecl_ptr decl; // 具体的结构体类型
-    StructRealType(const string &name, Mutibility mut, ReferenceType ref, StructDecl_ptr struct_decl = nullptr)
-        : RealType(RealTypeKind::STRUCT, mut, ref), name(name), decl(struct_decl) {}
+    StructRealType(const string &name_, Mutibility mut, ReferenceType ref, StructDecl_ptr struct_decl = nullptr)
+        : RealType(RealTypeKind::STRUCT, mut, ref), name(name_), decl(struct_decl) {}
 };
 struct EnumRealType : public RealType {
     string name;
     EnumDecl_ptr decl; // 具体的枚举类型
-    EnumRealType(const string &name, Mutibility mut, ReferenceType ref, EnumDecl_ptr enum_decl = nullptr)
-        : RealType(RealTypeKind::ENUM, mut, ref), name(name), decl(enum_decl) {}
+    EnumRealType(const string &name_, Mutibility mut, ReferenceType ref, EnumDecl_ptr enum_decl = nullptr)
+        : RealType(RealTypeKind::ENUM, mut, ref), name(name_), decl(enum_decl) {}
 };
 struct BoolRealType : public RealType {
     BoolRealType(Mutibility mut, ReferenceType ref) : RealType(RealTypeKind::BOOL, mut, ref) {}
@@ -203,7 +203,39 @@ struct ScopeBuilder_Visitor : public AST_Walker {
     }
     ~ScopeBuilder_Visitor() override = default;
     Scope_ptr current_scope() { return scope_stack.back(); }
-    virtual void visit(LiteralExpr_ptr node) override;
+    virtual void visit(LiteralExpr &node) override;
+    virtual void visit(IdentifierExpr &node) override;
+    virtual void visit(BinaryExpr &node) override;
+    virtual void visit(UnaryExpr &node) override;
+    virtual void visit(CallExpr &node) override;
+    virtual void visit(FieldExpr &node) override;
+    virtual void visit(StructExpr &node) override;
+    virtual void visit(IndexExpr &node) override;
+    virtual void visit(BlockExpr &node) override;
+    virtual void visit(IfExpr &node) override;
+    virtual void visit(WhileExpr &node) override;
+    virtual void visit(LoopExpr &node) override;
+    virtual void visit(ReturnExpr &node) override;
+    virtual void visit(BreakExpr &node) override;
+    virtual void visit(ContinueExpr &node) override;
+    virtual void visit(CastExpr &node) override;
+    virtual void visit(PathExpr &node) override;
+    virtual void visit(SelfExpr &node) override;
+    virtual void visit(UnitExpr &node) override;
+    virtual void visit(ArrayExpr &node) override;
+    virtual void visit(RepeatArrayExpr &node) override;
+    virtual void visit(FnItem &node) override;
+    virtual void visit(StructItem &node) override;
+    virtual void visit(EnumItem &node) override;
+    virtual void visit(ImplItem &node) override;
+    virtual void visit(ConstItem &node) override;
+    virtual void visit(LetStmt &node) override;
+    virtual void visit(ExprStmt &node) override;
+    virtual void visit(ItemStmt &node) override;
+    virtual void visit(PathType &node) override;
+    virtual void visit(ArrayType &node) override;
+    virtual void visit(UnitType &node) override;
+    virtual void visit(IdentifierPattern &node) override;
 };
 
 #endif // SEMANTIC_STEP1_H
