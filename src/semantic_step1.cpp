@@ -138,7 +138,7 @@ void ScopeBuilder_Visitor::visit(FnItem &node) {
 void ScopeBuilder_Visitor::visit(StructItem &node) {
     node_scope_map[make_shared<StructItem>(node)] = current_scope();
 
-    StructDecl_ptr struct_decl = make_shared<StructDecl>(node, current_scope());
+    StructDecl_ptr struct_decl = make_shared<StructDecl>(node);
     // 加入 type_namespace
     if (current_scope()->type_namespace.find(node.struct_name) != 
         current_scope()->type_namespace.end()) {
@@ -151,7 +151,7 @@ void ScopeBuilder_Visitor::visit(StructItem &node) {
 void ScopeBuilder_Visitor::visit(EnumItem &node) {
     node_scope_map[make_shared<EnumItem>(node)] = current_scope();
 
-    EnumDecl_ptr enum_decl = make_shared<EnumDecl>(node, current_scope());
+    EnumDecl_ptr enum_decl = make_shared<EnumDecl>(node);
     // 加入 type_namespace
     if (current_scope()->type_namespace.find(node.enum_name) != 
         current_scope()->type_namespace.end()) {
@@ -172,7 +172,7 @@ void ScopeBuilder_Visitor::visit(ImplItem &node) {
 void ScopeBuilder_Visitor::visit(ConstItem &node) {
     node_scope_map[make_shared<ConstItem>(node)] = current_scope();
 
-    ConstDecl_ptr const_decl = make_shared<ConstDecl>(node, current_scope());
+    ConstDecl_ptr const_decl = make_shared<ConstDecl>(node);
     // 加入 value_namespace
     if (current_scope()->value_namespace.find(node.const_name) != 
         current_scope()->value_namespace.end()) {

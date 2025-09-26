@@ -98,43 +98,43 @@ struct ValueDecl { };
 // 作为基类
 
 struct StructDecl : public TypeDecl {
-    StructItem_ptr ast_node;
+    StructItem &ast_node;
     map<string, RealType_ptr> fields; // 字段名的类型，第二轮填
     map<string, FnDecl_ptr> methods, associated_func;
     // example : point.len() -> methods, point::len() -> associated_func
     map<string, ConstDecl_ptr> associated_const;
     // example : point::ZERO -> associated_const
-    StructDecl(StructItem_ptr ast_node_) : ast_node(ast_node_) {}
+    StructDecl(StructItem &ast_node_) : ast_node(ast_node_) {}
 };
 
 struct EnumDecl : public TypeDecl {
-    EnumItem_ptr ast_node;
+    EnumItem &ast_node;
     map<string, int> variants; // 变体名和对应的值，第二轮填
-    EnumDecl(EnumItem_ptr ast_node_) : ast_node(ast_node_) {}
+    EnumDecl(EnumItem &ast_node_) : ast_node(ast_node_) {}
 };
 
 struct FnDecl : public ValueDecl {
-    FnItem_ptr ast_node;
+    FnItem &ast_node;
     Scope_ptr function_scope; // 函数的作用域
     vector<pair<string, RealType_ptr>> parameters; // 参数名和参数类型，第二轮填
     RealType_ptr return_type; // 返回类型，第二轮填
-    FnDecl(FnItem_ptr ast_node_, Scope_ptr function_scope_)
+    FnDecl(FnItem &ast_node_, Scope_ptr function_scope_)
         : ast_node(ast_node_), function_scope(function_scope_) {}
 };
 
 struct ConstDecl : public ValueDecl {
-    ConstItem_ptr ast_node;
+    ConstItem &ast_node;
     RealType_ptr const_type; // 常量类型，第二轮填
-    ConstDecl(ConstItem_ptr ast_node_) : ast_node(ast_node_) {}
+    ConstDecl(ConstItem &ast_node_) : ast_node(ast_node_) {}
 };
 
 struct ImplDecl : public ValueDecl {
-    ImplItem_ptr ast_node;
+    ImplItem &ast_node;
     Scope_ptr impl_scope; // impl 的作用域
     Type_ptr impl_for_type; // impl 作用于哪个类型，存引用
     RealType_ptr self_struct; // impl 作用的类型，在第二轮被解析出来
     map<string, FnDecl_ptr> methods;
-    ImplDecl(ImplItem_ptr ast_node_, Scope_ptr impl_scope_, Type_ptr impl_for_type_)
+    ImplDecl(ImplItem &ast_node_, Scope_ptr impl_scope_, Type_ptr impl_for_type_)
         : ast_node(ast_node_), impl_scope(impl_scope_), impl_for_type(impl_for_type_), self_struct(nullptr) {}
 
 };
@@ -200,11 +200,11 @@ struct UsizeRealType : public RealType {
 
 struct ScopeBuilder_Visitor : public AST_Walker {
     vector<Scope_ptr> scope_stack; // 作用域栈，最后一个即为当前作用域
-    map<AST_Node_ptr, shared_ptr<Scope>> &node_scope_map;
+    map<AST_Node_ptr, Scope_ptr> &node_scope_map;
     bool block_is_in_function;
     // 下一个 block 是不是一定是 fn foo() {} 的 body
     // 如果是 block，那么在遍历的时候才加入，否则在遍历到 Fn 的时候就加入
-    ScopeBuilder_Visitor(Scope_ptr root_scope, map<AST_Node_ptr, shared_ptr<Scope>> &node_scope_map_);
+    ScopeBuilder_Visitor(Scope_ptr root_scope, map<AST_Node_ptr, Scope_ptr> &node_scope_map_);
     ~ScopeBuilder_Visitor() override = default;
     Scope_ptr current_scope() { return scope_stack.back(); }
     virtual void visit(LiteralExpr &node) override;
@@ -244,7 +244,7 @@ struct ScopeBuilder_Visitor : public AST_Walker {
 
 struct Semantic_Checker {
     // 这里用 shared_ptr 没有问题，应该
-    map<AST_Node_ptr, shared_ptr<Scope>> node_scope_map;
+    map<AST_Node_ptr, Scope_ptr> node_scope_map;
     Scope_ptr root_scope;
     Semantic_Checker();
     void step1_build_scopes_and_collect_symbols(vector<Item_ptr> &items);
