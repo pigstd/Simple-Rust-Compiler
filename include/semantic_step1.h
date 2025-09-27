@@ -93,6 +93,19 @@ struct Scope {
     Scope(Scope_ptr parent_, ScopeKind kind_, string impl_struct_ = "") : parent(parent_), kind(kind_), impl_struct(impl_struct_), self_struct(nullptr) {}
 };
 
+/*
+remark : 关于避免循环引用
+1. AST 树不记录父亲，儿子就用 shared_ptr
+2. Scope 的 parent 用 weak_ptr，children 用 shared_ptr
+3. node_scope_map ： 因为相当于存了若干对 shared ptr，所以不会循环引用
+4. Decl 里面存 AST 节点的引用，不存指针
+5. Decl 里面存的 RealType 用 shared_ptr, RealType 里面存的 Decl 用 weak_ptr
+
+shared_ptr 的顺序：
+Scope -> Decl -> RealType -> AST_Node
+如果不是这个顺序的，最好用 weak_ptr
+*/
+
 struct TypeDecl { };
 struct ValueDecl { };
 // 作为基类
@@ -115,7 +128,7 @@ struct EnumDecl : public TypeDecl {
 
 struct FnDecl : public ValueDecl {
     FnItem &ast_node;
-    Scope_ptr function_scope; // 函数的作用域
+    weak_ptr<Scope> function_scope; // 函数的作用域
     vector<pair<string, RealType_ptr>> parameters; // 参数名和参数类型，第二轮填
     RealType_ptr return_type; // 返回类型，第二轮填
     FnDecl(FnItem &ast_node_, Scope_ptr function_scope_)
@@ -130,7 +143,7 @@ struct ConstDecl : public ValueDecl {
 
 struct ImplDecl : public ValueDecl {
     ImplItem &ast_node;
-    Scope_ptr impl_scope; // impl 的作用域
+    weak_ptr<Scope> impl_scope; // impl 的作用域
     Type_ptr impl_for_type; // impl 作用于哪个类型，存引用
     RealType_ptr self_struct; // impl 作用的类型，在第二轮被解析出来
     map<string, FnDecl_ptr> methods;
@@ -172,13 +185,13 @@ struct ArrayRealType : public RealType {
 };
 struct StructRealType : public RealType {
     string name;
-    StructDecl_ptr decl; // 具体的结构体类型
+    weak_ptr<StructDecl> decl; // 具体的结构体类型
     StructRealType(const string &name_, Mutibility mut, ReferenceType ref, StructDecl_ptr struct_decl = nullptr)
         : RealType(RealTypeKind::STRUCT, mut, ref), name(name_), decl(struct_decl) {}
 };
 struct EnumRealType : public RealType {
     string name;
-    EnumDecl_ptr decl; // 具体的枚举类型
+    weak_ptr<EnumDecl> decl; // 具体的枚举类型
     EnumRealType(const string &name_, Mutibility mut, ReferenceType ref, EnumDecl_ptr enum_decl = nullptr)
         : RealType(RealTypeKind::ENUM, mut, ref), name(name_), decl(enum_decl) {}
 };
