@@ -2,7 +2,6 @@
 #define SEMANTIC_STEP2_H
 #include "ast.h"
 #include "semantic_step1.h"
-#include <map>
 #include <memory>
 using std::shared_ptr;
 struct RealType;
