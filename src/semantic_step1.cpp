@@ -210,13 +210,3 @@ void ScopeBuilder_Visitor::visit(IdentifierPattern &node) {
     node_scope_map[make_shared<IdentifierPattern>(node)] = current_scope();
     AST_Walker::visit(node);
 }
-
-Semantic_Checker::Semantic_Checker() :
-    root_scope(std::make_shared<Scope>(nullptr, ScopeKind::Root)) {}
-
-void Semantic_Checker::step1_build_scopes_and_collect_symbols(vector<Item_ptr> &items) {
-    ScopeBuilder_Visitor visitor(root_scope, node_scope_map);
-    for (auto &item : items) {
-        item->accept(visitor);
-    }
-}
