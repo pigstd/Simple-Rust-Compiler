@@ -62,9 +62,11 @@ struct NeverRealType : public RealType {
 };
 struct ArrayRealType : public RealType {
     RealType_ptr element_type;
-    size_t size; // 数组大小必须是一个常量，在第二轮被解析出来
-    ArrayRealType(RealType_ptr elem_type, size_t sz, Mutibility mut, ReferenceType ref)
-        : RealType(RealTypeKind::ARRAY, mut, ref), element_type(elem_type), size(sz) {}
+    Expr_ptr size_expr; // 数组大小的表达式，在第二轮被解析出来
+    size_t size; // 数组大小必须是一个常量，在第三轮被解析出来
+    bool size_is_parsed; // size 是否已经解析出大小
+    ArrayRealType(RealType_ptr elem_type, Expr_ptr size_expr_, Mutibility mut, ReferenceType ref)
+        : RealType(RealTypeKind::ARRAY, mut, ref), element_type(elem_type), size_expr(size_expr_), size(0), size_is_parsed(false) {}
 };
 struct StructRealType : public RealType {
     string name;
@@ -105,7 +107,7 @@ struct StrRealType : public RealType {
 
 
 // 根据 AST 的 Type 找到真正的类型 RealType，并且返回指针
-RealType_ptr find_real_type(Scope_ptr current_scope, Type_ptr type_ast);
+RealType_ptr find_real_type(Scope_ptr current_scope, Type_ptr type_ast, map<Type_ptr, RealType_ptr> &type_map);
 
 /*
 dfs Scope tree

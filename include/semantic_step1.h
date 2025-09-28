@@ -64,7 +64,7 @@ struct Scope {
     map<string, ValueDecl_ptr> value_namespace; // 值命名空间
 
     // for impl
-    string impl_struct; // impl 作用于 struct 的名字
+    string impl_struct; // impl 作用于 struct 的名字，若这个 Scope 不是 impl，则为空字符串
     RealType_ptr self_struct; // impl 作用的类型，在第二轮被解析出来
 
     Scope(Scope_ptr parent_, ScopeKind kind_, string impl_struct_ = "") : parent(parent_), kind(kind_), impl_struct(impl_struct_), self_struct(nullptr) {}
@@ -83,8 +83,25 @@ Scope -> Decl -> RealType -> AST_Node
 如果不是这个顺序的，最好用 weak_ptr
 */
 
-struct TypeDecl { };
-struct ValueDecl { };
+enum class TypeDeclKind {
+    Struct,
+    Enum,
+};
+enum class ValueDeclKind {
+    Function,
+    Constant,
+};
+
+struct TypeDecl {
+    TypeDeclKind kind;
+    virtual ~TypeDecl() = default;
+    TypeDecl(TypeDeclKind kind_) : kind(kind_) {}
+};
+struct ValueDecl {
+    ValueDeclKind kind;
+    virtual ~ValueDecl() = default;
+    ValueDecl(ValueDeclKind kind_) : kind(kind_) {}
+};
 // 作为基类
 
 struct StructDecl : public TypeDecl {
@@ -94,39 +111,30 @@ struct StructDecl : public TypeDecl {
     // example : point.len() -> methods, point::len() -> associated_func
     map<string, ConstDecl_ptr> associated_const;
     // example : point::ZERO -> associated_const
-    StructDecl(StructItem &ast_node_) : ast_node(ast_node_) {}
+    StructDecl(StructItem &ast_node_) : TypeDecl(TypeDeclKind::Struct), ast_node(ast_node_) {}
+    virtual ~StructDecl() = default;
 };
 
 struct EnumDecl : public TypeDecl {
     EnumItem &ast_node;
     map<string, int> variants; // 变体名和对应的值，第二轮填
-    EnumDecl(EnumItem &ast_node_) : ast_node(ast_node_) {}
+    EnumDecl(EnumItem &ast_node_) : TypeDecl(TypeDeclKind::Enum), ast_node(ast_node_) {}
+    virtual ~EnumDecl() = default;
 };
 
 struct FnDecl : public ValueDecl {
     FnItem &ast_node;
     weak_ptr<Scope> function_scope; // 函数的作用域
-    vector<pair<string, RealType_ptr>> parameters; // 参数名和参数类型，第二轮填
+    vector<pair<Pattern_ptr, RealType_ptr>> parameters; // 参数名(pattern)和参数类型，第二轮填
     RealType_ptr return_type; // 返回类型，第二轮填
     FnDecl(FnItem &ast_node_, Scope_ptr function_scope_)
-        : ast_node(ast_node_), function_scope(function_scope_) {}
+        : ValueDecl(ValueDeclKind::Function), ast_node(ast_node_), function_scope(function_scope_) {}
 };
 
 struct ConstDecl : public ValueDecl {
     ConstItem &ast_node;
     RealType_ptr const_type; // 常量类型，第二轮填
-    ConstDecl(ConstItem &ast_node_) : ast_node(ast_node_) {}
-};
-
-struct ImplDecl : public ValueDecl {
-    ImplItem &ast_node;
-    weak_ptr<Scope> impl_scope; // impl 的作用域
-    Type_ptr impl_for_type; // impl 作用于哪个类型，存引用
-    RealType_ptr self_struct; // impl 作用的类型，在第二轮被解析出来
-    map<string, FnDecl_ptr> methods;
-    ImplDecl(ImplItem &ast_node_, Scope_ptr impl_scope_, Type_ptr impl_for_type_)
-        : ast_node(ast_node_), impl_scope(impl_scope_), impl_for_type(impl_for_type_), self_struct(nullptr) {}
-
+    ConstDecl(ConstItem &ast_node_) : ValueDecl(ValueDeclKind::Constant), ast_node(ast_node_) {}
 };
 
 struct ScopeBuilder_Visitor : public AST_Walker {
