@@ -361,9 +361,11 @@ struct ConstItem : public Item_Node {
 
 struct LetStmt : public Stmt_Node {
     Pattern_ptr pattern;
-    Expr_ptr initializer; // 可以没有初始化表达式，若没有则为 nullptr
-    LetStmt(Pattern_ptr pattern_, Expr_ptr initializer_ = nullptr)
-        : pattern(std::move(pattern_)), initializer(std::move(initializer_)) {}
+    Type_ptr type; // 变量类型，不支持隐式类型推导，所以必须有类型
+    Expr_ptr initializer;
+    // 不知道是否支持没有 initializer 的情况，先假设支持，如果没有 initializer 则为 nullptr
+    LetStmt(Pattern_ptr pattern_, Type_ptr type_, Expr_ptr initializer_)
+        : pattern(std::move(pattern_)), type(std::move(type_)), initializer(std::move(initializer_)) {}
     void accept(AST_visitor &v) override;
 };
 struct ExprStmt : public Stmt_Node {

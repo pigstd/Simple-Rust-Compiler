@@ -111,7 +111,10 @@ void AST_Walker::visit(ConstItem &node) {
 }
 void AST_Walker::visit(LetStmt &node) {
     node.pattern->accept(*this);
-    node.initializer->accept(*this);
+    node.type->accept(*this);
+    if (node.initializer) {
+        node.initializer->accept(*this);
+    }
 }
 void AST_Walker::visit(ExprStmt &node) { node.expr->accept(*this); }
 void AST_Walker::visit(ItemStmt &node) { node.item->accept(*this); }
@@ -204,6 +207,9 @@ void AST_Printer::visit(BlockExpr &node) {
 }
 void AST_Printer::visit(IfExpr &node) {
     cout << tab() << "IfExpr" << endl;
+    if (node.must_return_unit) {
+        cout << tab() << "(must return unit)" << endl;
+    }
     depth++;
     cout << tab() << "Condition : " << endl;
     node.condition->accept(*this);
@@ -226,6 +232,9 @@ void AST_Printer::visit(WhileExpr &node) {
 }
 void AST_Printer::visit(LoopExpr &node) {
     cout << tab() << "LoopExpr" << endl;
+    if (node.must_return_unit) {
+        cout << tab() << "(must return unit)" << endl;
+    }
     depth++;
     cout << tab() << "Body : " << endl;
     node.body->accept(*this);
@@ -366,6 +375,8 @@ void AST_Printer::visit(LetStmt &node) {
     depth++;
     cout << tab() << "Pattern : " << endl;
     node.pattern->accept(*this);
+    cout << tab() << "Type : " << endl;
+    node.type->accept(*this);
     if (node.initializer) {
         cout << tab() << "Initializer : " << endl;
         node.initializer->accept(*this);

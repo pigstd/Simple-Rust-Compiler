@@ -212,7 +212,7 @@ LetStmt_ptr Parser::parse_let_statement() {
         initializer = parse_expression();
     }
     lexer.consume_expect_token(Token_type::SEMICOLON);
-    return std::make_shared<LetStmt>(std::move(pattern), std::move(initializer));
+    return std::make_shared<LetStmt>(std::move(pattern), std::move(type), std::move(initializer));
 }
 ExprStmt_ptr Parser::parse_expr_statement() {
     // example :
@@ -234,6 +234,10 @@ ItemStmt_ptr Parser::parse_item_statement() {
 
 Stmt_ptr Parser::parse_statement() {
     // 这里只需要考虑 let, expression, item
+    // 关于 if while loop:
+    // 若是 if while loop 开头，这个时候作为语句，可以不以分号结尾（即，这个 statement 就只有这个语句，不能 if 开头然后做运算）
+    // 如果是进入了 parse_expr_statement，那么 if 后面可以做运算（也可以没有分号，这个时候是尾随表达式）
+    // 所以 statement 里面要先把 if while loop 解析掉
     Token token = lexer.peek_token();
     if (token.type == Token_type::LET) {
         return parse_let_statement();
@@ -243,6 +247,19 @@ Stmt_ptr Parser::parse_statement() {
                token.type == Token_type::IMPL ||
                token.type == Token_type::CONST) {
         return parse_item_statement();
+    } else if (token.type == Token_type::IF ||
+               token.type == Token_type::WHILE ||
+               token.type == Token_type::LOOP) {
+        Expr_ptr expr = nullptr;
+        if (token.type == Token_type::IF) { expr = parse_if_expression(); }
+        else if (token.type == Token_type::WHILE) { expr = parse_while_expression(); }
+        else if (token.type == Token_type::LOOP) { expr = parse_loop_expression(); }
+        bool is_semi = false;
+        if (lexer.peek_token().type == Token_type::SEMICOLON) {
+            lexer.consume_expect_token(Token_type::SEMICOLON);
+            is_semi = true;
+        }
+        return std::make_shared<ExprStmt>(std::move(expr), is_semi);
     } else {
         return parse_expr_statement();
     }
@@ -255,6 +272,8 @@ BlockExpr_ptr Parser::parse_block_expression() {
     vector<Stmt_ptr> statements;
     Stmt_ptr tail_statement = nullptr;
     bool tail_statement_has_semi = true;
+    // 如果最后一个是 expr，那么就是 expr，否则就是 nullptr
+    Expr_ptr tail_expr = nullptr;
     while (lexer.peek_token().type != Token_type::RIGHT_BRACE) {
         // 跳过多余的分号
         if (lexer.peek_token().type == Token_type::SEMICOLON) {
@@ -264,19 +283,21 @@ BlockExpr_ptr Parser::parse_block_expression() {
         // 只有 expression 需要考虑有没有分号
         bool has_semi = true;
         Stmt_ptr stmt = parse_statement();
+        Expr_ptr this_expr = nullptr;
         if (auto expr_stmt = dynamic_cast<ExprStmt*>(stmt.get())) {
             if (!expr_stmt->is_semi) { has_semi = false; }
+            this_expr = expr_stmt->expr;
         }
         if (tail_statement) {
             if (!tail_statement_has_semi) {
                 // 如果是 if, loop，那么打上标记，返回值一定是 () 或者 NeverType
                 // 如果 While，不用管
                 // 否则 CE
-                if (auto if_expr = dynamic_cast<IfExpr*>(tail_statement.get())) {
+                if (auto if_expr = dynamic_cast<IfExpr*>(tail_expr.get())) {
                     if_expr->must_return_unit = true;
-                } else if (auto loop_expr = dynamic_cast<LoopExpr*>(tail_statement.get())) {
+                } else if (auto loop_expr = dynamic_cast<LoopExpr*>(tail_expr.get())) {
                     loop_expr->must_return_unit = true;
-                } else if ([[maybe_unused]]auto while_expr = dynamic_cast<WhileExpr*>(tail_statement.get())) {
+                } else if ([[maybe_unused]]auto while_expr = dynamic_cast<WhileExpr*>(tail_expr.get())) {
                     // do nothing
                     // while 一定返回 ()
                 } else {
@@ -287,6 +308,7 @@ BlockExpr_ptr Parser::parse_block_expression() {
         }
         tail_statement = std::move(stmt);
         tail_statement_has_semi = has_semi;
+        tail_expr = std::move(this_expr);
     }
     lexer.consume_expect_token(Token_type::RIGHT_BRACE);
     if (tail_statement_has_semi) {
@@ -601,7 +623,7 @@ Expr_ptr Parser::led(Token token, Expr_ptr left) {
         else {
             throw "CE, struct name must be a identifier!";
         }
-        lexer.consume_expect_token(Token_type::LEFT_BRACE);
+        // { 已经被 consume 掉了
         vector<pair<string, Expr_ptr>> fields;
         while (lexer.peek_token().type != Token_type::RIGHT_BRACE) {
             string field_name = lexer.consume_expect_token(Token_type::IDENTIFIER).value;
@@ -638,7 +660,7 @@ Expr_ptr Parser::led(Token token, Expr_ptr left) {
 // 右结合： rbp = lbp - 1
 // 从高到低考虑每一个运算符
 // TO DO!!!
-std::tuple<int, int, int> get_binding_power(Token_type type) {
+std::tuple<int, int, int> Parser::get_binding_power(Token_type type) {
     switch (type) {
         case Token_type::LEFT_PARENTHESIS:  // 函数调用
         case Token_type::DOT:               // 字段访问
@@ -704,7 +726,7 @@ std::tuple<int, int, int> get_binding_power(Token_type type) {
 }
 
 // 中缀表达式的左结合力
-int get_lbp(Token_type type) {
+int Parser::get_lbp(Token_type type) {
     int res = std::get<1>(get_binding_power(type));
     if (res == -1) {
         throw string("CE, unexpected token in infix expression: ") + token_type_to_string(type);
@@ -713,7 +735,7 @@ int get_lbp(Token_type type) {
 }
 
 // 中缀表达式的右结合力
-int get_rbp(Token_type type) {
+int Parser::get_rbp(Token_type type) {
     int res = std::get<2>(get_binding_power(type));
     if (res == -1) {
         throw string("CE, unexpected token in infix expression: ") + token_type_to_string(type);
@@ -722,7 +744,7 @@ int get_rbp(Token_type type) {
 }
 
 // 前缀表达式的结合力
-int get_nbp(Token_type type) {
+int Parser::get_nbp(Token_type type) {
     int res = std::get<0>(get_binding_power(type));
     if (res == -1) {
         throw string("CE, unexpected token in prefix expression: ") + token_type_to_string(type);
