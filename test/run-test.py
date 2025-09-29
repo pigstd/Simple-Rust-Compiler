@@ -13,7 +13,22 @@ def test_lexer():
         if not os.path.exists(test_file):
             print(f"Test file {test_file} does not exist.")
             continue
-        os.system(f"{test_prog} < {test_file}")
+        os.system(f"{test_prog} < {test_file} > build/lexer/{i}.out")
     print("Lexer tests completed.")
 
-test_lexer()
+def test_parser():
+    # test parser
+    print("Running parser tests...")
+    test_cnt = 5
+    test_prog = "build/parser/test_parser"
+    for i in range(1, test_cnt + 1):
+        print(f"Running test {i}...")
+        test_file = f"parser/{i}.in"
+        if not os.path.exists(test_file):
+            print(f"Test file {test_file} does not exist.")
+            continue
+        os.system(f"{test_prog} < {test_file} > build/parser/{i}.out")
+    print("Parser tests completed.")
+
+# test_lexer()
+test_parser()

@@ -1,0 +1,14 @@
+// 生成一段简单的 rust 代码，需要包含 if else 语句，以及函数调用
+// 以测试 parser 的正确性
+
+fn main() {
+    let x: i32 = 10;
+    if (x > 5) {
+        let y: i32 = x + 1;
+        println(y);
+    } else {
+        let y: i32 = x - 1;
+        println(y);
+    }
+    exit(0);
+}

@@ -1,0 +1,26 @@
+fn main() {
+    let p: Point = Point { x: 10, y: 20 };
+    let result: i32 = foo() + p.x;
+    println("Result: {}", result);
+    let mut v: i32 = 5;
+    v += p.y;
+    let test: s1 = s1 { x: s2 { y: 100 } };
+    println("Test: {}", test.x.y);
+}
+
+struct Point {
+    x: i32,
+    y: i32,
+}
+
+struct s1 {
+    x : s2
+}
+
+struct s2 {
+    y : i32
+}
+
+fn foo() -> i32 {
+    42
+}

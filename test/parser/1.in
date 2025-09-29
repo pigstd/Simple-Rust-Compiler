@@ -1,0 +1,7 @@
+/*
+basic test 1
+*/
+
+fn main() {
+    exit(0)
+}

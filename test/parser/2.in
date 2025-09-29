@@ -1,0 +1,16 @@
+fn main() {
+    // test simple expr
+    let c : i32 = A * B + C - D;
+}
+
+// test struct
+struct point {
+    x : i32,
+    y : i32
+}
+
+// test const
+const A : i32 = 10;
+const B : i32 = 1;
+const C : i32 = 4;
+const D : i32 = 5_i32;
