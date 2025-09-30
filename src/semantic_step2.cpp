@@ -3,7 +3,7 @@
 #include <memory>
 
 
-RealType_ptr find_real_type(Scope_ptr current_scope, Type_ptr type_ast, map<Type_ptr, RealType_ptr> &type_map, vector<pair<Expr_ptr, size_t&>> &const_expr_queue) {
+RealType_ptr find_real_type(Scope_ptr current_scope, Type_ptr type_ast, map<Type_ptr, RealType_ptr> &type_map, vector<Expr_ptr> &const_expr_queue) {
     if (type_map.find(type_ast) != type_map.end()) {
         return type_map[type_ast];
     }
@@ -57,7 +57,7 @@ RealType_ptr find_real_type(Scope_ptr current_scope, Type_ptr type_ast, map<Type
         auto result_array_type = std::make_shared<ArrayRealType>(element_type, array_type->size_expr, is_mut, is_ref);
         result_type = result_array_type;
         // 数组大小的表达式放入 const_expr_queue
-        const_expr_queue.push_back({array_type->size_expr, result_array_type->size});
+        const_expr_queue.push_back(array_type->size_expr);
     } else if (auto unit_type = dynamic_cast<UnitType*>(type_ast.get())) {
         Mutibility is_mut = unit_type->is_mut;
         ReferenceType is_ref = unit_type->is_ref;
@@ -68,7 +68,7 @@ RealType_ptr find_real_type(Scope_ptr current_scope, Type_ptr type_ast, map<Type
     return type_map[type_ast] = result_type;
 }
 
-void Scope_dfs_and_build_type(Scope_ptr scope, map<Type_ptr, RealType_ptr> &type_map, vector<pair<Expr_ptr, size_t&>> &const_expr_queue) {
+void Scope_dfs_and_build_type(Scope_ptr scope, map<Type_ptr, RealType_ptr> &type_map, vector<Expr_ptr> &const_expr_queue) {
     for (auto [name, type_decl] : scope->type_namespace) {
         if (type_decl->kind == TypeDeclKind::Struct) {
             // 解析 fields
