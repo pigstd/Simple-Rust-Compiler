@@ -12,7 +12,7 @@ void Semantic_Checker::step1_build_scopes_and_collect_symbols(vector<Item_ptr> &
 }
 
 void Semantic_Checker::step2_resolve_types_and_check() {
-    Scope_dfs_and_build_type(root_scope, type_map);
+    Scope_dfs_and_build_type(root_scope, type_map, const_expr_queue);
 }
 
 void Semantic_Checker::checker(vector<Item_ptr> &items) {

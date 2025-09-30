@@ -104,7 +104,55 @@ ConstValue_ptr calc_const_unary_expr(Unary_Operator OP, ConstValue_ptr right);
 ConstValue_ptr calc_const_binary_expr(Binary_Operator OP, ConstValue_ptr left, ConstValue_ptr right);
 ConstValue_ptr calc_const_cast_expr(ConstValue_ptr value, Type_ptr target_type);
 
-// 遍历 ast 树，把所有 const item 的值求出来
+// 遍历 AST 树,
+// 遇到 let 语句，将 RealType 解析出来，并且存到 type_map 中，这样第四步直接查 type_map 即可
+// 遇到 type 和 RepeatArray 中的常量表达式，放入 const_expr_queue
+struct LetStmtAndRepeatArrayVisitor : public AST_Walker {
+    map<AST_Node_ptr, Scope_ptr> &node_scope_map;
+    map<Type_ptr, RealType_ptr> &type_map;
+    vector<pair<Expr_ptr, size_t&>> &const_expr_queue;
+    LetStmtAndRepeatArrayVisitor(map<AST_Node_ptr, Scope_ptr> &node_scope_map_, map<Type_ptr, RealType_ptr> &type_map_, vector<pair<Expr_ptr, size_t&>> &const_expr_queue_)
+        : node_scope_map(node_scope_map_), type_map(type_map_), const_expr_queue(const_expr_queue_) {}
+    virtual ~LetStmtAndRepeatArrayVisitor() = default;
+    virtual void visit(LiteralExpr &node) override;
+    virtual void visit(IdentifierExpr &node) override;
+    virtual void visit(BinaryExpr &node) override;
+    virtual void visit(UnaryExpr &node) override;
+    virtual void visit(CallExpr &node) override;
+    virtual void visit(FieldExpr &node) override;
+    virtual void visit(StructExpr &node) override;
+    virtual void visit(IndexExpr &node) override;
+    virtual void visit(BlockExpr &node) override;
+    virtual void visit(IfExpr &node) override;
+    virtual void visit(WhileExpr &node) override;
+    virtual void visit(LoopExpr &node) override;
+    virtual void visit(ReturnExpr &node) override;
+    virtual void visit(BreakExpr &node) override;
+    virtual void visit(ContinueExpr &node) override;
+    virtual void visit(CastExpr &node) override;
+    virtual void visit(PathExpr &node) override;
+    virtual void visit(SelfExpr &node) override;
+    virtual void visit(UnitExpr &node) override;
+    virtual void visit(ArrayExpr &node) override;
+    virtual void visit(RepeatArrayExpr &node) override;
+    virtual void visit(FnItem &node) override;
+    virtual void visit(StructItem &node) override;
+    virtual void visit(EnumItem &node) override;
+    virtual void visit(ImplItem &node) override;
+    virtual void visit(ConstItem &node) override;
+    virtual void visit(LetStmt &node) override;
+    virtual void visit(ExprStmt &node) override;
+    virtual void visit(ItemStmt &node) override;
+    virtual void visit(PathType &node) override;
+    virtual void visit(ArrayType &node) override;
+    virtual void visit(UnitType &node) override;
+    virtual void visit(IdentifierPattern &node) override;
+};
+
+// 第一遍是遍历整个 ast 树，把所有 const item 的值求出来
+// 之后对于所有的 const expr queue 里面的内容 (数组大小，repeat array 的 size)
+// 每个用这个 Visitor 去 visitor 那个节点的子树即可。
+// 这样就能把数组大小，repeat array 的 size 求出来
 struct ConstItemVisitor : public AST_Walker {
     bool is_need_to_calculate;
     // 是否需要计算

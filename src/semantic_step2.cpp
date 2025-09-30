@@ -3,7 +3,7 @@
 #include <memory>
 
 
-RealType_ptr find_real_type(Scope_ptr current_scope, Type_ptr type_ast, map<Type_ptr, RealType_ptr> &type_map) {
+RealType_ptr find_real_type(Scope_ptr current_scope, Type_ptr type_ast, map<Type_ptr, RealType_ptr> &type_map, vector<pair<Expr_ptr, size_t&>> &const_expr_queue) {
     if (type_map.find(type_ast) != type_map.end()) {
         return type_map[type_ast];
     }
@@ -51,10 +51,13 @@ RealType_ptr find_real_type(Scope_ptr current_scope, Type_ptr type_ast, map<Type
             }
         }
     } else if (auto array_type = dynamic_cast<ArrayType*>(type_ast.get())) {
-        RealType_ptr element_type = find_real_type(current_scope, array_type->element_type, type_map);
+        RealType_ptr element_type = find_real_type(current_scope, array_type->element_type, type_map, const_expr_queue);
         Mutibility is_mut = array_type->is_mut;
         ReferenceType is_ref = array_type->is_ref;
-        result_type = std::make_shared<ArrayRealType>(element_type, array_type->size_expr, is_mut, is_ref);
+        auto result_array_type = std::make_shared<ArrayRealType>(element_type, array_type->size_expr, is_mut, is_ref);
+        result_type = result_array_type;
+        // 数组大小的表达式放入 const_expr_queue
+        const_expr_queue.push_back({array_type->size_expr, result_array_type->size});
     } else if (auto unit_type = dynamic_cast<UnitType*>(type_ast.get())) {
         Mutibility is_mut = unit_type->is_mut;
         ReferenceType is_ref = unit_type->is_ref;
@@ -65,7 +68,7 @@ RealType_ptr find_real_type(Scope_ptr current_scope, Type_ptr type_ast, map<Type
     return type_map[type_ast] = result_type;
 }
 
-void Scope_dfs_and_build_type(Scope_ptr scope, map<Type_ptr, RealType_ptr> &type_map) {
+void Scope_dfs_and_build_type(Scope_ptr scope, map<Type_ptr, RealType_ptr> &type_map, vector<pair<Expr_ptr, size_t&>> &const_expr_queue) {
     for (auto [name, type_decl] : scope->type_namespace) {
         if (type_decl->kind == TypeDeclKind::Struct) {
             // 解析 fields
@@ -74,7 +77,7 @@ void Scope_dfs_and_build_type(Scope_ptr scope, map<Type_ptr, RealType_ptr> &type
                 if (struct_decl->fields.find(field_name) != struct_decl->fields.end()) {
                     throw string("CE, field name ") + field_name + " redefined in struct " + struct_decl->ast_node.struct_name;
                 }
-                RealType_ptr field_type = find_real_type(scope, field_type_ast, type_map);
+                RealType_ptr field_type = find_real_type(scope, field_type_ast, type_map, const_expr_queue);
                 struct_decl->fields[field_name] = field_type;
             }
         }
@@ -95,12 +98,12 @@ void Scope_dfs_and_build_type(Scope_ptr scope, map<Type_ptr, RealType_ptr> &type
             auto fn_decl = std::dynamic_pointer_cast<FnDecl>(value_decl);
             // 解析 parameters
             for (auto [param_pattern, param_type_ast] : fn_decl->ast_node.parameters) {
-                RealType_ptr param_type = find_real_type(scope, param_type_ast, type_map);
+                RealType_ptr param_type = find_real_type(scope, param_type_ast, type_map, const_expr_queue);
                 fn_decl->parameters.push_back({param_pattern, param_type});
             }
             // 解析 return type
             if (fn_decl->ast_node.return_type != nullptr) {
-                RealType_ptr return_type = find_real_type(scope, fn_decl->ast_node.return_type, type_map);
+                RealType_ptr return_type = find_real_type(scope, fn_decl->ast_node.return_type, type_map, const_expr_queue);
                 fn_decl->return_type = return_type;
             } else {
                 // 没有返回类型，默认为 ()
@@ -109,7 +112,7 @@ void Scope_dfs_and_build_type(Scope_ptr scope, map<Type_ptr, RealType_ptr> &type
         } else if (value_decl->kind == ValueDeclKind::Constant) {
             auto const_decl = std::dynamic_pointer_cast<ConstDecl>(value_decl);
             // 解析 const type
-            RealType_ptr const_type = find_real_type(scope, const_decl->ast_node.const_type, type_map);
+            RealType_ptr const_type = find_real_type(scope, const_decl->ast_node.const_type, type_map, const_expr_queue);
             const_decl->const_type = const_type;
         }
     }
