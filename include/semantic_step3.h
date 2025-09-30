@@ -110,8 +110,8 @@ ConstValue_ptr calc_const_cast_expr(ConstValue_ptr value, Type_ptr target_type);
 struct LetStmtAndRepeatArrayVisitor : public AST_Walker {
     map<AST_Node_ptr, Scope_ptr> &node_scope_map;
     map<Type_ptr, RealType_ptr> &type_map;
-    vector<pair<Expr_ptr, size_t&>> &const_expr_queue;
-    LetStmtAndRepeatArrayVisitor(map<AST_Node_ptr, Scope_ptr> &node_scope_map_, map<Type_ptr, RealType_ptr> &type_map_, vector<pair<Expr_ptr, size_t&>> &const_expr_queue_)
+    vector<Expr_ptr> &const_expr_queue;
+    LetStmtAndRepeatArrayVisitor(map<AST_Node_ptr, Scope_ptr> &node_scope_map_, map<Type_ptr, RealType_ptr> &type_map_, vector<Expr_ptr> &const_expr_queue_)
         : node_scope_map(node_scope_map_), type_map(type_map_), const_expr_queue(const_expr_queue_) {}
     virtual ~LetStmtAndRepeatArrayVisitor() = default;
     virtual void visit(LiteralExpr &node) override;

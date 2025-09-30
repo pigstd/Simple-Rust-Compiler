@@ -62,10 +62,9 @@ struct NeverRealType : public RealType {
 };
 struct ArrayRealType : public RealType {
     RealType_ptr element_type;
-    Expr_ptr size_expr; // 数组大小的表达式，在第二轮被解析出来
-    size_t size; // 数组大小必须是一个常量，在第三轮被解析出来
+    Expr_ptr size_expr; // 数组大小的表达式，在第二轮被解析出来，之后用 const_expr_to_size_map 来检查大小
     ArrayRealType(RealType_ptr elem_type, Expr_ptr size_expr_, Mutibility mut, ReferenceType ref)
-        : RealType(RealTypeKind::ARRAY, mut, ref), element_type(elem_type), size_expr(size_expr_), size(0) {}
+        : RealType(RealTypeKind::ARRAY, mut, ref), element_type(elem_type), size_expr(size_expr_) {}
 };
 struct StructRealType : public RealType {
     string name;
@@ -107,7 +106,7 @@ struct StrRealType : public RealType {
 
 // 根据 AST 的 Type 找到真正的类型 RealType，并且返回指针
 // 存放在 map 中，这样后面 let 语句遇到的时候使用这个，直接 find_real_type 即可
-RealType_ptr find_real_type(Scope_ptr current_scope, Type_ptr type_ast, map<Type_ptr, RealType_ptr> &type_map, vector<pair<Expr_ptr, size_t&>> &const_expr_queue);
+RealType_ptr find_real_type(Scope_ptr current_scope, Type_ptr type_ast, map<Type_ptr, RealType_ptr> &type_map, vector<Expr_ptr> &const_expr_queue);
 
 /*
 dfs Scope tree
@@ -116,6 +115,6 @@ dfs Scope tree
 3. 解析 impl 的 self_struct
 let 的类型之后解析
 */
-void Scope_dfs_and_build_type(Scope_ptr scope, map<Type_ptr, RealType_ptr> &type_map, vector<pair<Expr_ptr, size_t&>> &const_expr_queue);
+void Scope_dfs_and_build_type(Scope_ptr scope, map<Type_ptr, RealType_ptr> &type_map, vector<Expr_ptr> &const_expr_queue);
 
 #endif // SEMANTIC_STEP2_H
