@@ -56,6 +56,8 @@ enum class ConstValueKind {
     // 写起来也有点玉玉症的，那就不加了，哈哈
 };
 
+string const_value_kind_to_string(ConstValueKind kind);
+
 struct ConstValue {
     ConstValueKind kind;
     virtual ~ConstValue() = default;
@@ -98,10 +100,11 @@ struct Unit_ConstValue : public ConstValue {
 };
 
 // 将字面量转化为 ConstValue
-ConstValue_ptr parse_literal_token_to_const_value(const Token &token);
+ConstValue_ptr parse_literal_token_to_const_value(LiteralType type, string value);
 
 ConstValue_ptr calc_const_unary_expr(Unary_Operator OP, ConstValue_ptr right);
 ConstValue_ptr calc_const_binary_expr(Binary_Operator OP, ConstValue_ptr left, ConstValue_ptr right);
+ConstValue_ptr cast_anyint_const_to_target_type(AnyInt_ConstValue_ptr anyint_value, ConstValueKind target_kind);
 ConstValue_ptr calc_const_cast_expr(ConstValue_ptr value, Type_ptr target_type);
 
 // 遍历 AST 树,
@@ -162,7 +165,13 @@ struct ConstItemVisitor : public AST_Walker {
     // 那么 visit 完把求出来的值记录在 const_value 里面
     // 然后上一层从 const_value 里面取出来
     // 如果不是常量表达式，直接 CE
-    ConstItemVisitor(bool is_need_to_calculate_) : is_need_to_calculate(is_need_to_calculate_) {}
+    
+    map<AST_Node_ptr, Scope_ptr> &node_scope_map;
+    // 需要存 node_scope_map 来找 const_decl
+    map<ConstDecl_ptr, ConstValue_ptr> &const_value_map;
+    // 需要存 const_value_map 来找 const 的值
+    ConstItemVisitor(bool is_need_to_calculate_, map<AST_Node_ptr, Scope_ptr> &node_scope_map_, map<ConstDecl_ptr, ConstValue_ptr> &const_value_map_) :
+        is_need_to_calculate(is_need_to_calculate_), node_scope_map(node_scope_map_), const_value_map(const_value_map_) {}
     virtual ~ConstItemVisitor() = default;
     virtual void visit(LiteralExpr &node) override;
     virtual void visit(IdentifierExpr &node) override;
