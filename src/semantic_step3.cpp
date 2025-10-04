@@ -3,9 +3,11 @@
 #include "semantic_step1.h"
 #include "semantic_step2.h"
 #include "visitor.h"
-#include <cstddef>
-#include <memory>
 #include "semantic_step3.h"
+#include "tools.h"
+#include <cstddef>
+#include <cstdint>
+#include <memory>
 
 string const_value_kind_to_string(ConstValueKind kind) {
     switch (kind) {
@@ -27,23 +29,23 @@ ConstValue_ptr ConstItemVisitor::parse_literal_token_to_const_value(LiteralType 
         // ..._i32, ..._u32, ..._isize, ..._usize, ...
         if (value.size() >= 4 && value.substr(value.size() - 4) == "_i32") {
             // i32
-            int int_value = std::stoi(value.substr(0, value.size() - 4));
+            int int_value = static_cast<int>(safe_stoll(value.substr(0, value.size() - 4), INT32_MAX));
             return std::make_shared<I32_ConstValue>(int_value);
         } else if (value.size() >= 4 && value.substr(value.size() - 4) == "_u32") {
             // u32
-            unsigned int uint_value = static_cast<unsigned int>(std::stoul(value.substr(0, value.size() - 4)));
+            unsigned int uint_value = static_cast<unsigned int>(safe_stoll(value.substr(0, value.size() - 4), UINT32_MAX));
             return std::make_shared<U32_ConstValue>(uint_value);
         } else if (value.size() >= 6 && value.substr(value.size() - 6) == "_isize") {
             // isize
-            int isize_value = std::stoi(value.substr(0, value.size() - 6));
+            int isize_value = static_cast<int>(safe_stoll(value.substr(0, value.size() - 6), INT32_MAX));
             return std::make_shared<Isize_ConstValue>(isize_value);
         } else if (value.size() >= 6 && value.substr(value.size() - 6) == "_usize") {
             // usize
-            unsigned int usize_value = static_cast<unsigned int>(std::stoul(value.substr(0, value.size() - 6)));
+            unsigned int usize_value = static_cast<unsigned int>(safe_stoll(value.substr(0, value.size() - 6), UINT32_MAX));
             return std::make_shared<Usize_ConstValue>(usize_value);
         } else {
             // anyint
-            long long anyint_value = std::stoll(value);
+            long long anyint_value = safe_stoll(value, LLONG_MAX);
             return std::make_shared<AnyInt_ConstValue>(anyint_value);
         }
     } else if (type == LiteralType::BOOL) {
@@ -805,6 +807,29 @@ void ConstItemVisitor::visit(IdentifierPattern &node) {
     AST_Walker::visit(node);
 }
 
+ConstDecl_ptr find_const_decl(Scope_ptr NowScope, string name) {
+    while (NowScope != nullptr) {
+        for (auto decl : NowScope->value_namespace) {
+            if (decl.first == name) {
+                return std::dynamic_pointer_cast<ConstDecl>(decl.second);
+            }
+        }
+        NowScope = NowScope->parent.lock();
+    }
+    return nullptr;
+}
+
+TypeDecl_ptr find_type_decl(Scope_ptr NowScope, string name) {
+    while (NowScope != nullptr) {
+        for (auto decl : NowScope->type_namespace) {
+            if (decl.first == name) {
+                return decl.second;
+            }
+        }
+        NowScope = NowScope->parent.lock();
+    }
+    return nullptr;
+}
 
 OutcomeState get_outcome_state(vector<OutcomeType> states) {
     OutcomeState result_state;

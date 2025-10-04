@@ -157,7 +157,6 @@ struct LetStmtAndRepeatArrayVisitor : public AST_Walker {
 // 每个用这个 Visitor 去 visitor 那个节点的子树即可。
 // 这样就能把数组大小，repeat array 的 size 求出来
 struct ConstItemVisitor : public AST_Walker {
-private:
     // 将字面量转化为 ConstValue
     ConstValue_ptr parse_literal_token_to_const_value(LiteralType type, string value);
     // 求 一元表达式的值
@@ -168,7 +167,6 @@ private:
     ConstValue_ptr cast_anyint_const_to_target_type(AnyInt_ConstValue_ptr anyint_value, ConstValueKind target_kind);
     // 将 value 转化为 target_type 的 const value
     ConstValue_ptr const_cast_to_realtype(ConstValue_ptr value, RealType_ptr target_type);
-public:
     // 解析 size 的大小，只支持 usize 和 anyint
     size_t calc_const_array_size(ConstValue_ptr size_value);
     // 是否需要计算
