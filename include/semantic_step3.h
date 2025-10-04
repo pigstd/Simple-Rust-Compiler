@@ -52,7 +52,8 @@ enum class ConstValueKind {
     BOOL,
     CHAR,
     UNIT,
-    // const 的 array struct enum str string 好像数据没有，我自己也搞不好
+    ARRAY,
+    // const 的 struct enum str string 好像数据没有，我自己也搞不好
     // 写起来也有点玉玉症的，那就不加了，哈哈
 };
 
@@ -98,14 +99,10 @@ struct Char_ConstValue : public ConstValue {
 struct Unit_ConstValue : public ConstValue {
     Unit_ConstValue() : ConstValue(ConstValueKind::UNIT) {}
 };
-
-// 将字面量转化为 ConstValue
-ConstValue_ptr parse_literal_token_to_const_value(LiteralType type, string value);
-
-ConstValue_ptr calc_const_unary_expr(Unary_Operator OP, ConstValue_ptr right);
-ConstValue_ptr calc_const_binary_expr(Binary_Operator OP, ConstValue_ptr left, ConstValue_ptr right);
-ConstValue_ptr cast_anyint_const_to_target_type(AnyInt_ConstValue_ptr anyint_value, ConstValueKind target_kind);
-ConstValue_ptr calc_const_cast_expr(ConstValue_ptr value, Type_ptr target_type);
+struct Array_ConstValue : public ConstValue {
+    vector<ConstValue_ptr> elements;
+    Array_ConstValue(const vector<ConstValue_ptr> &elements_) : ConstValue(ConstValueKind::ARRAY), elements(elements_) {}
+};
 
 // 遍历 AST 树,
 // 遇到 let 语句，将 RealType 解析出来，并且存到 type_map 中，这样第四步直接查 type_map 即可
@@ -153,25 +150,54 @@ struct LetStmtAndRepeatArrayVisitor : public AST_Walker {
 };
 
 // 第一遍是遍历整个 ast 树，把所有 const item 的值求出来
+// 如果 const item 是数组，那么将这个数组的常量表达式的值也求出来
+// 并且存入 const_expr_to_size_map
 // 之后对于所有的 const expr queue 里面的内容 (数组大小，repeat array 的 size)
 // 每个用这个 Visitor 去 visitor 那个节点的子树即可。
 // 这样就能把数组大小，repeat array 的 size 求出来
 struct ConstItemVisitor : public AST_Walker {
-    bool is_need_to_calculate;
+private:
+    // 将字面量转化为 ConstValue
+    ConstValue_ptr parse_literal_token_to_const_value(LiteralType type, string value);
+    // 求 一元表达式的值
+    ConstValue_ptr calc_const_unary_expr(Unary_Operator OP, ConstValue_ptr right);
+    // 求 二元表达式的值
+    ConstValue_ptr calc_const_binary_expr(Binary_Operator OP, ConstValue_ptr left, ConstValue_ptr right);
+    // 将 anyint 转化为目标类型的 const value
+    ConstValue_ptr cast_anyint_const_to_target_type(AnyInt_ConstValue_ptr anyint_value, ConstValueKind target_kind);
+    // 将 value 转化为 target_type 的 const value
+    ConstValue_ptr const_cast_to_realtype(ConstValue_ptr value, RealType_ptr target_type);
+    // 解析 size 的大小，只支持 usize 和 anyint
+    size_t calc_const_array_size(ConstValue_ptr size_value);
+public:
     // 是否需要计算
     // 如果是 const item 的值，把 is_need_to_calculate 设为 true 去计算
-    ConstValue_ptr const_value;
+    bool is_need_to_calculate;
     // 如果 is_need_to_calculate 是 true
     // 那么 visit 完把求出来的值记录在 const_value 里面
     // 然后上一层从 const_value 里面取出来
     // 如果不是常量表达式，直接 CE
-    
-    map<AST_Node_ptr, Scope_ptr> &node_scope_map;
+    ConstValue_ptr const_value;
+
     // 需要存 node_scope_map 来找 const_decl
-    map<ConstDecl_ptr, ConstValue_ptr> &const_value_map;
+    map<AST_Node_ptr, Scope_ptr> &node_scope_map;
+    
     // 需要存 const_value_map 来找 const 的值
-    ConstItemVisitor(bool is_need_to_calculate_, map<AST_Node_ptr, Scope_ptr> &node_scope_map_, map<ConstDecl_ptr, ConstValue_ptr> &const_value_map_) :
-        is_need_to_calculate(is_need_to_calculate_), node_scope_map(node_scope_map_), const_value_map(const_value_map_) {}
+    map<ConstDecl_ptr, ConstValue_ptr> &const_value_map;
+
+    map<Type_ptr, RealType_ptr> &type_map;
+    map<Expr_ptr, size_t> &const_expr_to_size_map;
+    
+    ConstItemVisitor(bool is_need_to_calculate_,
+            map<AST_Node_ptr, Scope_ptr> &node_scope_map_,
+            map<ConstDecl_ptr, ConstValue_ptr> &const_value_map_,
+            map<Type_ptr, RealType_ptr> &type_map_,
+            map<Expr_ptr, size_t> &const_expr_to_size_map_) :
+            is_need_to_calculate(is_need_to_calculate_),
+            node_scope_map(node_scope_map_),
+            const_value_map(const_value_map_),
+            type_map(type_map_),
+            const_expr_to_size_map(const_expr_to_size_map_) {}
     virtual ~ConstItemVisitor() = default;
     virtual void visit(LiteralExpr &node) override;
     virtual void visit(IdentifierExpr &node) override;
