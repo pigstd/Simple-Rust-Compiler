@@ -48,59 +48,75 @@ enum class RealTypeKind {
     STR,
 };
 
+string real_type_kind_to_string(RealTypeKind kind);
+
 struct RealType {
     RealTypeKind kind;
     Mutibility is_mut;
     ReferenceType is_ref;
     RealType(RealTypeKind k, Mutibility mut, ReferenceType ref) : kind(k), is_mut(mut), is_ref(ref) {}
+    virtual ~RealType() = default;
 };
 struct UnitRealType : public RealType {
     UnitRealType(Mutibility mut, ReferenceType ref) : RealType(RealTypeKind::UNIT, mut, ref) {}
+    ~UnitRealType() override = default;
 };
 struct NeverRealType : public RealType {
     NeverRealType(Mutibility mut, ReferenceType ref) : RealType(RealTypeKind::NEVER, mut, ref) {}
+    ~NeverRealType() override = default;
 };
 struct ArrayRealType : public RealType {
     RealType_ptr element_type;
     Expr_ptr size_expr; // 数组大小的表达式，在第二轮被解析出来，之后用 const_expr_to_size_map 来检查大小
     ArrayRealType(RealType_ptr elem_type, Expr_ptr size_expr_, Mutibility mut, ReferenceType ref)
         : RealType(RealTypeKind::ARRAY, mut, ref), element_type(elem_type), size_expr(size_expr_) {}
+    ~ArrayRealType() override = default;
 };
 struct StructRealType : public RealType {
     string name;
     weak_ptr<StructDecl> decl; // 具体的结构体类型
     StructRealType(const string &name_, Mutibility mut, ReferenceType ref, StructDecl_ptr struct_decl = nullptr)
         : RealType(RealTypeKind::STRUCT, mut, ref), name(name_), decl(struct_decl) {}
+    ~StructRealType() override = default;
 };
 struct EnumRealType : public RealType {
     string name;
     weak_ptr<EnumDecl> decl; // 具体的枚举类型
     EnumRealType(const string &name_, Mutibility mut, ReferenceType ref, EnumDecl_ptr enum_decl = nullptr)
         : RealType(RealTypeKind::ENUM, mut, ref), name(name_), decl(enum_decl) {}
+    ~EnumRealType() override = default;
 };
 struct BoolRealType : public RealType {
     BoolRealType(Mutibility mut, ReferenceType ref) : RealType(RealTypeKind::BOOL, mut, ref) {}
+    ~BoolRealType() override = default;
 };
 struct I32RealType : public RealType {
     I32RealType(Mutibility mut, ReferenceType ref) : RealType(RealTypeKind::I32, mut, ref) {}
+    ~I32RealType() override = default;
 };
 struct IsizeRealType : public RealType {
     IsizeRealType(Mutibility mut, ReferenceType ref) : RealType(RealTypeKind::ISIZE, mut, ref) {}
+    ~IsizeRealType() override = default;
 };
 struct U32RealType : public RealType {
     U32RealType(Mutibility mut, ReferenceType ref) : RealType(RealTypeKind::U32, mut, ref) {}
+    ~U32RealType() override = default;
 };
 struct UsizeRealType : public RealType {
     UsizeRealType(Mutibility mut, ReferenceType ref) : RealType(RealTypeKind::USIZE, mut, ref) {}
+    ~UsizeRealType() override = default;
 };
 struct AnyIntRealType : public RealType {
     AnyIntRealType(Mutibility mut, ReferenceType ref) : RealType(RealTypeKind::ANYINT, mut, ref) {}
+    ~AnyIntRealType() override = default;
 };
 struct CharRealType : public RealType {
     CharRealType(Mutibility mut, ReferenceType ref) : RealType(RealTypeKind::CHAR, mut, ref) {}
+    ~CharRealType() override = default;
 };
 struct StrRealType : public RealType {
     StrRealType(Mutibility mut, ReferenceType ref) : RealType(RealTypeKind::STR, mut, ref) {}
+    ~StrRealType() override = default;
 };
 
 
