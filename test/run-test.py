@@ -30,5 +30,13 @@ def test_parser():
         os.system(f"{test_prog} < {test_file} > build/parser/{i}.out")
     print("Parser tests completed.")
 
+def test_const_eval():
+    # test const eval
+    print("Running const eval tests...")
+    test_prog = "build/const_eval/test_const_eval"
+    os.system(f"{test_prog} > build/const_eval/test_const_eval.out")
+    print("Const eval tests completed.")
+
 # test_lexer()
-test_parser()
+# test_parser()
+test_const_eval()
