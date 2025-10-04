@@ -13,6 +13,7 @@
 #include "ast.h"
 #include "semantic_step1.h"
 #include "visitor.h"
+#include <bitset>
 #include <cstddef>
 #include <string>
 #include <memory>
@@ -167,9 +168,9 @@ private:
     ConstValue_ptr cast_anyint_const_to_target_type(AnyInt_ConstValue_ptr anyint_value, ConstValueKind target_kind);
     // 将 value 转化为 target_type 的 const value
     ConstValue_ptr const_cast_to_realtype(ConstValue_ptr value, RealType_ptr target_type);
+public:
     // 解析 size 的大小，只支持 usize 和 anyint
     size_t calc_const_array_size(ConstValue_ptr size_value);
-public:
     // 是否需要计算
     // 如果是 const item 的值，把 is_need_to_calculate 设为 true 去计算
     bool is_need_to_calculate;
@@ -247,13 +248,38 @@ TypeDecl_ptr find_type_decl(Scope_ptr NowScope, string name);
 // 1. break continue 是否在循环里？
 // 2. return break continue 的控制流分析（是否 diverge）
 
+enum class OutcomeType {
+    NEXT,
+    RETURN,
+    BREAK,
+    CONTINUE,
+    DIVERGE,
+};
+// OutcomeState: 可能的返回的集合
+using OutcomeState = std::bitset<4>;
+
+// 返回这些 status 对应的 OutcomeState
+OutcomeState get_outcome_state(vector<OutcomeType> states);
+
+bool has_state(const OutcomeState &states, OutcomeType state);
+
+// 顺序执行的 OutcomeState
+OutcomeState sequence_outcome_state(const OutcomeState &first, const OutcomeState &second);
+// if else 的 OutcomeState
+OutcomeState ifelse_outcome_state(const OutcomeState &Condition, const OutcomeState &if_branch, const OutcomeState &else_branch);
+// while 的 OutcomeState
+OutcomeState while_outcome_state(const OutcomeState &Condition, const OutcomeState &body);
+// loop 的 OutcomeState
+OutcomeState loop_outcome_state(const OutcomeState &body);
+
 struct ControlFlowVisitor : public AST_Walker {
     // 这个 visitor 用来做控制流分析
     // 主要是分析 if while loop 的分支是否都返回
     // 以及 return break continue 的 diverge 情况
     size_t loop_depth;
-    map<AST_Node_ptr, bool> &is_diverge_map;
-    ControlFlowVisitor(map<AST_Node_ptr, bool> &is_diverge_map_) : loop_depth(0), is_diverge_map(is_diverge_map_) {}
+    map<AST_Node_ptr, OutcomeState> &node_outcome_state_map;
+    ControlFlowVisitor(map<AST_Node_ptr, OutcomeState> &node_outcome_state_map_) :
+        loop_depth(0), node_outcome_state_map(node_outcome_state_map_) {}
     virtual ~ControlFlowVisitor() = default;
     virtual void visit(LiteralExpr &node) override;
     virtual void visit(IdentifierExpr &node) override;
