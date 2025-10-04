@@ -2,6 +2,24 @@
 #include "semantic_step1.h"
 #include <memory>
 
+string real_type_kind_to_string(RealTypeKind kind) {
+    switch (kind) {
+        case RealTypeKind::UNIT: return "UNIT";
+        case RealTypeKind::NEVER: return "NEVER";
+        case RealTypeKind::ARRAY: return "ARRAY";
+        case RealTypeKind::STRUCT: return "STRUCT";
+        case RealTypeKind::ENUM: return "ENUM";
+        case RealTypeKind::BOOL: return "BOOL";
+        case RealTypeKind::I32: return "I32";
+        case RealTypeKind::ISIZE: return "ISIZE";
+        case RealTypeKind::U32: return "U32";
+        case RealTypeKind::USIZE: return "USIZE";
+        case RealTypeKind::ANYINT: return "ANYINT";
+        case RealTypeKind::CHAR: return "CHAR";
+        case RealTypeKind::STR: return "STR";
+        default: return "UNKNOWN";
+    }
+}
 
 RealType_ptr find_real_type(Scope_ptr current_scope, Type_ptr type_ast, map<Type_ptr, RealType_ptr> &type_map, vector<Expr_ptr> &const_expr_queue) {
     if (type_map.find(type_ast) != type_map.end()) {
