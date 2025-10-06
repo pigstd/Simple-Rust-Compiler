@@ -90,6 +90,7 @@ enum class TypeDeclKind {
 enum class ValueDeclKind {
     Function,
     Constant,
+    LetStmt,
 };
 
 struct TypeDecl {
@@ -135,6 +136,14 @@ struct ConstDecl : public ValueDecl {
     ConstItem &ast_node;
     RealType_ptr const_type; // 常量类型，第二轮填
     ConstDecl(ConstItem &ast_node_) : ValueDecl(ValueDeclKind::Constant), ast_node(ast_node_) {}
+};
+
+// Let 语句引入一个局部变量
+// 在 step 4 的时候会把 LetDecl 放入对应的 Scope 里面
+struct LetDecl : public ValueDecl {
+    RealType_ptr let_type;
+    Mutibility is_mut;
+    LetDecl(RealType_ptr let_type_, Mutibility is_mut_) : ValueDecl(ValueDeclKind::LetStmt), let_type(let_type_), is_mut(is_mut_) {}
 };
 
 struct ScopeBuilder_Visitor : public AST_Walker {
