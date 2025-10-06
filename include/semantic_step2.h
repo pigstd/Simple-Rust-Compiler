@@ -46,6 +46,8 @@ enum class RealTypeKind {
     ANYINT, // 字面量数字，可以是任何类型的 int
     CHAR,
     STR,
+    STRING,
+    FUNCTION,
 };
 
 string real_type_kind_to_string(RealTypeKind kind);
@@ -117,6 +119,17 @@ struct CharRealType : public RealType {
 struct StrRealType : public RealType {
     StrRealType(Mutibility mut, ReferenceType ref) : RealType(RealTypeKind::STR, mut, ref) {}
     ~StrRealType() override = default;
+};
+struct StringRealType : public RealType {
+    StringRealType(Mutibility mut, ReferenceType ref) : RealType(RealTypeKind::STRING, mut, ref) {}
+    ~StringRealType() override = default;
+};
+struct FunctionRealType : public RealType {
+    // 函数的定义
+    weak_ptr<FnDecl> decl;
+    FunctionRealType(FnDecl_ptr decl_, Mutibility mut, ReferenceType ref) :
+        RealType(RealTypeKind::FUNCTION, mut, ref), decl(decl_) {}
+    ~FunctionRealType() override = default;
 };
 
 
