@@ -6,6 +6,7 @@
 #include "semantic_step1.h"
 #include "semantic_step2.h"
 #include "semantic_step3.h"
+#include "semantic_step4.h"
 #include <cstddef>
 
 struct Semantic_Checker {
@@ -36,6 +37,12 @@ struct Semantic_Checker {
 
     // AST 树的所有 item 节点
     vector<Item_ptr> &items;
+
+    // 每个表达式节点的 RealType 和 PlaceKind
+    map<AST_Node_ptr, pair<RealType_ptr, PlaceKind>> node_type_and_place_kind_map;
+
+    // 记录每个 Scope 的局部变量
+    map<Scope_ptr, Local_Variable_map> scope_local_variable_map;
 
     Semantic_Checker(vector<Item_ptr> &items_);
     // 总的 checker
