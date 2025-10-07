@@ -35,6 +35,68 @@ enum class PlaceKind {
     ReadWritePlace // 可变的左值（可变变量、可变引用解引用等）
 };
 
+/*
+合并两个类型，要求类型相同，用于赋值，if else 分支等操作
+特殊情况：
+Never 可以和任何类型合并，结果为另一个类型
+AnyInt 可以和任何整数类型合并，结果为另一个整数类型
+*/
+RealType_ptr type_merge(RealType_ptr left, RealType_ptr right);
+
+/*
+Anyint 可以合并的内容：
+Never, Anyint, 各种 int
+*/
+bool type_is_number(RealType_ptr checktype);
+
+// 第二轮处理出了所有 Type，但是 Array Type 只存了 ast 节点，没存真正大小
+// 遍历一遍所有的 Array Type，利用 const_expr_to_size_map 把大小填回去
+struct ArrayTypeVisitor : public AST_Walker {
+    // 记录 AST 的 Type 对应的真正的类型 RealType
+    map<Type_ptr, RealType_ptr> &type_map;
+    // 记录 Expr 对应的 size
+    map<Expr_ptr, size_t> &const_expr_to_size_map;
+
+    ArrayTypeVisitor(map<Type_ptr, RealType_ptr> &type_map_,
+            map<Expr_ptr, size_t> &const_expr_to_size_map_) :
+            type_map(type_map_),
+            const_expr_to_size_map(const_expr_to_size_map_) {}
+    virtual ~ArrayTypeVisitor() = default;
+    virtual void visit(LiteralExpr &node) override;
+    virtual void visit(IdentifierExpr &node) override;
+    virtual void visit(BinaryExpr &node) override;
+    virtual void visit(UnaryExpr &node) override;
+    virtual void visit(CallExpr &node) override;
+    virtual void visit(FieldExpr &node) override;
+    virtual void visit(StructExpr &node) override;
+    virtual void visit(IndexExpr &node) override;
+    virtual void visit(BlockExpr &node) override;
+    virtual void visit(IfExpr &node) override;
+    virtual void visit(WhileExpr &node) override;
+    virtual void visit(LoopExpr &node) override;
+    virtual void visit(ReturnExpr &node) override;
+    virtual void visit(BreakExpr &node) override;
+    virtual void visit(ContinueExpr &node) override;
+    virtual void visit(CastExpr &node) override;
+    virtual void visit(PathExpr &node) override;
+    virtual void visit(SelfExpr &node) override;
+    virtual void visit(UnitExpr &node) override;
+    virtual void visit(ArrayExpr &node) override;
+    virtual void visit(RepeatArrayExpr &node) override;
+    virtual void visit(FnItem &node) override;
+    virtual void visit(StructItem &node) override;
+    virtual void visit(EnumItem &node) override;
+    virtual void visit(ImplItem &node) override;
+    virtual void visit(ConstItem &node) override;
+    virtual void visit(LetStmt &node) override;
+    virtual void visit(ExprStmt &node) override;
+    virtual void visit(ItemStmt &node) override;
+    virtual void visit(PathType &node) override;
+    virtual void visit(ArrayType &node) override;
+    virtual void visit(UnitType &node) override;
+    virtual void visit(IdentifierPattern &node) override;
+};
+
 struct ExprTypeAndLetStmtVisitor : public AST_Walker {
     /*
     遇到 A::B 和 A.B 有两种可能
@@ -61,14 +123,26 @@ struct ExprTypeAndLetStmtVisitor : public AST_Walker {
     // 记录每个 Scope 的局部变量
     map<Scope_ptr, Local_Variable_map> scope_local_variable_map;
 
+    // 遇到数组 type 的时候，将 size 从这个 map 里面取出来
+    map<Expr_ptr, size_t> &const_expr_to_size_map;
+
+    // 对于循环，break 会返回一个值
+    // continue 是一定没有返回值的，所以如果 continue 后面有东西就报错
+    // 我前面写的时候考虑错了，但是我可以在这里判断掉
+    // 为了确定循环的返回值，需要一个栈维护当前在哪个循环，这个循环的返回值是什么
+    // 遇到循环的时候，新加一个，然后遇到 break 的时候和这个栈顶的返回值合并
+    vector<RealType_ptr> loop_type_stack;
+
     ExprTypeAndLetStmtVisitor(bool require_function_,
             map<AST_Node_ptr, pair<RealType_ptr, PlaceKind>> &node_type_and_place_kind_map_,
             map<AST_Node_ptr, Scope_ptr> &node_scope_map_,
-            map<Type_ptr, RealType_ptr> &type_map_) :
+            map<Type_ptr, RealType_ptr> &type_map_,
+            map<Expr_ptr, size_t> &const_expr_to_size_map_) :
             require_function(require_function_),
             node_type_and_place_kind_map(node_type_and_place_kind_map_),
             node_scope_map(node_scope_map_),
-            type_map(type_map_) {}
+            type_map(type_map_),
+            const_expr_to_size_map(const_expr_to_size_map_) {}
     virtual ~ExprTypeAndLetStmtVisitor() = default;
     virtual void visit(LiteralExpr &node) override;
     virtual void visit(IdentifierExpr &node) override;
