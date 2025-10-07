@@ -62,11 +62,7 @@ void AST_Walker::visit(BreakExpr &node) {
         node.break_value->accept(*this);
     }
 }
-void AST_Walker::visit(ContinueExpr &node) {
-    if (node.continue_value) {
-        node.continue_value->accept(*this);
-    }
-}
+void AST_Walker::visit([[maybe_unused]] ContinueExpr &node) { return; }
 void AST_Walker::visit(CastExpr &node) {
     node.expr->accept(*this);
     node.target_type->accept(*this);
@@ -261,10 +257,7 @@ void AST_Printer::visit(BreakExpr &node) {
 void AST_Printer::visit(ContinueExpr &node) {
     cout << tab() << "ContinueExpr" << endl;
     depth++;
-    if (node.continue_value) {
-        cout << tab() << "Continue Value : " << endl;
-        node.continue_value->accept(*this);
-    }
+    AST_Walker::visit(node);
     depth--;
 }
 void AST_Printer::visit(CastExpr &node) {
@@ -399,16 +392,14 @@ void AST_Printer::visit(ItemStmt &node) {
 }
 void AST_Printer::visit(PathType &node) {
     cout << tab() << "PathType, name =  " << node.name << endl;
-    cout << tab() << "Mutibility = " << mutibility_to_string(node.is_mut)
-         << ", Reference Type = " << reference_type_to_string(node.is_ref) << endl;
+    cout << tab() << ", Reference Type = " << reference_type_to_string(node.ref_type) << endl;
     depth++;
     AST_Walker::visit(node);
     depth--;
 }
 void AST_Printer::visit(ArrayType &node) {
     cout << tab() << "ArrayType" << endl;
-    cout << tab() << "Mutibility = " << mutibility_to_string(node.is_mut)
-         << ", Reference Type = " << reference_type_to_string(node.is_ref) << endl;
+    cout << tab() << ", Reference Type = " << reference_type_to_string(node.ref_type) << endl;
     depth++;
     cout << tab() << "Element Type : " << endl;
     node.element_type->accept(*this);
@@ -418,8 +409,7 @@ void AST_Printer::visit(ArrayType &node) {
 }
 void AST_Printer::visit(UnitType &node) {
     cout << tab() << "UnitType" << endl;
-    cout << tab() << "Mutibility = " << mutibility_to_string(node.is_mut)
-         << ", Reference Type = " << reference_type_to_string(node.is_ref) << endl;
+    cout << tab() << ", Reference Type = " << reference_type_to_string(node.ref_type) << endl;
     depth++;
     AST_Walker::visit(node);
     depth--;

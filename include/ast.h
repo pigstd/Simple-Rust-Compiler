@@ -52,7 +52,22 @@ struct Item_Node : public AST_Node {
     virtual ~Item_Node() = default;
     virtual void accept(AST_visitor &v) override = 0;
 };
+
+enum class Mutibility {
+    IMMUTABLE,
+    MUTABLE
+};
+enum class ReferenceType {
+    NO_REF,
+    REF, // not mut
+    REF_MUT,
+};
+string mutibility_to_string(Mutibility mut);
+string reference_type_to_string(ReferenceType ref);
+
 struct Type_Node : public AST_Node {
+    ReferenceType ref_type;
+    Type_Node(ReferenceType ref_type_) : ref_type(ref_type_) {}
     virtual ~Type_Node() = default;
     virtual void accept(AST_visitor &v) override = 0;
 };
@@ -274,8 +289,7 @@ struct BreakExpr : public Expr_Node {
     void accept(AST_visitor &v) override;
 };
 struct ContinueExpr : public Expr_Node {
-    Expr_ptr continue_value; // continue 后面可以没有表达式，若没有则为 nullptr
-    ContinueExpr(Expr_ptr continue_value_ = nullptr) : continue_value(std::move(continue_value_)) {}
+    ContinueExpr() = default;
     void accept(AST_visitor &v) override;
 };
 struct CastExpr : public Expr_Node {
@@ -380,37 +394,23 @@ struct ItemStmt : public Stmt_Node {
     void accept(AST_visitor &v) override;
 };
 
-enum class Mutibility {
-    IMMUTABLE,
-    MUTABLE
-};
-enum class ReferenceType {
-    NO_REF,
-    REF
-};
-string mutibility_to_string(Mutibility mut);
-string reference_type_to_string(ReferenceType ref);
-
 struct PathType : public Type_Node {
     string name;
-    Mutibility is_mut;
-    ReferenceType is_ref;
-    PathType(const string &name_, Mutibility is_mut_, ReferenceType is_ref_) : name(name_), is_mut(is_mut_), is_ref(is_ref_) {}
+    PathType(const string &name_, ReferenceType ref_type_) :
+        Type_Node(ref_type_), name(name_) {}
     void accept(AST_visitor &v) override;
 };
 struct ArrayType : public Type_Node {
     Type_ptr element_type;
     Expr_ptr size_expr; // 数组大小必须是一个常量 但是也可以是常量表达式
-    Mutibility is_mut;
-    ReferenceType is_ref;
-    ArrayType(Type_ptr element_type_, Expr_ptr size_expr_, Mutibility is_mut_, ReferenceType is_ref_)
-        : element_type(std::move(element_type_)), size_expr(std::move(size_expr_)), is_mut(is_mut_), is_ref(is_ref_) {}
+    ArrayType(Type_ptr element_type_, Expr_ptr size_expr_, ReferenceType ref_type_)
+        : Type_Node(ref_type_),
+        element_type(std::move(element_type_)),
+        size_expr(std::move(size_expr_)) {}
     void accept(AST_visitor &v) override;
 };
 struct UnitType : public Type_Node {
-    Mutibility is_mut;
-    ReferenceType is_ref;
-    UnitType(Mutibility is_mut_, ReferenceType is_ref_) : is_mut(is_mut_), is_ref(is_ref_) {}
+    UnitType(ReferenceType ref_type_) : Type_Node(ref_type_) {}
     void accept(AST_visitor &v) override;
 };
 

@@ -367,10 +367,12 @@ Type_ptr Parser::parse_type() {
         lexer.consume_expect_token(Token_type::AMPERSAND);
         ref_type = ReferenceType::REF;
     }
-    Mutibility mut_type = Mutibility::IMMUTABLE;
     if (lexer.peek_token().type == Token_type::MUT) {
         lexer.consume_expect_token(Token_type::MUT);
-        mut_type = Mutibility::MUTABLE;
+        if (ref_type == ReferenceType::NO_REF) {
+            throw "CE, cannot have mut without & in type";
+        }
+        ref_type = ReferenceType::REF_MUT;
     }
     if (lexer.peek_token().type == Token_type::LEFT_BRACKET) {
         // [Type, size_expr]
@@ -379,18 +381,18 @@ Type_ptr Parser::parse_type() {
         lexer.consume_expect_token(Token_type::SEMICOLON);
         Expr_ptr size_expr = parse_expression();
         lexer.consume_expect_token(Token_type::RIGHT_BRACKET);
-        return std::make_shared<ArrayType>(std::move(element_type), std::move(size_expr), mut_type, ref_type);
+        return std::make_shared<ArrayType>(std::move(element_type), std::move(size_expr), ref_type);
     }
     else if (lexer.peek_token().type == Token_type::LEFT_PARENTHESIS) {
         // ()
         lexer.consume_expect_token(Token_type::LEFT_PARENTHESIS);
         lexer.consume_expect_token(Token_type::RIGHT_PARENTHESIS);
-        return std::make_shared<UnitType>(mut_type, ref_type);
+        return std::make_shared<UnitType>(ref_type);
     }
     else {
         // identifier
         string type_name = lexer.consume_expect_token(Token_type::IDENTIFIER).value;
-        return std::make_shared<PathType>(type_name, mut_type, ref_type);
+        return std::make_shared<PathType>(type_name, ref_type);
     }
 }
 
@@ -496,6 +498,27 @@ Expr_ptr Parser::nud(Token token) {
         lexer.consume_expect_token(Token_type::STAR);
         Expr_ptr right = parse_expression(get_nbp(Token_type::STAR));
         return std::make_shared<UnaryExpr>(Unary_Operator::DEREF, std::move(right));
+    } else if (token.type == Token_type::BREAK) {
+        lexer.consume_expect_token(Token_type::BREAK);
+        if (lexer.peek_token().type != Token_type::SEMICOLON &&
+            lexer.peek_token().type != Token_type::RIGHT_BRACE) {
+            // break 后面可以有表达式
+            Expr_ptr expr = parse_expression();
+            return std::make_shared<BreakExpr>(std::move(expr));
+        }
+        return std::make_shared<BreakExpr>();
+    } else if (token.type == Token_type::RETURN) {
+        lexer.consume_expect_token(Token_type::RETURN);
+        if (lexer.peek_token().type != Token_type::SEMICOLON &&
+            lexer.peek_token().type != Token_type::RIGHT_BRACE) {
+            // return 后面可以有表达式
+            Expr_ptr expr = parse_expression();
+            return std::make_shared<ReturnExpr>(std::move(expr));
+        }
+        return std::make_shared<ReturnExpr>();
+    } else if (token.type == Token_type::CONTINUE) {
+        lexer.consume_expect_token(Token_type::CONTINUE);
+        return std::make_shared<ContinueExpr>();
     } else {
         throw string("CE in parser nud !!! unexpected token in expression: ") + token.value;
     }
@@ -830,6 +853,7 @@ string reference_type_to_string(ReferenceType ref) {
     switch (ref) {
         case ReferenceType::NO_REF: return "no_ref";
         case ReferenceType::REF: return "ref";
+        case ReferenceType::REF_MUT: return "ref_mut";
         default: return "unknown_reference_type";
     }
 }

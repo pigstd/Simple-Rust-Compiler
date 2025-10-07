@@ -26,20 +26,19 @@ RealType_ptr find_real_type(Scope_ptr current_scope, Type_ptr type_ast, map<Type
         return type_map[type_ast];
     }
     RealType_ptr result_type = nullptr;
+    ReferenceType ref_type = type_ast->ref_type;
     if (auto path_type = dynamic_cast<PathType*>(type_ast.get())) {
         string name = path_type->name;
-        Mutibility is_mut = path_type->is_mut;
-        ReferenceType is_ref = path_type->is_ref;
         while (current_scope != nullptr) {
             if (current_scope->type_namespace.find(name) != current_scope->type_namespace.end()) {
                 TypeDecl_ptr type_decl = current_scope->type_namespace[name];
                 if (type_decl->kind == TypeDeclKind::Struct) {
                     auto decl = std::dynamic_pointer_cast<StructDecl>(type_decl);
-                    result_type = std::make_shared<StructRealType>(name, is_mut, is_ref, decl);
+                    result_type = std::make_shared<StructRealType>(name, ref_type, decl);
                     break;
                 } else if (type_decl->kind == TypeDeclKind::Enum) {
                     auto decl = std::dynamic_pointer_cast<EnumDecl>(type_decl);
-                    result_type = std::make_shared<EnumRealType>(name, is_mut, is_ref, decl);
+                    result_type = std::make_shared<EnumRealType>(name, ref_type, decl);
                     break;
                 } else {
                     throw string("CE, type name ") + name + " is not a struct or enum";
@@ -51,37 +50,31 @@ RealType_ptr find_real_type(Scope_ptr current_scope, Type_ptr type_ast, map<Type
         // 内置类型
         if (result_type == nullptr) {
             if (name == "i32") {
-                result_type = std::make_shared<I32RealType>(is_mut, is_ref);
+                result_type = std::make_shared<I32RealType>(ref_type);
             } else if (name == "isize") {
-                result_type = std::make_shared<IsizeRealType>(is_mut, is_ref);
+                result_type = std::make_shared<IsizeRealType>(ref_type);
             } else if (name == "u32") {
-                result_type = std::make_shared<U32RealType>(is_mut, is_ref);
+                result_type = std::make_shared<U32RealType>(ref_type);
             } else if (name == "usize") {
-                result_type = std::make_shared<UsizeRealType>(is_mut, is_ref);
+                result_type = std::make_shared<UsizeRealType>(ref_type);
             } else if (name == "bool") {
-                result_type = std::make_shared<BoolRealType>(is_mut, is_ref);
+                result_type = std::make_shared<BoolRealType>(ref_type);
             } else if (name == "char") {
-                result_type = std::make_shared<CharRealType>(is_mut, is_ref);
+                result_type = std::make_shared<CharRealType>(ref_type);
             } else if (name == "str") {
-                result_type = std::make_shared<StrRealType>(is_mut, is_ref);
+                result_type = std::make_shared<StrRealType>(ref_type);
             } else {
                 throw string("CE, type name ") + name + " not found";
             }
         }
     } else if (auto array_type = dynamic_cast<ArrayType*>(type_ast.get())) {
         RealType_ptr element_type = find_real_type(current_scope, array_type->element_type, type_map, const_expr_queue);
-        Mutibility is_mut = array_type->is_mut;
-        ReferenceType is_ref = array_type->is_ref;
-        auto result_array_type = std::make_shared<ArrayRealType>(element_type, array_type->size_expr, is_mut, is_ref);
+        auto result_array_type = std::make_shared<ArrayRealType>(element_type, array_type->size_expr, ref_type);
         result_type = result_array_type;
         // 数组大小的表达式放入 const_expr_queue
         const_expr_queue.push_back(array_type->size_expr);
-    } else if (auto unit_type = dynamic_cast<UnitType*>(type_ast.get())) {
-        Mutibility is_mut = unit_type->is_mut;
-        ReferenceType is_ref = unit_type->is_ref;
-        result_type = std::make_shared<UnitRealType>(is_mut, is_ref);
     } else {
-        throw string("CE, unknown type");
+        result_type = std::make_shared<UnitRealType>(ref_type);
     }
     return type_map[type_ast] = result_type;
 }
@@ -125,7 +118,7 @@ void Scope_dfs_and_build_type(Scope_ptr scope, map<Type_ptr, RealType_ptr> &type
                 fn_decl->return_type = return_type;
             } else {
                 // 没有返回类型，默认为 ()
-                fn_decl->return_type = std::make_shared<UnitRealType>(Mutibility::IMMUTABLE, ReferenceType::NO_REF);
+                fn_decl->return_type = std::make_shared<UnitRealType>(ReferenceType::NO_REF);
             }
         } else if (value_decl->kind == ValueDeclKind::Constant) {
             auto const_decl = std::dynamic_pointer_cast<ConstDecl>(value_decl);
