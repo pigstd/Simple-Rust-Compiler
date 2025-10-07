@@ -2,6 +2,7 @@
 #define SEMANTIC_STEP2_H
 #include "ast.h"
 #include "semantic_step1.h"
+#include <cstddef>
 #include <memory>
 using std::shared_ptr;
 struct RealType;
@@ -54,81 +55,83 @@ string real_type_kind_to_string(RealTypeKind kind);
 
 struct RealType {
     RealTypeKind kind;
-    Mutibility is_mut;
     ReferenceType is_ref;
-    RealType(RealTypeKind k, Mutibility mut, ReferenceType ref) : kind(k), is_mut(mut), is_ref(ref) {}
+    RealType(RealTypeKind k, ReferenceType ref) : kind(k), is_ref(ref) {}
     virtual ~RealType() = default;
 };
 struct UnitRealType : public RealType {
-    UnitRealType(Mutibility mut, ReferenceType ref) : RealType(RealTypeKind::UNIT, mut, ref) {}
+    UnitRealType(ReferenceType ref) : RealType(RealTypeKind::UNIT, ref) {}
     ~UnitRealType() override = default;
 };
 struct NeverRealType : public RealType {
-    NeverRealType(Mutibility mut, ReferenceType ref) : RealType(RealTypeKind::NEVER, mut, ref) {}
+    NeverRealType(ReferenceType ref) : RealType(RealTypeKind::NEVER, ref) {}
     ~NeverRealType() override = default;
 };
 struct ArrayRealType : public RealType {
     RealType_ptr element_type;
     Expr_ptr size_expr; // 数组大小的表达式，在第二轮被解析出来，之后用 const_expr_to_size_map 来检查大小
-    ArrayRealType(RealType_ptr elem_type, Expr_ptr size_expr_, Mutibility mut, ReferenceType ref)
-        : RealType(RealTypeKind::ARRAY, mut, ref), element_type(elem_type), size_expr(size_expr_) {}
+    // 数组大小，对于 type，先记录 expr，第三轮计算 expr 的值，第四轮填回来
+    // 对于字面量 [1, 2, 3] 这种，直接在这里填 size，不用记录 expr
+    size_t size;
+    ArrayRealType(RealType_ptr elem_type, Expr_ptr size_expr_, ReferenceType ref, size_t size_ = 0)
+        : RealType(RealTypeKind::ARRAY, ref), element_type(elem_type), size_expr(size_expr_), size(size_) {}
     ~ArrayRealType() override = default;
 };
 struct StructRealType : public RealType {
     string name;
     weak_ptr<StructDecl> decl; // 具体的结构体类型
-    StructRealType(const string &name_, Mutibility mut, ReferenceType ref, StructDecl_ptr struct_decl = nullptr)
-        : RealType(RealTypeKind::STRUCT, mut, ref), name(name_), decl(struct_decl) {}
+    StructRealType(const string &name_, ReferenceType ref, StructDecl_ptr struct_decl = nullptr)
+        : RealType(RealTypeKind::STRUCT, ref), name(name_), decl(struct_decl) {}
     ~StructRealType() override = default;
 };
 struct EnumRealType : public RealType {
     string name;
     weak_ptr<EnumDecl> decl; // 具体的枚举类型
-    EnumRealType(const string &name_, Mutibility mut, ReferenceType ref, EnumDecl_ptr enum_decl = nullptr)
-        : RealType(RealTypeKind::ENUM, mut, ref), name(name_), decl(enum_decl) {}
+    EnumRealType(const string &name_, ReferenceType ref, EnumDecl_ptr enum_decl = nullptr)
+        : RealType(RealTypeKind::ENUM, ref), name(name_), decl(enum_decl) {}
     ~EnumRealType() override = default;
 };
 struct BoolRealType : public RealType {
-    BoolRealType(Mutibility mut, ReferenceType ref) : RealType(RealTypeKind::BOOL, mut, ref) {}
+    BoolRealType(ReferenceType ref) : RealType(RealTypeKind::BOOL, ref) {}
     ~BoolRealType() override = default;
 };
 struct I32RealType : public RealType {
-    I32RealType(Mutibility mut, ReferenceType ref) : RealType(RealTypeKind::I32, mut, ref) {}
+    I32RealType(ReferenceType ref) : RealType(RealTypeKind::I32, ref) {}
     ~I32RealType() override = default;
 };
 struct IsizeRealType : public RealType {
-    IsizeRealType(Mutibility mut, ReferenceType ref) : RealType(RealTypeKind::ISIZE, mut, ref) {}
+    IsizeRealType(ReferenceType ref) : RealType(RealTypeKind::ISIZE, ref) {}
     ~IsizeRealType() override = default;
 };
 struct U32RealType : public RealType {
-    U32RealType(Mutibility mut, ReferenceType ref) : RealType(RealTypeKind::U32, mut, ref) {}
+    U32RealType(ReferenceType ref) : RealType(RealTypeKind::U32, ref) {}
     ~U32RealType() override = default;
 };
 struct UsizeRealType : public RealType {
-    UsizeRealType(Mutibility mut, ReferenceType ref) : RealType(RealTypeKind::USIZE, mut, ref) {}
+    UsizeRealType(ReferenceType ref) : RealType(RealTypeKind::USIZE, ref) {}
     ~UsizeRealType() override = default;
 };
 struct AnyIntRealType : public RealType {
-    AnyIntRealType(Mutibility mut, ReferenceType ref) : RealType(RealTypeKind::ANYINT, mut, ref) {}
+    AnyIntRealType(ReferenceType ref) : RealType(RealTypeKind::ANYINT, ref) {}
     ~AnyIntRealType() override = default;
 };
 struct CharRealType : public RealType {
-    CharRealType(Mutibility mut, ReferenceType ref) : RealType(RealTypeKind::CHAR, mut, ref) {}
+    CharRealType(ReferenceType ref) : RealType(RealTypeKind::CHAR, ref) {}
     ~CharRealType() override = default;
 };
 struct StrRealType : public RealType {
-    StrRealType(Mutibility mut, ReferenceType ref) : RealType(RealTypeKind::STR, mut, ref) {}
+    StrRealType(ReferenceType ref) : RealType(RealTypeKind::STR, ref) {}
     ~StrRealType() override = default;
 };
 struct StringRealType : public RealType {
-    StringRealType(Mutibility mut, ReferenceType ref) : RealType(RealTypeKind::STRING, mut, ref) {}
+    StringRealType(ReferenceType ref) : RealType(RealTypeKind::STRING, ref) {}
     ~StringRealType() override = default;
 };
 struct FunctionRealType : public RealType {
     // 函数的定义
     weak_ptr<FnDecl> decl;
-    FunctionRealType(FnDecl_ptr decl_, Mutibility mut, ReferenceType ref) :
-        RealType(RealTypeKind::FUNCTION, mut, ref), decl(decl_) {}
+    FunctionRealType(FnDecl_ptr decl_, ReferenceType ref) :
+        RealType(RealTypeKind::FUNCTION, ref), decl(decl_) {}
     ~FunctionRealType() override = default;
 };
 
