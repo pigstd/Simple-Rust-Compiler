@@ -6,6 +6,7 @@
 #include "semantic_step1.h"
 #include "visitor.h"
 #include "semantic_step2.h"
+#include <cstddef>
 
 /*
 第四步我想干的事情：
@@ -48,6 +49,29 @@ Anyint 可以合并的内容：
 Never, Anyint, 各种 int
 */
 bool type_is_number(RealType_ptr checktype);
+
+RealType_ptr type_of_literal(LiteralType type, string value);
+
+// 深拷贝一个 RealType
+RealType_ptr copy(RealType_ptr type);
+
+// 检查 let 语句：
+// let pattern : target_type = (expr_type, expr_place)
+// 是否合法，用于 let 和函数传参
+// 如果不合法 throw CE
+void check_let_stmt(Pattern_ptr let_pattern, RealType_ptr target_type, RealType_ptr expr_type, PlaceKind expr_place);
+
+// 获取 (base_type, placekind) 的 method_name 方法，返回一个函数类型
+// e.g. point.len()
+// 如果没有找到则返回 nullptr
+// 除了结构体，还需要考虑内置的函数
+RealType_ptr get_method_func(RealType_ptr base_type, PlaceKind place_kind, string method_name);
+
+// 获取 base_type 的 func_name 关联函数，返回一个函数类型
+// e.g. point::len()
+// 如果没有找到则返回 nullptr
+// 除了结构体，还需要考虑内置的函数
+RealType_ptr get_associated_func(RealType_ptr base_type, string func_name);
 
 // 第二轮处理出了所有 Type，但是 Array Type 只存了 ast 节点，没存真正大小
 // 遍历一遍所有的 Array Type，利用 const_expr_to_size_map 把大小填回去
@@ -127,11 +151,17 @@ struct ExprTypeAndLetStmtVisitor : public AST_Walker {
     map<Expr_ptr, size_t> &const_expr_to_size_map;
 
     // 对于循环，break 会返回一个值
-    // continue 是一定没有返回值的，所以如果 continue 后面有东西就报错
-    // 我前面写的时候考虑错了，但是我可以在这里判断掉
     // 为了确定循环的返回值，需要一个栈维护当前在哪个循环，这个循环的返回值是什么
     // 遇到循环的时候，新加一个，然后遇到 break 的时候和这个栈顶的返回值合并
     vector<RealType_ptr> loop_type_stack;
+
+    // 是否在函数内，如果在存储该函数的定义
+    FnDecl_ptr now_func_decl;
+
+    // 找到该作用域下的 ValueDecl
+    ValueDecl_ptr find_value_decl(Scope_ptr now_scope, string name);
+    // 找到该作用域下的 TypeDecl
+    TypeDecl_ptr find_type_decl(Scope_ptr now_scope, string name);
 
     ExprTypeAndLetStmtVisitor(bool require_function_,
             map<AST_Node_ptr, pair<RealType_ptr, PlaceKind>> &node_type_and_place_kind_map_,
@@ -142,7 +172,8 @@ struct ExprTypeAndLetStmtVisitor : public AST_Walker {
             node_type_and_place_kind_map(node_type_and_place_kind_map_),
             node_scope_map(node_scope_map_),
             type_map(type_map_),
-            const_expr_to_size_map(const_expr_to_size_map_) {}
+            const_expr_to_size_map(const_expr_to_size_map_),
+            now_func_decl(nullptr) {}
     virtual ~ExprTypeAndLetStmtVisitor() = default;
     virtual void visit(LiteralExpr &node) override;
     virtual void visit(IdentifierExpr &node) override;
