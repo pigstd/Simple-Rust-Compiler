@@ -19,7 +19,7 @@ def test_lexer():
 def test_parser():
     # test parser
     print("Running parser tests...")
-    test_cnt = 5
+    test_cnt = 6
     test_prog = "build/parser/test_parser"
     for i in range(1, test_cnt + 1):
         print(f"Running test {i}...")
@@ -38,5 +38,5 @@ def test_const_eval():
     print("Const eval tests completed.")
 
 # test_lexer()
-# test_parser()
-test_const_eval()
+test_parser()
+# test_const_eval()
