@@ -1,0 +1,152 @@
+#!/usr/bin/env python3
+import os
+import sys
+import argparse
+import json
+import subprocess
+import re
+
+# Semantic Testcases Tester
+# Usage: ./semantic_testcases_tester -t <folder_path> (-n <max_test_num>) 
+# Example: ./semantic_testcases_tester -t ./testcases/semantic_check (-n 10) 
+# 测试前 max_test_num 个测试用例，如果不指定 max_test_num 则测试所有测试用例 
+# 找到 folder_path 下的每个文件夹，每个文件夹里面应该有一个 .rx 文件和一个 .json 文件 
+# 对每个文件夹，调用 checker_path 来检查 .rx 文件，将输出放在临时文件 tmp_output 中，将 stderr 放在 tmp_error 中 
+# 如果输出和 .json 文件内容中 compileexitcode 这一项相同，则测试通过，否则测试不通过 
+# 如果不通过，并且是输出 -1，则打印 tmp_error 的内容 
+# 最后打印测试通过的数量和测试不通过的数量
+
+checker_path = "../test/build/semantic_check/test_semantic_check"
+
+def parse_int_from_text(s: str):
+    """从文本中提取第一个整数（含可选的正负号），失败返回 None。"""
+    if not s:
+        return None
+    m = re.search(r"[+-]?\d+", s.strip())
+    if not m:
+        return None
+    try:
+        return int(m.group(0))
+    except ValueError:
+        return None
+
+def load_expected_exitcode(json_path: str):
+    with open(json_path, "r", encoding="utf-8") as f:
+        try:
+            obj = json.load(f)
+        except json.JSONDecodeError as e:
+            raise ValueError(f"Invalid JSON ({json_path}): {e}")
+    if "compileexitcode" not in obj:
+        raise KeyError(f"`compileexitcode` missing in {json_path}")
+    exp = obj["compileexitcode"]
+    # 允许 int 或字符串数字
+    try:
+        return int(exp)
+    except (TypeError, ValueError):
+        raise ValueError(f"`compileexitcode` should be int-like, got: {exp!r} in {json_path}")
+
+def main():
+    parser = argparse.ArgumentParser(description="Semantic Testcases Tester")
+    parser.add_argument("-t", "--testcases_folder", type=str, required=True,
+                        help="Path to the folder containing test case folders")
+    parser.add_argument("-n", "--max_test_num", type=int, default=-1,
+                        help="Maximum number of test cases to run (default: all)")
+    args = parser.parse_args()
+
+    testcases_folder = f"../testcases/{args.testcases_folder}"
+    max_test_num = args.max_test_num
+
+    # 基本检查
+    if not os.path.exists(testcases_folder):
+        print(f"Error: Folder {testcases_folder} does not exist.")
+        sys.exit(1)
+    if not os.path.isdir(testcases_folder):
+        print(f"Error: {testcases_folder} is not a folder.")
+        sys.exit(1)
+    if not os.path.exists(checker_path):
+        print(f"Error: Checker {checker_path} does not exist.")
+        sys.exit(1)
+    if not os.path.isfile(checker_path):
+        print(f"Error: {checker_path} is not a file.")
+        sys.exit(1)
+    if not os.access(checker_path, os.X_OK):
+        print(f"Error: Checker {checker_path} is not executable.")
+        sys.exit(1)
+
+    total_tests = 0
+    passed_tests = 0
+    failed_tests = 0
+
+    # 确定性顺序
+    for testcase in sorted(os.listdir(testcases_folder)):
+        testcase_path = os.path.join(testcases_folder, testcase)
+        if not os.path.isdir(testcase_path):
+            continue
+
+        # 找 .rx 和 .json（只允许唯一各 1 个）
+        rx_candidates = [n for n in os.listdir(testcase_path) if n.endswith(".rx")]
+        json_candidates = [n for n in os.listdir(testcase_path) if n.endswith(".json")]
+
+        print(f"testing {testcase}...")
+
+        if len(rx_candidates) != 1 or len(json_candidates) != 1:
+            print(f"Warning: {testcase} should contain exactly one .rx and one .json "
+                  f"(got {len(rx_candidates)} .rx, {len(json_candidates)} .json). Skipping.")
+            continue
+
+        rs_file = os.path.join(testcase_path, rx_candidates[0])
+        json_file = os.path.join(testcase_path, json_candidates[0])
+
+        total_tests += 1
+
+        try:
+            # 读期望值
+            expected_content = load_expected_exitcode(json_file)
+
+            # 运行 checker：stdin= .rx 内容，捕获 stdout/stderr
+            with open(rs_file, "rb") as fin:
+                result = subprocess.run(
+                    [checker_path],
+                    stdin=fin,
+                    capture_output=True,  # 捕获 stdout/stderr（bytes）
+                    text=True             # 解码为 str（默认 utf-8 / locale）
+                )
+
+            # 从 stdout 解析整数
+            output_content = parse_int_from_text(result.stdout)
+
+            if output_content is None:
+                failed_tests += 1
+                print(f"Test case {testcase} failed (stdout not an int).")
+                print(f"Expect {expected_content}, Read <parse-failed>")
+                if result.returncode != 0 or result.stderr:
+                    print("=== stderr ===")
+                    print(result.stderr.strip())
+                # 继续下一个用例
+            else:
+                if output_content == expected_content:
+                    passed_tests += 1
+                    print(f"Test case {testcase} passed.")
+                else:
+                    failed_tests += 1
+                    print(f"Test case {testcase} failed.")
+                    print(f"Expect {expected_content}, Read {output_content}")
+                    # 维持你原先的逻辑：当输出为 -1 时才打印错误
+                    if output_content == -1:
+                        if result.stderr:
+                            print("=== stderr ===")
+                            print(result.stderr.strip())
+                        else:
+                            print("=== stderr is empty ===")
+
+        except Exception as e:
+            failed_tests += 1
+            print(f"Test case {testcase} raised an exception: {e}")
+
+        if max_test_num != -1 and total_tests >= max_test_num:
+            break
+
+    print(f"Total test cases: {total_tests}, Passed: {passed_tests}, Failed: {failed_tests}")
+
+if __name__ == "__main__":
+    main()
