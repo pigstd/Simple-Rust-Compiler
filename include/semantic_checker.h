@@ -8,6 +8,7 @@
 #include "semantic_step3.h"
 #include "semantic_step4.h"
 #include <cstddef>
+#include <tuple>
 
 struct Semantic_Checker {
     // 这里用 shared_ptr 没有问题，应该
@@ -44,6 +45,14 @@ struct Semantic_Checker {
     // 记录每个 Scope 的局部变量
     map<Scope_ptr, Local_Variable_map> scope_local_variable_map;
 
+    // 内置方法 e.g. array.len()
+    // (类型, 方法名, 方法的 FnDecl)
+    // 在第二轮之后填充进去
+    vector<std::tuple<RealTypeKind, string, FnDecl_ptr>> builtin_method_funcs;
+
+    // 内置关联函数 e.g. String::from()
+    vector<std::tuple<RealTypeKind, string, FnDecl_ptr>> builtin_associated_funcs;
+
     Semantic_Checker(vector<Item_ptr> &items_);
     // 总的 checker
     // 分为 4 步
@@ -51,7 +60,8 @@ struct Semantic_Checker {
     void step1_build_scopes_and_collect_symbols();
     void step2_resolve_types_and_check();
     void step3_constant_evaluation_and_control_flow_analysis();
-    // TO DO
+    void step4_expr_type_and_let_stmt_analysis();
+    void add_builtin_methods_and_associated_funcs();
 };
 // 用来记录 AST 节点对应的作用域
 

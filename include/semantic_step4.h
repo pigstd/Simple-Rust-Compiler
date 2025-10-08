@@ -56,32 +56,6 @@ RealType_ptr type_of_literal(LiteralType type, string value);
 // 深拷贝一个 RealType
 RealType_ptr copy(RealType_ptr type);
 
-// 检查 let 语句：
-// let pattern : target_type = (expr_type, expr_place)
-// 是否合法，用于 let 和函数传参
-// 如果不合法 throw CE
-void check_let_stmt(Pattern_ptr let_pattern, RealType_ptr target_type, RealType_ptr expr_type, PlaceKind expr_place);
-
-// 将 let 语句加入到当前作用域
-// 同样，用于 let 语句和函数参数
-void intro_let_stmt(Scope_ptr current_scope, Pattern_ptr let_pattern, RealType_ptr let_type);
-
-// 检查 cast 是否合法
-// 如果不合法 throw CE
-void check_cast(RealType_ptr expr_type, RealType_ptr target_type);
-
-// 获取 (base_type, placekind) 的 method_name 方法，返回一个函数类型
-// e.g. point.len()
-// 如果没有找到则返回 nullptr
-// 除了结构体，还需要考虑内置的函数
-RealType_ptr get_method_func(RealType_ptr base_type, PlaceKind place_kind, string method_name);
-
-// 获取 base_type 的 func_name 关联函数，返回一个函数类型
-// e.g. point::len()
-// 如果没有找到则返回 nullptr
-// 除了结构体，还需要考虑内置的函数
-RealType_ptr get_associated_func(RealType_ptr base_type, string func_name);
-
 // 第二轮处理出了所有 Type，但是 Array Type 只存了 ast 节点，没存真正大小
 // 遍历一遍所有的 Array Type，利用 const_expr_to_size_map 把大小填回去
 struct ArrayTypeVisitor : public AST_Walker {
@@ -154,7 +128,7 @@ struct ExprTypeAndLetStmtVisitor : public AST_Walker {
     // 存放每个 AST 的 Type 对应的 RealType，直接复制过来即可
     map<Type_ptr, RealType_ptr> &type_map;
     // 记录每个 Scope 的局部变量
-    map<Scope_ptr, Local_Variable_map> scope_local_variable_map;
+    map<Scope_ptr, Local_Variable_map> &scope_local_variable_map;
 
     // 遇到数组 type 的时候，将 size 从这个 map 里面取出来
     map<Expr_ptr, size_t> &const_expr_to_size_map;
@@ -167,26 +141,63 @@ struct ExprTypeAndLetStmtVisitor : public AST_Walker {
     // 记录每个 AST 树节点的 OutComeState
     map<AST_Node_ptr, OutcomeState> &node_outcome_state_map;
 
+    // 内置方法 e.g. array.len()
+    // (类型, 方法名, 方法的 FnDecl)
+    vector<std::tuple<RealTypeKind, string, FnDecl_ptr>> &builtin_method_funcs;
+
+    // 内置关联函数 e.g. String::from()
+    vector<std::tuple<RealTypeKind, string, FnDecl_ptr>> &builtin_associated_funcs;
+
     // 是否在函数内，如果在存储该函数的定义
     FnDecl_ptr now_func_decl;
 
     // 找到该作用域下的 ValueDecl
-    ValueDecl_ptr find_value_decl(Scope_ptr now_scope, string name);
+    ValueDecl_ptr find_value_decl(Scope_ptr now_scope, const string &name);
     // 找到该作用域下的 TypeDecl
-    TypeDecl_ptr find_type_decl(Scope_ptr now_scope, string name);
+    TypeDecl_ptr find_type_decl(Scope_ptr now_scope, const string &name);    
+    // 获取 (base_type, placekind) 的 method_name 方法，返回一个函数类型
+    // e.g. point.len()
+    // 如果没有找到则返回 nullptr
+    // 除了结构体，还需要考虑内置的函数
+    RealType_ptr get_method_func(RealType_ptr base_type, PlaceKind place_kind, const string &method_name);
+    // 获取 base_type 的 func_name 关联函数，返回一个函数类型
+    // e.g. point::len()
+    // 如果没有找到则返回 nullptr
+    // 除了结构体，还需要考虑内置的函数
+    RealType_ptr get_associated_func(RealType_ptr base_type, const string &func_name);
+
+    // 检查 let 语句：
+    // let pattern : target_type = (expr_type, expr_place)
+    // 是否合法，用于 let 和函数传参
+    // 如果不合法 throw CE
+    void check_let_stmt(Pattern_ptr let_pattern, RealType_ptr target_type, RealType_ptr expr_type, PlaceKind expr_place);
+
+    // 将 let 语句加入到当前作用域
+    // 同样，用于 let 语句和函数参数
+    void intro_let_stmt(Scope_ptr current_scope, Pattern_ptr let_pattern, RealType_ptr let_type);
+
+    // 检查 cast 是否合法
+    // 如果不合法 throw CE
+    void check_cast(RealType_ptr expr_type, RealType_ptr target_type);
 
     ExprTypeAndLetStmtVisitor(bool require_function_,
             map<AST_Node_ptr, pair<RealType_ptr, PlaceKind>> &node_type_and_place_kind_map_,
             map<AST_Node_ptr, Scope_ptr> &node_scope_map_,
             map<Type_ptr, RealType_ptr> &type_map_,
+            map<Scope_ptr, Local_Variable_map> &scope_local_variable_map_,
             map<Expr_ptr, size_t> &const_expr_to_size_map_,
-            map<AST_Node_ptr, OutcomeState> &node_outcome_state_map_) :
+            map<AST_Node_ptr, OutcomeState> &node_outcome_state_map_,
+            vector<std::tuple<RealTypeKind, string, FnDecl_ptr>> &builtin_method_funcs_,
+            vector<std::tuple<RealTypeKind, string, FnDecl_ptr>> &builtin_associated_funcs_) :
             require_function(require_function_),
             node_type_and_place_kind_map(node_type_and_place_kind_map_),
             node_scope_map(node_scope_map_),
             type_map(type_map_),
+            scope_local_variable_map(scope_local_variable_map_),
             const_expr_to_size_map(const_expr_to_size_map_),
             node_outcome_state_map(node_outcome_state_map_),
+            builtin_method_funcs(builtin_method_funcs_),
+            builtin_associated_funcs(builtin_associated_funcs_),
             now_func_decl(nullptr) {}
     virtual ~ExprTypeAndLetStmtVisitor() = default;
     virtual void visit(LiteralExpr &node) override;

@@ -887,7 +887,7 @@ void ExprTypeAndLetStmtVisitor::visit(LetStmt &node) {
     if (require_function) {
         throw "CE, let statement is not function";
     }
-    if (node.initializer != nullptr) {
+    if (node.initializer == nullptr) {
         throw "CE, let statement must have an initializer";
     }
     node.initializer->accept(*this);
@@ -907,3 +907,203 @@ void ExprTypeAndLetStmtVisitor::visit([[maybe_unused]]PathType &node) { return; 
 void ExprTypeAndLetStmtVisitor::visit([[maybe_unused]]ArrayType &node) { return; }
 void ExprTypeAndLetStmtVisitor::visit([[maybe_unused]]UnitType &node) { return; }
 void ExprTypeAndLetStmtVisitor::visit([[maybe_unused]]IdentifierPattern &node) { return; }
+
+ValueDecl_ptr ExprTypeAndLetStmtVisitor::find_value_decl(Scope_ptr now_scope, const string &name) {
+    while (now_scope != nullptr) {
+        if (scope_local_variable_map[now_scope].find(name) != scope_local_variable_map[now_scope].end()) {
+            return scope_local_variable_map[now_scope][name];
+        }
+        if (now_scope->value_namespace.find(name) != now_scope->value_namespace.end()) {
+            return now_scope->value_namespace[name];
+        }
+        now_scope = now_scope->parent.lock();
+    }
+    return nullptr;
+}
+
+TypeDecl_ptr ExprTypeAndLetStmtVisitor::find_type_decl(Scope_ptr now_scope, const string &name) {
+    while (now_scope != nullptr) {
+        if (now_scope->type_namespace.find(name) != now_scope->type_namespace.end()) {
+            return now_scope->type_namespace[name];
+        }
+        now_scope = now_scope->parent.lock();
+    }
+    return nullptr;
+}
+
+// expr_place 好像没啥用
+// 我纳闷了，为啥我当时觉得有用呢？
+// 先打个 maybe_unused 再说
+void ExprTypeAndLetStmtVisitor::check_let_stmt(Pattern_ptr let_pattern, RealType_ptr target_type, RealType_ptr expr_type, [[maybe_unused]]PlaceKind expr_place) {
+    // Pattern 目前只有 IdentifierPattern
+    auto ident_pattern = std::dynamic_pointer_cast<IdentifierPattern>(let_pattern);
+    // 考虑：let x, let mut x, let &mut x, let &x
+    if (ident_pattern->is_mut == Mutibility::IMMUTABLE && ident_pattern->is_ref == ReferenceType::NO_REF) {
+        // let x
+        type_merge(target_type, expr_type);
+    } else if (ident_pattern->is_mut == Mutibility::MUTABLE && ident_pattern->is_ref == ReferenceType::NO_REF) {
+        // let mut x
+        type_merge(target_type, expr_type);
+    } else if (ident_pattern->is_mut == Mutibility::IMMUTABLE && ident_pattern->is_ref == ReferenceType::REF) {
+        // let &x
+        if (expr_type->is_ref == ReferenceType::NO_REF) {
+            throw "CE, let & requires a reference type initializer";
+        }
+        auto real_type = copy(expr_type);
+        real_type->is_ref = ReferenceType::NO_REF;
+        type_merge(target_type, real_type);
+    } else if (ident_pattern->is_mut == Mutibility::MUTABLE && ident_pattern->is_ref == ReferenceType::REF) {
+        // let &mut x
+        if (expr_type->is_ref != ReferenceType::REF_MUT) {
+            throw "CE, let &mut requires a mutable reference type initializer";
+        }
+        if (expr_type->is_ref == ReferenceType::NO_REF) {
+            throw "CE, let & requires a reference type initializer";
+        }
+        auto real_type = copy(expr_type);
+        real_type->is_ref = ReferenceType::NO_REF;
+        type_merge(target_type, real_type);
+    } else {
+        throw "Error, unknown pattern mutibility and reference type";
+    }
+}
+
+void ExprTypeAndLetStmtVisitor::intro_let_stmt(Scope_ptr current_scope, Pattern_ptr let_pattern, RealType_ptr let_type) {
+    // Pattern 目前只有 IdentifierPattern
+    auto ident_pattern = std::dynamic_pointer_cast<IdentifierPattern>(let_pattern);
+    // 只要考虑是否 mut
+    if (ident_pattern->is_mut == Mutibility::MUTABLE) {
+        scope_local_variable_map[current_scope][ident_pattern->name] =
+            std::make_shared<LetDecl>(let_type, Mutibility::MUTABLE);
+    } else {
+        scope_local_variable_map[current_scope][ident_pattern->name] =
+            std::make_shared<LetDecl>(let_type, Mutibility::IMMUTABLE);
+    }
+}
+
+void ExprTypeAndLetStmtVisitor::check_cast(RealType_ptr expr_type, RealType_ptr target_type) {
+    switch (expr_type->is_ref) {
+        case ReferenceType::NO_REF: {
+            if (target_type->is_ref != ReferenceType::NO_REF) {
+                throw "CE, cannot cast non-reference type to reference type";
+            }
+            break;
+        }
+        case ReferenceType::REF: {
+            if (target_type->is_ref == ReferenceType::REF_MUT) {
+                throw "CE, cannot cast &T to &mut T";
+            }
+            break;
+        }
+        case ReferenceType::REF_MUT: {
+            // &mut T 可以转 &T
+            if (target_type->is_ref == ReferenceType::NO_REF) {
+                throw "CE, cannot cast &mut T to T";
+            }
+            break;
+        }
+    }
+    if (type_is_number(target_type)) {
+        if (type_is_number(expr_type) ||
+            expr_type->kind == RealTypeKind::CHAR ||
+            expr_type->kind == RealTypeKind::BOOL ||
+            expr_type->kind == RealTypeKind::ENUM) {
+            return;
+        }
+        throw "CE, cannot cast type " + real_type_kind_to_string(expr_type->kind) + " to number type " + real_type_kind_to_string(target_type->kind);
+    }
+    if (target_type->kind == RealTypeKind::CHAR) {
+        if (type_is_number(expr_type) ||
+            expr_type->kind == RealTypeKind::CHAR) {
+            return;
+        }
+        throw "CE, cannot cast type " + real_type_kind_to_string(expr_type->kind) + " to char type";
+    }
+    if (target_type->kind == RealTypeKind::ARRAY) {
+        if (expr_type->kind == RealTypeKind::ARRAY) {
+            auto expr_array_type = std::dynamic_pointer_cast<ArrayRealType>(expr_type);
+            auto target_array_type = std::dynamic_pointer_cast<ArrayRealType>(target_type);
+            if (expr_array_type->size != target_array_type->size) {
+                throw "CE, cannot cast array type with different size";
+            }
+            check_cast(expr_array_type->element_type, target_array_type->element_type);
+            return;
+        } else {
+            throw "CE, cannot cast type " + real_type_kind_to_string(expr_type->kind) + " to array type";
+        }
+    }
+    // 其他情况必须全部相同了
+    // 直接用 type_merge 检查
+    type_merge(expr_type, target_type);
+}
+
+// 需要考虑 RecieverType
+RealType_ptr ExprTypeAndLetStmtVisitor::get_method_func(RealType_ptr base_type, PlaceKind place_kind, const string &method_name) {
+    FnDecl_ptr method_decl = nullptr;
+    if (base_type->kind == RealTypeKind::STRUCT) {
+        auto struct_type = std::dynamic_pointer_cast<StructRealType>(base_type);
+        auto struct_decl = struct_type->decl.lock();
+        if (struct_decl->methods.find(method_name) == struct_decl->methods.end()) {
+            throw "CE, struct has no method named " + method_name;
+        }
+        method_decl = struct_decl->methods[method_name];
+    } else {
+        for (auto &[kind, name, decl] : builtin_method_funcs) {
+            if (kind == base_type->kind && name == method_name) {
+                method_decl = decl;
+                break;
+            }
+        }
+    }
+    if (method_decl == nullptr) {
+        throw "CE, type " + real_type_kind_to_string(base_type->kind) + " has no method named " + method_name;
+    }
+    // 检查 self receiver
+    if (method_decl->receiver_type == fn_reciever_type::SELF) {
+        // 这个时候自动解引用
+        return std::make_shared<FunctionRealType>(method_decl, ReferenceType::NO_REF);
+    } else if (method_decl->receiver_type == fn_reciever_type::SELF_REF) {
+        // 这个时候自动加引用
+        return std::make_shared<FunctionRealType>(method_decl, ReferenceType::NO_REF);
+    } else if (method_decl->receiver_type == fn_reciever_type::SELF_REF_MUT) {
+        if (base_type->is_ref == ReferenceType::NO_REF) {
+            if (place_kind != PlaceKind::ReadOnlyPlace) {
+                // 可变的左值 和右值应该都可以
+                return std::make_shared<FunctionRealType>(method_decl, ReferenceType::NO_REF);
+            } else {
+                throw "CE, method " + method_name + " requires a mutable self receiver";
+            }
+        } else if (base_type->is_ref == ReferenceType::REF) {
+            throw "CE, method " + method_name + " requires a mutable self receiver";
+        } else {
+            // REF_MUT
+            return std::make_shared<FunctionRealType>(method_decl, ReferenceType::NO_REF);
+        }
+    } else {
+        // no receiver 的情况应该前面已经检查掉了
+        throw "Error, unknown self receiver type";
+    }
+}
+
+RealType_ptr ExprTypeAndLetStmtVisitor::get_associated_func(RealType_ptr base_type, const string &func_name) {
+    FnDecl_ptr func_decl = nullptr;
+    if (base_type->kind == RealTypeKind::STRUCT) {
+        auto struct_type = std::dynamic_pointer_cast<StructRealType>(base_type);
+        auto struct_decl = struct_type->decl.lock();
+        if (struct_decl->associated_func.find(func_name) == struct_decl->associated_func.end()) {
+            throw "CE, struct has no associated function named " + func_name;
+        }
+        func_decl = struct_decl->associated_func[func_name];
+    } else {
+        for (auto &[kind, name, decl] : builtin_associated_funcs) {
+            if (kind == base_type->kind && name == func_name) {
+                func_decl = decl;
+                break;
+            }
+        }
+    }
+    if (func_decl == nullptr) {
+        throw "CE, type " + real_type_kind_to_string(base_type->kind) + " has no associated function named " + func_name;
+    }
+    return std::make_shared<FunctionRealType>(func_decl, ReferenceType::NO_REF);
+}
