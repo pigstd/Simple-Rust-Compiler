@@ -409,7 +409,7 @@ ConstValue_ptr ConstItemVisitor::const_cast_to_realtype(ConstValue_ptr value, Re
                 auto bool_value = std::dynamic_pointer_cast<Bool_ConstValue>(value);
                 num = bool_value->value ? 1 : 0;
             } else {
-                throw "CE, can't convert " + const_value_kind_to_string(value->kind)
+                throw string("CE, can't convert ") + const_value_kind_to_string(value->kind)
                 + " to " + real_type_kind_to_string(target_type->kind);
             }
             if (target_type->kind == RealTypeKind::I32) {
@@ -433,7 +433,7 @@ ConstValue_ptr ConstItemVisitor::const_cast_to_realtype(ConstValue_ptr value, Re
                 }
                 return std::make_shared<Usize_ConstValue>(static_cast<unsigned int>(num));
             } else {
-                throw "CE, can't convert number to unknown type " ;
+                throw string("CE, can't convert number to unknown type ");
             }
         }
         default: {

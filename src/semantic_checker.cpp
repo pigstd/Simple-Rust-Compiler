@@ -100,7 +100,7 @@ void Semantic_Checker::add_builtin_methods_and_associated_funcs() {
         print_fn_decl->return_type = std::make_shared<UnitRealType>(ReferenceType::NO_REF);
         string fn_name = "print";
         if (root_scope->value_namespace.find(fn_name) != root_scope->value_namespace.end()) {
-            throw "CE, builtin function name conflict: " + fn_name;
+            throw string("CE, builtin function name conflict: ") + fn_name;
         }
         root_scope->value_namespace[fn_name] = print_fn_decl;
     }
@@ -116,7 +116,7 @@ void Semantic_Checker::add_builtin_methods_and_associated_funcs() {
         println_fn_decl->return_type = std::make_shared<UnitRealType>(ReferenceType::NO_REF);
         string fn_name = "println";
         if (root_scope->value_namespace.find(fn_name) != root_scope->value_namespace.end()) {
-            throw "CE, builtin function name conflict: " + fn_name;
+            throw string("CE, builtin function name conflict: ") + fn_name;
         }
         root_scope->value_namespace[fn_name] = println_fn_decl;
     }
@@ -132,7 +132,7 @@ void Semantic_Checker::add_builtin_methods_and_associated_funcs() {
         printint_fn_decl->return_type = std::make_shared<UnitRealType>(ReferenceType::NO_REF);
         string fn_name = "printInt";
         if (root_scope->value_namespace.find(fn_name) != root_scope->value_namespace.end()) {
-            throw "CE, builtin function name conflict: " + fn_name;
+            throw string("CE, builtin function name conflict: ") + fn_name;
         }
         root_scope->value_namespace[fn_name] = printint_fn_decl;
     }
@@ -148,7 +148,7 @@ void Semantic_Checker::add_builtin_methods_and_associated_funcs() {
         printlnint_fn_decl->return_type = std::make_shared<UnitRealType>(ReferenceType::NO_REF);
         string fn_name = "printlnInt";
         if (root_scope->value_namespace.find(fn_name) != root_scope->value_namespace.end()) {
-            throw "CE, builtin function name conflict: " + fn_name;
+            throw string("CE, builtin function name conflict: ") + fn_name;
         }
         root_scope->value_namespace[fn_name] = printlnint_fn_decl;
     }
@@ -163,7 +163,7 @@ void Semantic_Checker::add_builtin_methods_and_associated_funcs() {
         getstring_fn_decl->return_type = std::make_shared<StringRealType>(ReferenceType::NO_REF);
         string fn_name = "getString";
         if (root_scope->value_namespace.find(fn_name) != root_scope->value_namespace.end()) {
-            throw "CE, builtin function name conflict: " + fn_name;
+            throw string("CE, builtin function name conflict: ") + fn_name;
         }
         root_scope->value_namespace[fn_name] = getstring_fn_decl;
     }
@@ -181,7 +181,7 @@ void Semantic_Checker::add_builtin_methods_and_associated_funcs() {
         exit_fn_decl->return_type = std::make_shared<UnitRealType>(ReferenceType::NO_REF);
         string fn_name = "exit";
         if (root_scope->value_namespace.find(fn_name) != root_scope->value_namespace.end()) {
-            throw "CE, builtin function name conflict: " + fn_name;
+            throw string("CE, builtin function name conflict: ") + fn_name;
         }
         root_scope->value_namespace[fn_name] = exit_fn_decl;
     }
