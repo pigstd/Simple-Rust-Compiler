@@ -1,6 +1,10 @@
 #include "semantic_step2.h"
 #include "semantic_step1.h"
+#include <cassert>
+#include <cstddef>
+#include <iostream>
 #include <memory>
+#include <ostream>
 
 string real_type_kind_to_string(RealTypeKind kind) {
     switch (kind) {
@@ -21,9 +25,9 @@ string real_type_kind_to_string(RealTypeKind kind) {
     }
 }
 
-RealType_ptr find_real_type(Scope_ptr current_scope, Type_ptr type_ast, map<Type_ptr, RealType_ptr> &type_map, vector<Expr_ptr> &const_expr_queue) {
-    if (type_map.find(type_ast) != type_map.end()) {
-        return type_map[type_ast];
+RealType_ptr find_real_type(Scope_ptr current_scope, Type_ptr type_ast, map<size_t, RealType_ptr> &type_map, vector<Expr_ptr> &const_expr_queue) {
+    if (type_map.find(type_ast->NodeId) != type_map.end()) {
+        return type_map[type_ast->NodeId];
     }
     RealType_ptr result_type = nullptr;
     ReferenceType ref_type = type_ast->ref_type;
@@ -76,10 +80,13 @@ RealType_ptr find_real_type(Scope_ptr current_scope, Type_ptr type_ast, map<Type
     } else {
         result_type = std::make_shared<UnitRealType>(ref_type);
     }
-    return type_map[type_ast] = result_type;
+    std::cerr << "Debug: find_real_type for AST type, got RealType kind = " << real_type_kind_to_string(result_type->kind) << "\n";
+    // std::cerr << "ast_ptr = " << type_ast.get() << std::endl;
+    std::cerr << "ast_id = " << type_ast->NodeId << std::endl;
+    return type_map[type_ast->NodeId] = result_type;
 }
 
-void Scope_dfs_and_build_type(Scope_ptr scope, map<Type_ptr, RealType_ptr> &type_map, vector<Expr_ptr> &const_expr_queue) {
+void Scope_dfs_and_build_type(Scope_ptr scope, map<size_t, RealType_ptr> &type_map, vector<Expr_ptr> &const_expr_queue) {
     for (auto [name, type_decl] : scope->type_namespace) {
         if (type_decl->kind == TypeDeclKind::Struct) {
             // 解析 fields

@@ -2,8 +2,8 @@
 #include "ast.h"
 #include "semantic_step3.h"
 #include <cassert>
+#include <cstddef>
 #include <iostream>
-#include <string>
 
 using std::cout;
 using std::endl;
@@ -176,10 +176,10 @@ void test_calc_const_binary_expr(ConstItemVisitor &visitor) {
 }
 
 int main() {
-    map<AST_Node_ptr, Scope_ptr> node_scope_map_;
+    map<size_t, Scope_ptr> node_scope_map_;
     map<ConstDecl_ptr, ConstValue_ptr> const_value_map_;
-    map<Type_ptr, RealType_ptr> type_map_;
-    map<Expr_ptr, size_t> const_expr_to_size_map_;
+    map<size_t, RealType_ptr> type_map_;
+    map<size_t, size_t> const_expr_to_size_map_;
     ConstItemVisitor visitor(false, node_scope_map_, const_value_map_, type_map_, const_expr_to_size_map_);
     test_parse_literal_token_to_const_value(visitor);
     test_calc_const_unary_expr(visitor);

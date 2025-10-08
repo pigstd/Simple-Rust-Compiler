@@ -1,6 +1,7 @@
 #include "semantic_step1.h"
 #include "ast.h"
 #include "visitor.h"
+#include <cstddef>
 #include <memory>
 
 /*
@@ -10,42 +11,175 @@ step1 : 建作用域树 + 符号初收集
 
 using std::make_shared;
 
-ScopeBuilder_Visitor::ScopeBuilder_Visitor(Scope_ptr root_scope, map<AST_Node_ptr, shared_ptr<Scope>> &node_scope_map_) :
+void ASTIdGenerator::visit(LiteralExpr &node) {
+    node.NodeId = current_id++;
+    AST_Walker::visit(node);
+}
+void ASTIdGenerator::visit(IdentifierExpr &node) {
+    node.NodeId = current_id++;
+    AST_Walker::visit(node);
+}
+void ASTIdGenerator::visit(BinaryExpr &node) {
+    node.NodeId = current_id++;
+    AST_Walker::visit(node);
+}
+void ASTIdGenerator::visit(UnaryExpr &node) {
+    node.NodeId = current_id++;
+    AST_Walker::visit(node);
+}
+void ASTIdGenerator::visit(CallExpr &node) {
+    node.NodeId = current_id++;
+    AST_Walker::visit(node);
+}
+void ASTIdGenerator::visit(FieldExpr &node) {
+    node.NodeId = current_id++;
+    AST_Walker::visit(node);
+}
+void ASTIdGenerator::visit(StructExpr &node) {
+    node.NodeId = current_id++;
+    AST_Walker::visit(node);
+}
+void ASTIdGenerator::visit(IndexExpr &node) {
+    node.NodeId = current_id++;
+    AST_Walker::visit(node);
+}
+void ASTIdGenerator::visit(BlockExpr &node) {
+    node.NodeId = current_id++;
+    AST_Walker::visit(node);
+}
+void ASTIdGenerator::visit(IfExpr &node) {
+    node.NodeId = current_id++;
+    AST_Walker::visit(node);
+}
+void ASTIdGenerator::visit(WhileExpr &node) {
+    node.NodeId = current_id++;
+    AST_Walker::visit(node);
+}
+void ASTIdGenerator::visit(LoopExpr &node) {
+    node.NodeId = current_id++;
+    AST_Walker::visit(node);
+}
+void ASTIdGenerator::visit(ReturnExpr &node) {
+    node.NodeId = current_id++;
+    AST_Walker::visit(node);
+}
+void ASTIdGenerator::visit(ContinueExpr &node) {
+    node.NodeId = current_id++;
+    AST_Walker::visit(node);
+}
+void ASTIdGenerator::visit(BreakExpr &node) {
+    node.NodeId = current_id++;
+    AST_Walker::visit(node);
+}
+void ASTIdGenerator::visit(CastExpr &node) {
+    node.NodeId = current_id++;
+    AST_Walker::visit(node);
+}
+void ASTIdGenerator::visit(PathExpr &node) {
+    node.NodeId = current_id++;
+    AST_Walker::visit(node);
+}
+void ASTIdGenerator::visit(SelfExpr &node) {
+    node.NodeId = current_id++;
+    AST_Walker::visit(node);
+}
+void ASTIdGenerator::visit(UnitExpr &node) {
+    node.NodeId = current_id++;
+    AST_Walker::visit(node);
+}
+void ASTIdGenerator::visit(ArrayExpr &node) {
+    node.NodeId = current_id++;
+    AST_Walker::visit(node);
+}
+void ASTIdGenerator::visit(RepeatArrayExpr &node) {
+    node.NodeId = current_id++;
+    AST_Walker::visit(node);
+}
+void ASTIdGenerator::visit(FnItem &node) {
+    node.NodeId = current_id++;
+    AST_Walker::visit(node);
+}
+void ASTIdGenerator::visit(StructItem &node) {
+    node.NodeId = current_id++;
+    AST_Walker::visit(node);
+}
+void ASTIdGenerator::visit(EnumItem &node) {
+    node.NodeId = current_id++;
+    AST_Walker::visit(node);
+}
+void ASTIdGenerator::visit(ImplItem &node) {
+    node.NodeId = current_id++;
+    AST_Walker::visit(node);
+}
+void ASTIdGenerator::visit(ConstItem &node) {
+    node.NodeId = current_id++;
+    AST_Walker::visit(node);
+}
+void ASTIdGenerator::visit(LetStmt &node) {
+    node.NodeId = current_id++;
+    AST_Walker::visit(node);
+}
+void ASTIdGenerator::visit(ExprStmt &node) {
+    node.NodeId = current_id++;
+    AST_Walker::visit(node);
+}
+void ASTIdGenerator::visit(ItemStmt &node) {
+    node.NodeId = current_id++;
+    AST_Walker::visit(node);
+}
+void ASTIdGenerator::visit(PathType &node) {
+    node.NodeId = current_id++;
+    AST_Walker::visit(node);
+}
+void ASTIdGenerator::visit(ArrayType &node) {
+    node.NodeId = current_id++;
+    AST_Walker::visit(node);
+}
+void ASTIdGenerator::visit(UnitType &node) {
+    node.NodeId = current_id++;
+    AST_Walker::visit(node);
+}
+void ASTIdGenerator::visit(IdentifierPattern &node) {
+    node.NodeId = current_id++;
+    AST_Walker::visit(node);
+}
+
+ScopeBuilder_Visitor::ScopeBuilder_Visitor(Scope_ptr root_scope, map<size_t, shared_ptr<Scope>> &node_scope_map_) :
     node_scope_map(node_scope_map_), block_is_in_function(false) {
     // 初始化作用域栈，加入根作用域
     scope_stack.push_back(root_scope);
 }
 
 void ScopeBuilder_Visitor::visit(LiteralExpr &node) {
-    node_scope_map[make_shared<LiteralExpr>(node)] = current_scope();
+    node_scope_map[node.NodeId] = current_scope();
     AST_Walker::visit(node);
 }
 void ScopeBuilder_Visitor::visit(IdentifierExpr &node) {
-    node_scope_map[make_shared<IdentifierExpr>(node)] = current_scope();
+    node_scope_map[node.NodeId] = current_scope();
     AST_Walker::visit(node);
 }
 void ScopeBuilder_Visitor::visit(BinaryExpr &node) {
-    node_scope_map[make_shared<BinaryExpr>(node)] = current_scope();
+    node_scope_map[node.NodeId] = current_scope();
     AST_Walker::visit(node);
 }
 void ScopeBuilder_Visitor::visit(UnaryExpr &node) {
-    node_scope_map[make_shared<UnaryExpr>(node)] = current_scope();
+    node_scope_map[node.NodeId] = current_scope();
     AST_Walker::visit(node);
 }
 void ScopeBuilder_Visitor::visit(CallExpr &node) {
-    node_scope_map[make_shared<CallExpr>(node)] = current_scope();
+    node_scope_map[node.NodeId] = current_scope();
     AST_Walker::visit(node);
 }
 void ScopeBuilder_Visitor::visit(FieldExpr &node) {
-    node_scope_map[make_shared<FieldExpr>(node)] = current_scope();
+    node_scope_map[node.NodeId] = current_scope();
     AST_Walker::visit(node);
 }
 void ScopeBuilder_Visitor::visit(StructExpr &node) {
-    node_scope_map[make_shared<StructExpr>(node)] = current_scope();
+    node_scope_map[node.NodeId] = current_scope();
     AST_Walker::visit(node);
 }
 void ScopeBuilder_Visitor::visit(IndexExpr &node) {
-    node_scope_map[make_shared<IndexExpr>(node)] = current_scope();
+    node_scope_map[node.NodeId] = current_scope();
     AST_Walker::visit(node);
 }
 void ScopeBuilder_Visitor::visit(BlockExpr &node) {
@@ -59,62 +193,62 @@ void ScopeBuilder_Visitor::visit(BlockExpr &node) {
         current_scope()->children.push_back(new_scope);
         scope_stack.push_back(new_scope);
     }
-    node_scope_map[make_shared<BlockExpr>(node)] = current_scope();
+    node_scope_map[node.NodeId] = current_scope();
     AST_Walker::visit(node);
     if (build_new_scope) {
         scope_stack.pop_back();
     }
 }
 void ScopeBuilder_Visitor::visit(IfExpr &node) {
-    node_scope_map[make_shared<IfExpr>(node)] = current_scope();
+    node_scope_map[node.NodeId] = current_scope();
     AST_Walker::visit(node);
 }
 void ScopeBuilder_Visitor::visit(WhileExpr &node) {
-    node_scope_map[make_shared<WhileExpr>(node)] = current_scope();
+    node_scope_map[node.NodeId] = current_scope();
     AST_Walker::visit(node);
 }
 void ScopeBuilder_Visitor::visit(LoopExpr &node) {
-    node_scope_map[make_shared<LoopExpr>(node)] = current_scope();
+    node_scope_map[node.NodeId] = current_scope();
     AST_Walker::visit(node);
 }
 void ScopeBuilder_Visitor::visit(ReturnExpr &node) {
-    node_scope_map[make_shared<ReturnExpr>(node)] = current_scope();
+    node_scope_map[node.NodeId] = current_scope();
     AST_Walker::visit(node);
 }
 void ScopeBuilder_Visitor::visit(BreakExpr &node) {
-    node_scope_map[make_shared<BreakExpr>(node)] = current_scope();
+    node_scope_map[node.NodeId] = current_scope();
     AST_Walker::visit(node);
 }
 void ScopeBuilder_Visitor::visit(ContinueExpr &node) {
-    node_scope_map[make_shared<ContinueExpr>(node)] = current_scope();
+    node_scope_map[node.NodeId] = current_scope();
     AST_Walker::visit(node);
 }
 void ScopeBuilder_Visitor::visit(CastExpr &node) {
-    node_scope_map[make_shared<CastExpr>(node)] = current_scope();
+    node_scope_map[node.NodeId] = current_scope();
     AST_Walker::visit(node);
 }
 void ScopeBuilder_Visitor::visit(PathExpr &node) {
-    node_scope_map[make_shared<PathExpr>(node)] = current_scope();
+    node_scope_map[node.NodeId] = current_scope();
     AST_Walker::visit(node);
 }
 void ScopeBuilder_Visitor::visit(SelfExpr &node) {
-    node_scope_map[make_shared<SelfExpr>(node)] = current_scope();
+    node_scope_map[node.NodeId] = current_scope();
     AST_Walker::visit(node);
 }
 void ScopeBuilder_Visitor::visit(UnitExpr &node) {
-    node_scope_map[make_shared<UnitExpr>(node)] = current_scope();
+    node_scope_map[node.NodeId] = current_scope();
     AST_Walker::visit(node);
 }
 void ScopeBuilder_Visitor::visit(ArrayExpr &node) {
-    node_scope_map[make_shared<ArrayExpr>(node)] = current_scope();
+    node_scope_map[node.NodeId] = current_scope();
     AST_Walker::visit(node);
 }
 void ScopeBuilder_Visitor::visit(RepeatArrayExpr &node) {
-    node_scope_map[make_shared<RepeatArrayExpr>(node)] = current_scope();
+    node_scope_map[node.NodeId] = current_scope();
     AST_Walker::visit(node);
 }
 void ScopeBuilder_Visitor::visit(FnItem &node) {
-    node_scope_map[make_shared<FnItem>(node)] = current_scope();
+    node_scope_map[node.NodeId] = current_scope();
     Scope_ptr new_scope = make_shared<Scope>(current_scope(), ScopeKind::Function);
 
     // FnDecl 现在接收 FnItem_ptr
@@ -138,7 +272,7 @@ void ScopeBuilder_Visitor::visit(FnItem &node) {
     scope_stack.pop_back();
 }
 void ScopeBuilder_Visitor::visit(StructItem &node) {
-    node_scope_map[make_shared<StructItem>(node)] = current_scope();
+    node_scope_map[node.NodeId] = current_scope();
 
     // StructDecl 现在接收 StructItem_ptr
     StructItem_ptr struct_item_ptr = make_shared<StructItem>(node);
@@ -153,7 +287,7 @@ void ScopeBuilder_Visitor::visit(StructItem &node) {
     AST_Walker::visit(node);
 }
 void ScopeBuilder_Visitor::visit(EnumItem &node) {
-    node_scope_map[make_shared<EnumItem>(node)] = current_scope();
+    node_scope_map[node.NodeId] = current_scope();
 
     // EnumDecl 现在接收 EnumItem_ptr
     EnumItem_ptr enum_item_ptr = make_shared<EnumItem>(node);
@@ -168,7 +302,7 @@ void ScopeBuilder_Visitor::visit(EnumItem &node) {
     AST_Walker::visit(node);
 }
 void ScopeBuilder_Visitor::visit(ImplItem &node) {
-    node_scope_map[make_shared<ImplItem>(node)] = current_scope();
+    node_scope_map[node.NodeId] = current_scope();
     Scope_ptr new_scope = make_shared<Scope>(current_scope(), ScopeKind::Impl, node.struct_name);
     current_scope()->children.push_back(new_scope);
     scope_stack.push_back(new_scope);
@@ -176,7 +310,7 @@ void ScopeBuilder_Visitor::visit(ImplItem &node) {
     scope_stack.pop_back();
 }
 void ScopeBuilder_Visitor::visit(ConstItem &node) {
-    node_scope_map[make_shared<ConstItem>(node)] = current_scope();
+    node_scope_map[node.NodeId] = current_scope();
 
     // ConstDecl 现在接收 ConstItem_ptr
     ConstItem_ptr const_item_ptr = make_shared<ConstItem>(node);
@@ -191,30 +325,30 @@ void ScopeBuilder_Visitor::visit(ConstItem &node) {
     AST_Walker::visit(node);
 }
 void ScopeBuilder_Visitor::visit(LetStmt &node) {
-    node_scope_map[make_shared<LetStmt>(node)] = current_scope();
+    node_scope_map[node.NodeId] = current_scope();
     AST_Walker::visit(node);
 }
 void ScopeBuilder_Visitor::visit(ExprStmt &node) {
-    node_scope_map[make_shared<ExprStmt>(node)] = current_scope();
+    node_scope_map[node.NodeId] = current_scope();
     AST_Walker::visit(node);
 }
 void ScopeBuilder_Visitor::visit(ItemStmt &node) {
-    node_scope_map[make_shared<ItemStmt>(node)] = current_scope();
+    node_scope_map[node.NodeId] = current_scope();
     AST_Walker::visit(node);
 }
 void ScopeBuilder_Visitor::visit(PathType &node) {
-    node_scope_map[make_shared<PathType>(node)] = current_scope();
+    node_scope_map[node.NodeId] = current_scope();
     AST_Walker::visit(node);
 }
 void ScopeBuilder_Visitor::visit(ArrayType &node) {
-    node_scope_map[make_shared<ArrayType>(node)] = current_scope();
+    node_scope_map[node.NodeId] = current_scope();
     AST_Walker::visit(node);
 }
 void ScopeBuilder_Visitor::visit(UnitType &node) {
-    node_scope_map[make_shared<UnitType>(node)] = current_scope();
+    node_scope_map[node.NodeId] = current_scope();
     AST_Walker::visit(node);
 }
 void ScopeBuilder_Visitor::visit(IdentifierPattern &node) {
-    node_scope_map[make_shared<IdentifierPattern>(node)] = current_scope();
+    node_scope_map[node.NodeId] = current_scope();
     AST_Walker::visit(node);
 }

@@ -7,7 +7,9 @@
 #include "tools.h"
 #include <cassert>
 #include <cstddef>
+#include <iostream>
 #include <memory>
+#include <ostream>
 
 // 只有遇到 ArrayType 的时候，才会用到这个 visitor
 // 其他节点都直接调用 AST_Walker 的 visit 即可
@@ -43,15 +45,17 @@ void ArrayTypeVisitor::visit(ExprStmt &node) { AST_Walker::visit(node); }
 void ArrayTypeVisitor::visit(ItemStmt &node) { AST_Walker::visit(node); }
 void ArrayTypeVisitor::visit(PathType &node) { AST_Walker::visit(node); }
 void ArrayTypeVisitor::visit(ArrayType &node) {
-    auto target_real_type = type_map[std::make_shared<ArrayType>(node)];
+    auto target_real_type = type_map[node.NodeId];
+    assert(target_real_type != nullptr);
+    assert(target_real_type->kind == RealTypeKind::ARRAY);
     auto array_real_type = std::dynamic_pointer_cast<ArrayRealType>(target_real_type);
     if (!array_real_type) {
         // 这个时候应该是前面代码写错了，不是 CE，报 Error 的错误
         throw string("Error, should be array type");
     }
     size_t array_size = 0;
-    if (const_expr_to_size_map.find(node.size_expr) != const_expr_to_size_map.end()) {
-        array_size = const_expr_to_size_map[node.size_expr];
+    if (const_expr_to_size_map.find(node.size_expr->NodeId) != const_expr_to_size_map.end()) {
+        array_size = const_expr_to_size_map[node.size_expr->NodeId];
     } else {
         // 这个时候应该是前面代码写错了，不是 CE，报 Error 的错误
         throw string("Error, cannot find array size");
@@ -190,10 +194,11 @@ void ExprTypeAndLetStmtVisitor::visit(LiteralExpr &node) {
         throw string("CE, literal is not function");
     }
     auto literal_type = type_of_literal(node.literal_type, node.value);
-    node_type_and_place_kind_map[std::make_shared<LiteralExpr>(node)] = {literal_type, PlaceKind::NotPlace};
+    node_type_and_place_kind_map[node.NodeId] = {literal_type, PlaceKind::NotPlace};
 }
 void ExprTypeAndLetStmtVisitor::visit(IdentifierExpr &node) {
-    auto decl = find_value_decl(node_scope_map[std::make_shared<IdentifierExpr>(node)], node.name);
+    std::cerr << "start identifier expr visit: " << node.name << "\n";
+    auto decl = find_value_decl(node_scope_map[node.NodeId], node.name);
     if (decl == nullptr) {
         throw string("CE, cannot find identifier declaration: ") + node.name;
     }
@@ -228,15 +233,16 @@ void ExprTypeAndLetStmtVisitor::visit(IdentifierExpr &node) {
         }
     }
     assert(result_type != nullptr);
-    node_type_and_place_kind_map[std::make_shared<IdentifierExpr>(node)] = {result_type, place_kind};
+    node_type_and_place_kind_map[node.NodeId] = {result_type, place_kind};
+    std::cerr << "end identifier expr visit: " << node.name << "\n";
 }
 void ExprTypeAndLetStmtVisitor::visit(BinaryExpr &node) {
     if (require_function) {
         throw string("CE, binary expression is not function");
     }
     AST_Walker::visit(node);
-    auto [left_type, left_place] = node_type_and_place_kind_map[node.left];
-    auto [right_type, right_place] = node_type_and_place_kind_map[node.right];
+    auto [left_type, left_place] = node_type_and_place_kind_map[node.left->NodeId];
+    auto [right_type, right_place] = node_type_and_place_kind_map[node.right->NodeId];
     RealType_ptr result_type = nullptr;
     if (left_type->is_ref != ReferenceType::NO_REF ||
         right_type->is_ref != ReferenceType::NO_REF) {
@@ -360,7 +366,7 @@ void ExprTypeAndLetStmtVisitor::visit(BinaryExpr &node) {
         }
     }
     assert(result_type != nullptr);
-    node_type_and_place_kind_map[std::make_shared<BinaryExpr>(node)] =
+    node_type_and_place_kind_map[node.NodeId] =
         {result_type, PlaceKind::NotPlace};
 }
 void ExprTypeAndLetStmtVisitor::visit(UnaryExpr &node) {
@@ -375,7 +381,7 @@ void ExprTypeAndLetStmtVisitor::visit(UnaryExpr &node) {
         throw string("CE, unary expression is not function");
     }
     AST_Walker::visit(node);
-    auto [right_type, right_place] = node_type_and_place_kind_map[node.right];
+    auto [right_type, right_place] = node_type_and_place_kind_map[node.right->NodeId];
     RealType_ptr result_type = nullptr;
     PlaceKind place_kind;
     if (node.op == Unary_Operator::NEG) {
@@ -435,10 +441,11 @@ void ExprTypeAndLetStmtVisitor::visit(UnaryExpr &node) {
         throw string("CE, unexpected unary operator: ") + unary_operator_to_string(node.op);
     }
     assert(result_type != nullptr);
-    node_type_and_place_kind_map[std::make_shared<UnaryExpr>(node)] =
+    node_type_and_place_kind_map[node.NodeId] =
         {result_type, place_kind};
 }
 void ExprTypeAndLetStmtVisitor::visit(CallExpr &node) {
+    std::cerr << "start call expr visit\n";
     if (require_function) {
         throw string("CE, call expression is not function");
     }
@@ -446,13 +453,13 @@ void ExprTypeAndLetStmtVisitor::visit(CallExpr &node) {
     node.callee->accept(*this);
     require_function = false;
     vector<pair<RealType_ptr, PlaceKind>> arg_types;
-    for (auto &arg : node.arguments) {
-        arg->accept(*this);
-        arg_types.push_back(node_type_and_place_kind_map[arg]);
-    }
-    auto [callee_type, callee_place] = node_type_and_place_kind_map[node.callee];
+    auto [callee_type, callee_place] = node_type_and_place_kind_map[node.callee->NodeId];
     if (callee_type->kind != RealTypeKind::FUNCTION) {
         throw string("CE, call expression requires a function type callee");
+    }
+    for (auto &arg : node.arguments) {
+        arg->accept(*this);
+        arg_types.push_back(node_type_and_place_kind_map[arg->NodeId]);
     }
     auto fn_type = std::dynamic_pointer_cast<FunctionRealType>(callee_type);
     assert(fn_type != nullptr);
@@ -463,27 +470,32 @@ void ExprTypeAndLetStmtVisitor::visit(CallExpr &node) {
     if (fn_decl->parameters.size() != arg_types.size()) {
         throw string("CE, function call argument number mismatch");
     }
+    std::cerr << "!!!" << std::endl;
+    std::cerr << "sz : " << fn_decl->parameters.size() << " " << arg_types.size() << std::endl;
     for (size_t i = 0; i < arg_types.size(); i++) {
         // 这里相当于 let 语句的类型检查
         auto [pattern, target_type] = fn_decl->parameters[i];
         auto [expr_type, expr_place] = arg_types[i];
+        std::cerr << "checking param " << i << std::endl;
         check_let_stmt(pattern, target_type, expr_type, expr_place);
     }
-    node_type_and_place_kind_map[std::make_shared<CallExpr>(node)] =
+    std::cerr << "!!!" << std::endl;
+    node_type_and_place_kind_map[node.NodeId] =
         {fn_decl->return_type, PlaceKind::NotPlace};
+    std::cerr << "end call expr visit\n";
 }
 void ExprTypeAndLetStmtVisitor::visit(FieldExpr &node) {
     if (require_function) {
         // 这个时候是返回一个结构体内的一个函数
         require_function = false;
         node.base->accept(*this);
-        auto [base_type, base_place] = node_type_and_place_kind_map[node.base];
-        node_type_and_place_kind_map[std::make_shared<FieldExpr>(node)] =
+        auto [base_type, base_place] = node_type_and_place_kind_map[node.base->NodeId];
+        node_type_and_place_kind_map[node.NodeId] =
             {get_associated_func(base_type, node.field_name), PlaceKind::NotPlace};
     } else {
         // 这个时候是返回一个结构体内的一个字段
         node.base->accept(*this);
-        auto [base_type, base_place] = node_type_and_place_kind_map[node.base];
+        auto [base_type, base_place] = node_type_and_place_kind_map[node.base->NodeId];
         // base_type 必须是 struct 类型
         if (base_type->kind != RealTypeKind::STRUCT) {
             throw string("CE, field access requires a struct type base");
@@ -511,7 +523,7 @@ void ExprTypeAndLetStmtVisitor::visit(FieldExpr &node) {
         if (field_type == nullptr) {
             throw string("CE, struct  has no field named ") + node.field_name;
         }
-        node_type_and_place_kind_map[std::make_shared<FieldExpr>(node)] =
+        node_type_and_place_kind_map[node.NodeId] =
             {field_type, place_kind};
     }
 }
@@ -520,7 +532,7 @@ void ExprTypeAndLetStmtVisitor::visit(StructExpr &node) {
         throw string("CE, struct expression is not function");
     }
     AST_Walker::visit(node);
-    auto decl = find_type_decl(node_scope_map[std::make_shared<StructExpr>(node)], node.struct_name);
+    auto decl = find_type_decl(node_scope_map[node.NodeId], node.struct_name);
     if (decl == nullptr || decl->kind != TypeDeclKind::Struct) {
         throw string("CE, cannot find struct declaration: ") + node.struct_name;
     }
@@ -533,9 +545,9 @@ void ExprTypeAndLetStmtVisitor::visit(StructExpr &node) {
         if (struct_decl->fields.find(fname) == struct_decl->fields.end()) {
             throw string("CE, struct ") + node.struct_name + " has no field named " + fname;
         }
-        type_merge(struct_decl->fields[fname], node_type_and_place_kind_map[fexpr].first);
+        type_merge(struct_decl->fields[fname], node_type_and_place_kind_map[fexpr->NodeId].first);
     }
-    node_type_and_place_kind_map[std::make_shared<StructExpr>(node)] =
+    node_type_and_place_kind_map[node.NodeId] =
         {std::make_shared<StructRealType>(node.struct_name, ReferenceType::NO_REF, struct_decl), PlaceKind::NotPlace};
 }
 void ExprTypeAndLetStmtVisitor::visit(IndexExpr &node) {
@@ -544,8 +556,8 @@ void ExprTypeAndLetStmtVisitor::visit(IndexExpr &node) {
     }
     node.base->accept(*this);
     node.index->accept(*this);
-    auto [base_type, base_place] = node_type_and_place_kind_map[node.base];
-    auto [index_type, index_place] = node_type_and_place_kind_map[node.index];
+    auto [base_type, base_place] = node_type_and_place_kind_map[node.base->NodeId];
+    auto [index_type, index_place] = node_type_and_place_kind_map[node.index->NodeId];
     if (index_type->is_ref != ReferenceType::NO_REF ||
         (index_type->kind != RealTypeKind::USIZE && index_type->kind != RealTypeKind::ANYINT)) {
         throw string("CE, index expression requires usize type index");
@@ -569,7 +581,7 @@ void ExprTypeAndLetStmtVisitor::visit(IndexExpr &node) {
     } else {
         place_kind = PlaceKind::ReadWritePlace;
     }
-    node_type_and_place_kind_map[std::make_shared<IndexExpr>(node)] =
+    node_type_and_place_kind_map[node.NodeId] =
         {array_type->element_type, place_kind};
 }
 void ExprTypeAndLetStmtVisitor::visit(BlockExpr &node) {
@@ -577,15 +589,15 @@ void ExprTypeAndLetStmtVisitor::visit(BlockExpr &node) {
         throw string("CE, block expression is not function");
     }
     AST_Walker::visit(node);
-    if (!has_state(node_outcome_state_map[std::make_shared<BlockExpr>(node)], OutcomeType::NEXT)) {
-        node_type_and_place_kind_map[std::make_shared<BlockExpr>(node)] =
+    if (!has_state(node_outcome_state_map[node.NodeId], OutcomeType::NEXT)) {
+        node_type_and_place_kind_map[node.NodeId] =
             {std::make_shared<NeverRealType>(ReferenceType::NO_REF), PlaceKind::NotPlace};
     } else if (node.tail_statement != nullptr) {
-        auto [tail_type, tail_place] = node_type_and_place_kind_map[node.tail_statement];
-        node_type_and_place_kind_map[std::make_shared<BlockExpr>(node)] =
+        auto [tail_type, tail_place] = node_type_and_place_kind_map[node.tail_statement->NodeId];
+        node_type_and_place_kind_map[node.NodeId] =
             {tail_type, PlaceKind::NotPlace};
     } else {
-        node_type_and_place_kind_map[std::make_shared<BlockExpr>(node)] =
+        node_type_and_place_kind_map[node.NodeId] =
             {std::make_shared<UnitRealType>(ReferenceType::NO_REF), PlaceKind::NotPlace};
     }
 }
@@ -594,21 +606,21 @@ void ExprTypeAndLetStmtVisitor::visit(IfExpr &node) {
         throw string("CE, if expression is not function");
     }
     AST_Walker::visit(node);
-    if (!has_state(node_outcome_state_map[std::make_shared<IfExpr>(node)], OutcomeType::NEXT)) {
-        node_type_and_place_kind_map[std::make_shared<IfExpr>(node)] =
+    if (!has_state(node_outcome_state_map[node.NodeId], OutcomeType::NEXT)) {
+        node_type_and_place_kind_map[node.NodeId] =
             {std::make_shared<NeverRealType>(ReferenceType::NO_REF), PlaceKind::NotPlace};
         return;
     }
-    auto [cond_type, cond_place] = node_type_and_place_kind_map[node.condition];
+    auto [cond_type, cond_place] = node_type_and_place_kind_map[node.condition->NodeId];
     if (cond_type->is_ref != ReferenceType::NO_REF || cond_type->kind != RealTypeKind::BOOL) {
         throw string("CE, if expression requires bool type condition");
     }
-    RealType_ptr then_type = node_type_and_place_kind_map[node.then_branch].first;
+    RealType_ptr then_type = node_type_and_place_kind_map[node.then_branch->NodeId].first;
     RealType_ptr else_type = std::make_shared<UnitRealType>(ReferenceType::NO_REF);
     if (node.else_branch != nullptr) {
-        else_type = node_type_and_place_kind_map[node.else_branch].first;
+        else_type = node_type_and_place_kind_map[node.else_branch->NodeId].first;
     }
-    node_type_and_place_kind_map[std::make_shared<IfExpr>(node)] =
+    node_type_and_place_kind_map[node.NodeId] =
         {type_merge(then_type, else_type), PlaceKind::NotPlace};
 }
 void ExprTypeAndLetStmtVisitor::visit(WhileExpr &node) {
@@ -620,11 +632,11 @@ void ExprTypeAndLetStmtVisitor::visit(WhileExpr &node) {
     // 最后结果一定是 Unit Type
     loop_type_stack.push_back(std::make_shared<UnitRealType>(ReferenceType::NO_REF));
     AST_Walker::visit(node);
-    auto [cond_type, cond_place] = node_type_and_place_kind_map[node.condition];
+    auto [cond_type, cond_place] = node_type_and_place_kind_map[node.condition->NodeId];
     if (cond_type->is_ref != ReferenceType::NO_REF || cond_type->kind != RealTypeKind::BOOL) {
         throw string("CE, while expression requires bool type condition");
     }
-    node_type_and_place_kind_map[std::make_shared<WhileExpr>(node)] =
+    node_type_and_place_kind_map[node.NodeId] =
         {loop_type_stack.back(), PlaceKind::NotPlace};
     loop_type_stack.pop_back();
 }
@@ -636,7 +648,7 @@ void ExprTypeAndLetStmtVisitor::visit(LoopExpr &node) {
     // break 有任何 type 都可以和他合并
     loop_type_stack.push_back(std::make_shared<NeverRealType>(ReferenceType::NO_REF));
     AST_Walker::visit(node);
-    node_type_and_place_kind_map[std::make_shared<LoopExpr>(node)] =
+    node_type_and_place_kind_map[node.NodeId] =
         {loop_type_stack.back(), PlaceKind::NotPlace};
     loop_type_stack.pop_back();
 }
@@ -650,13 +662,13 @@ void ExprTypeAndLetStmtVisitor::visit(ReturnExpr &node) {
     AST_Walker::visit(node);
     RealType_ptr return_type;
     if (node.return_value != nullptr) {
-        auto [value_type, value_place] = node_type_and_place_kind_map[node.return_value];
+        auto [value_type, value_place] = node_type_and_place_kind_map[node.return_value->NodeId];
         return_type = value_type;
     } else {
         return_type = std::make_shared<UnitRealType>(ReferenceType::NO_REF);
     }
     type_merge(now_func_decl->return_type, return_type);
-    node_type_and_place_kind_map[std::make_shared<ReturnExpr>(node)] =
+    node_type_and_place_kind_map[node.NodeId] =
         {std::make_shared<NeverRealType>(ReferenceType::NO_REF), PlaceKind::NotPlace};
 }
 void ExprTypeAndLetStmtVisitor::visit(BreakExpr &node) {
@@ -669,13 +681,13 @@ void ExprTypeAndLetStmtVisitor::visit(BreakExpr &node) {
     AST_Walker::visit(node);
     RealType_ptr break_type;
     if (node.break_value != nullptr) {
-        auto [value_type, value_place] = node_type_and_place_kind_map[node.break_value];
+        auto [value_type, value_place] = node_type_and_place_kind_map[node.break_value->NodeId];
         break_type = value_type;
     } else {
         break_type = std::make_shared<UnitRealType>(ReferenceType::NO_REF);
     }
     loop_type_stack.back() = type_merge(loop_type_stack.back(), break_type);
-    node_type_and_place_kind_map[std::make_shared<BreakExpr>(node)] =
+    node_type_and_place_kind_map[node.NodeId] =
         {std::make_shared<NeverRealType>(ReferenceType::NO_REF), PlaceKind::NotPlace};
 }
 void ExprTypeAndLetStmtVisitor::visit(ContinueExpr &node) {
@@ -686,7 +698,7 @@ void ExprTypeAndLetStmtVisitor::visit(ContinueExpr &node) {
         throw string("CE, continue expression is not in a loop");
     }
     AST_Walker::visit(node);
-    node_type_and_place_kind_map[std::make_shared<ContinueExpr>(node)] =
+    node_type_and_place_kind_map[node.NodeId] =
         {std::make_shared<NeverRealType>(ReferenceType::NO_REF), PlaceKind::NotPlace};
 }
 void ExprTypeAndLetStmtVisitor::visit(CastExpr &node) {
@@ -695,9 +707,9 @@ void ExprTypeAndLetStmtVisitor::visit(CastExpr &node) {
     }
     node.expr->accept(*this);
     // target_type 已经在前面被求出来过了
-    auto target_type = type_map[node.target_type];
-    check_cast(node_type_and_place_kind_map[node.expr].first, target_type);
-    node_type_and_place_kind_map[std::make_shared<CastExpr>(node)] =
+    auto target_type = type_map[node.target_type->NodeId];
+    check_cast(node_type_and_place_kind_map[node.expr->NodeId].first, target_type);
+    node_type_and_place_kind_map[node.NodeId] =
         {target_type, PlaceKind::NotPlace};
 }
 void ExprTypeAndLetStmtVisitor::visit(PathExpr &node) {
@@ -711,7 +723,7 @@ void ExprTypeAndLetStmtVisitor::visit(PathExpr &node) {
     } else {
         throw string("CE, path expression base must be an identifier");
     }
-    auto type_decl = find_type_decl(node_scope_map[std::make_shared<PathExpr>(node)], base_name);
+    auto type_decl = find_type_decl(node_scope_map[node.NodeId], base_name);
     if (require_function) {
         RealType_ptr base_type;
         if (type_decl == nullptr) {
@@ -745,7 +757,7 @@ void ExprTypeAndLetStmtVisitor::visit(PathExpr &node) {
             base_type = std::make_shared<StructRealType>(base_name, ReferenceType::NO_REF, struct_decl);
         }
         require_function = false;
-        node_type_and_place_kind_map[std::make_shared<PathExpr>(node)] =
+        node_type_and_place_kind_map[node.NodeId] =
             {get_associated_func(base_type, node.name), PlaceKind::NotPlace};
     } else {
         if (type_decl == nullptr) {
@@ -764,7 +776,7 @@ void ExprTypeAndLetStmtVisitor::visit(PathExpr &node) {
             if (field_type == nullptr) {
                 throw string("CE, struct has no field named ") + node.name;
             }
-            node_type_and_place_kind_map[std::make_shared<PathExpr>(node)] =
+            node_type_and_place_kind_map[node.NodeId] =
                 {field_type, PlaceKind::ReadOnlyPlace};
         } else {
             auto enum_decl = std::dynamic_pointer_cast<EnumDecl>(type_decl);
@@ -772,7 +784,7 @@ void ExprTypeAndLetStmtVisitor::visit(PathExpr &node) {
             if (enum_decl->variants.find(node.name) == enum_decl->variants.end()) {
                 throw string("CE, enum has no variant named ") + node.name;
             }
-            node_type_and_place_kind_map[std::make_shared<PathExpr>(node)] =
+            node_type_and_place_kind_map[node.NodeId] =
                 {std::make_shared<EnumRealType>(node.name, ReferenceType::NO_REF, enum_decl), PlaceKind::NotPlace};
         }
     }
@@ -790,13 +802,13 @@ void ExprTypeAndLetStmtVisitor::visit(SelfExpr &node) {
     } else if (now_func_decl->receiver_type == fn_reciever_type::SELF) {
         // Struct 的 name：无所谓了，就当作 Self 吧
         // PlaceKind ：暂时应该是 ReadWritePlace，不是特别确定
-        node_type_and_place_kind_map[std::make_shared<SelfExpr>(node)] =
+        node_type_and_place_kind_map[node.NodeId] =
             {std::make_shared<StructRealType>("Self", ReferenceType::NO_REF, now_func_decl->self_struct.lock()), PlaceKind::ReadWritePlace};
     } else if (now_func_decl->receiver_type == fn_reciever_type::SELF_REF) {
-        node_type_and_place_kind_map[std::make_shared<SelfExpr>(node)] =
+        node_type_and_place_kind_map[node.NodeId] =
             {std::make_shared<StructRealType>("Self", ReferenceType::REF, now_func_decl->self_struct.lock()), PlaceKind::NotPlace};
     } else if (now_func_decl->receiver_type == fn_reciever_type::SELF_REF_MUT) {
-        node_type_and_place_kind_map[std::make_shared<SelfExpr>(node)] =
+        node_type_and_place_kind_map[node.NodeId] =
             {std::make_shared<StructRealType>("Self", ReferenceType::REF_MUT, now_func_decl->self_struct.lock()), PlaceKind::NotPlace};
     } else {
         throw string("Error, unknown self receiver type");
@@ -806,7 +818,7 @@ void ExprTypeAndLetStmtVisitor::visit(UnitExpr &node) {
     if (require_function) {
         throw string("CE, unit expression is not function");
     }
-    node_type_and_place_kind_map[std::make_shared<UnitExpr>(node)] =
+    node_type_and_place_kind_map[node.NodeId] =
         {std::make_shared<UnitRealType>(ReferenceType::NO_REF), PlaceKind::NotPlace};
 }
 void ExprTypeAndLetStmtVisitor::visit(ArrayExpr &node) {
@@ -817,10 +829,10 @@ void ExprTypeAndLetStmtVisitor::visit(ArrayExpr &node) {
     // 因为 never 和任何的都可以合并，所以一开始就放一个 never
     RealType_ptr element_type = std::make_shared<NeverRealType>(ReferenceType::NO_REF);
     for (auto &elem : node.elements) {
-        auto [etype, eplace] = node_type_and_place_kind_map[elem];
+        auto [etype, eplace] = node_type_and_place_kind_map[elem->NodeId];
         element_type = type_merge(element_type, etype);
     }
-    node_type_and_place_kind_map[std::make_shared<ArrayExpr>(node)] =
+    node_type_and_place_kind_map[node.NodeId] =
         {std::make_shared<ArrayRealType>(element_type, nullptr, ReferenceType::NO_REF, node.elements.size()), PlaceKind::NotPlace};
 }
 void ExprTypeAndLetStmtVisitor::visit(RepeatArrayExpr &node) {
@@ -828,9 +840,9 @@ void ExprTypeAndLetStmtVisitor::visit(RepeatArrayExpr &node) {
         throw string("CE, repeat array expression is not function");
     }
     node.element->accept(*this);
-    auto [elem_type, elem_place] = node_type_and_place_kind_map[node.element];
-    size_t size = const_expr_to_size_map[node.element];
-    node_type_and_place_kind_map[std::make_shared<RepeatArrayExpr>(node)] =
+    auto [elem_type, elem_place] = node_type_and_place_kind_map[node.element->NodeId];
+    size_t size = const_expr_to_size_map[node.element->NodeId];
+    node_type_and_place_kind_map[node.NodeId] =
         {std::make_shared<ArrayRealType>(elem_type, nullptr, ReferenceType::NO_REF, size), PlaceKind::NotPlace};
 }
 
@@ -839,7 +851,7 @@ void ExprTypeAndLetStmtVisitor::visit(FnItem &node) {
         throw string("CE, function item is not function");
     }
     auto prev_func_decl = now_func_decl;
-    auto now_scope = node_scope_map[std::make_shared<FnItem>(node)];
+    auto now_scope = node_scope_map[node.NodeId];
     if (now_scope->value_namespace.find(node.function_name) == now_scope->value_namespace.end()) {
         // 不可能，所以是 Error
         throw string("Error, function declaration not found in scope");
@@ -859,7 +871,7 @@ void ExprTypeAndLetStmtVisitor::visit(FnItem &node) {
     所以就是 body 的类型和 return type 合并
     如果 body 是 never 在前面应该就会判断
     */
-    type_merge(node_type_and_place_kind_map[node.body].first, now_func_decl->return_type);
+    type_merge(node_type_and_place_kind_map[node.body->NodeId].first, now_func_decl->return_type);
     now_func_decl = prev_func_decl;
 }
 void ExprTypeAndLetStmtVisitor::visit([[maybe_unused]]StructItem &node) {
@@ -898,14 +910,14 @@ void ExprTypeAndLetStmtVisitor::visit(LetStmt &node) {
         throw string("CE, let statement must have an initializer");
     }
     node.initializer->accept(*this);
-    auto [init_type, init_place] = node_type_and_place_kind_map[node.initializer];
-    check_let_stmt(node.pattern, type_map[node.type], init_type, init_place);
-    intro_let_stmt(node_scope_map[std::make_shared<LetStmt>(node)], node.pattern, type_map[node.type]);
+    auto [init_type, init_place] = node_type_and_place_kind_map[node.initializer->NodeId];
+    check_let_stmt(node.pattern, type_map[node.type->NodeId], init_type, init_place);
+    intro_let_stmt(node_scope_map[node.NodeId], node.pattern, type_map[node.type->NodeId]);
 }
 void ExprTypeAndLetStmtVisitor::visit(ExprStmt &node) {
     AST_Walker::visit(node);
-    node_type_and_place_kind_map[std::make_shared<ExprStmt>(node)] =
-        node_type_and_place_kind_map[node.expr];
+    node_type_and_place_kind_map[node.NodeId] =
+        node_type_and_place_kind_map[node.expr->NodeId];
 }
 void ExprTypeAndLetStmtVisitor::visit(ItemStmt &node) {
     AST_Walker::visit(node);

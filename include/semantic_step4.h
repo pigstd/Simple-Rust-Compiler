@@ -60,12 +60,12 @@ RealType_ptr copy(RealType_ptr type);
 // 遍历一遍所有的 Array Type，利用 const_expr_to_size_map 把大小填回去
 struct ArrayTypeVisitor : public AST_Walker {
     // 记录 AST 的 Type 对应的真正的类型 RealType
-    map<Type_ptr, RealType_ptr> &type_map;
+    map<size_t, RealType_ptr> &type_map;
     // 记录 Expr 对应的 size
-    map<Expr_ptr, size_t> &const_expr_to_size_map;
+    map<size_t, size_t> &const_expr_to_size_map;
 
-    ArrayTypeVisitor(map<Type_ptr, RealType_ptr> &type_map_,
-            map<Expr_ptr, size_t> &const_expr_to_size_map_) :
+    ArrayTypeVisitor(map<size_t, RealType_ptr> &type_map_,
+            map<size_t, size_t> &const_expr_to_size_map_) :
             type_map(type_map_),
             const_expr_to_size_map(const_expr_to_size_map_) {}
     virtual ~ArrayTypeVisitor() = default;
@@ -122,16 +122,16 @@ struct ExprTypeAndLetStmtVisitor : public AST_Walker {
     // 是否要求是函数类型
     bool require_function;
     // 存放每个表达式节点的 RealType 和 PlaceKind
-    map<AST_Node_ptr, pair<RealType_ptr, PlaceKind>> &node_type_and_place_kind_map;
+    map<size_t, pair<RealType_ptr, PlaceKind>> &node_type_and_place_kind_map;
     // 存放每个节点对应的作用域
-    map<AST_Node_ptr, Scope_ptr> &node_scope_map;
+    map<size_t, Scope_ptr> &node_scope_map;
     // 存放每个 AST 的 Type 对应的 RealType，直接复制过来即可
-    map<Type_ptr, RealType_ptr> &type_map;
+    map<size_t, RealType_ptr> &type_map;
     // 记录每个 Scope 的局部变量
     map<Scope_ptr, Local_Variable_map> &scope_local_variable_map;
 
     // 遇到数组 type 的时候，将 size 从这个 map 里面取出来
-    map<Expr_ptr, size_t> &const_expr_to_size_map;
+    map<size_t, size_t> &const_expr_to_size_map;
 
     // 对于循环，break 会返回一个值
     // 为了确定循环的返回值，需要一个栈维护当前在哪个循环，这个循环的返回值是什么
@@ -139,7 +139,7 @@ struct ExprTypeAndLetStmtVisitor : public AST_Walker {
     vector<RealType_ptr> loop_type_stack;
 
     // 记录每个 AST 树节点的 OutComeState
-    map<AST_Node_ptr, OutcomeState> &node_outcome_state_map;
+    map<size_t, OutcomeState> &node_outcome_state_map;
 
     // 内置方法 e.g. array.len()
     // (类型, 方法名, 方法的 FnDecl)
@@ -181,12 +181,12 @@ struct ExprTypeAndLetStmtVisitor : public AST_Walker {
     void check_cast(RealType_ptr expr_type, RealType_ptr target_type);
 
     ExprTypeAndLetStmtVisitor(bool require_function_,
-            map<AST_Node_ptr, pair<RealType_ptr, PlaceKind>> &node_type_and_place_kind_map_,
-            map<AST_Node_ptr, Scope_ptr> &node_scope_map_,
-            map<Type_ptr, RealType_ptr> &type_map_,
+            map<size_t, pair<RealType_ptr, PlaceKind>> &node_type_and_place_kind_map_,
+            map<size_t, Scope_ptr> &node_scope_map_,
+            map<size_t, RealType_ptr> &type_map_,
             map<Scope_ptr, Local_Variable_map> &scope_local_variable_map_,
-            map<Expr_ptr, size_t> &const_expr_to_size_map_,
-            map<AST_Node_ptr, OutcomeState> &node_outcome_state_map_,
+            map<size_t, size_t> &const_expr_to_size_map_,
+            map<size_t, OutcomeState> &node_outcome_state_map_,
             vector<std::tuple<RealTypeKind, string, FnDecl_ptr>> &builtin_method_funcs_,
             vector<std::tuple<RealTypeKind, string, FnDecl_ptr>> &builtin_associated_funcs_) :
             require_function(require_function_),

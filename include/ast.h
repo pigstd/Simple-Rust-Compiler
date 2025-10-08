@@ -9,6 +9,7 @@
 
 #include "lexer.h"
 #include <cfloat>
+#include <cstddef>
 #include <memory>
 #include <string>
 #include <tuple>
@@ -23,6 +24,13 @@ using std::shared_ptr;
 struct AST_visitor;
 
 struct AST_Node {
+    /*
+    每个节点一个唯一 id
+    方便调试
+    用于 map 的 key
+    建立完 ast 树之后，给每个节点分配一个 id
+    */
+    size_t NodeId;
     virtual ~AST_Node() = default;
     virtual void accept(AST_visitor &v) = 0;
 };

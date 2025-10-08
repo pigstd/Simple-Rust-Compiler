@@ -2,7 +2,9 @@
 #include "semantic_step1.h"
 #include "semantic_step2.h"
 #include "semantic_step3.h"
+#include "visitor.h"
 #include <cstddef>
+#include <iostream>
 #include <vector>
 #include "semantic_checker.h"
 
@@ -11,13 +13,28 @@ Semantic_Checker::Semantic_Checker(std::vector<Item_ptr> &items_) :
 
 void Semantic_Checker::checker() {
     step1_build_scopes_and_collect_symbols();
+    std::cerr << "step 1 finish\n";
     step2_resolve_types_and_check();
+    std::cerr << "step 2 finish\n";
     add_builtin_methods_and_associated_funcs();
     step3_constant_evaluation_and_control_flow_analysis();
+    std::cerr << "step 3 finish\n";
     step4_expr_type_and_let_stmt_analysis();
+    std::cerr << "step 4 finish\n";
 }
 
 void Semantic_Checker::step1_build_scopes_and_collect_symbols() {
+    // 给每个 AST 节点生成唯一 id
+    ASTIdGenerator id_generator;
+    for (auto &item : items) {
+        item->accept(id_generator);
+    }
+    // show ast
+    AST_Printer ast_printer;
+    for (auto &item : items) {
+        item->accept(ast_printer);
+    }
+    // 建作用域树
     ScopeBuilder_Visitor visitor(root_scope, node_scope_map);
     for (auto &item : items) {
         item->accept(visitor);
@@ -29,6 +46,15 @@ void Semantic_Checker::step2_resolve_types_and_check() {
 }
 
 void Semantic_Checker::step3_constant_evaluation_and_control_flow_analysis() {
+    LetStmtAndRepeatArrayVisitor let_stmt_visitor(
+        node_scope_map,
+        type_map,
+        const_expr_queue
+    );
+    for (auto &item : items) {
+        item->accept(let_stmt_visitor);
+    }
+    std::cerr << "LetStmtAndRepeatArrayVisitor finish\n";
     // 先求所有的 const item
     ConstItemVisitor const_item_visitor(
         false,
@@ -42,7 +68,7 @@ void Semantic_Checker::step3_constant_evaluation_and_control_flow_analysis() {
     }
     // 然后对于 queue 中的 const 去求值，如果已经求了就不用管了
     for (auto expr : const_expr_queue) {
-        if (const_expr_to_size_map.find(expr) == const_expr_to_size_map.end()) {
+        if (const_expr_to_size_map.find(expr->NodeId) == const_expr_to_size_map.end()) {
             ConstItemVisitor const_expr_visitor(
                 true,
                 node_scope_map,
@@ -53,7 +79,7 @@ void Semantic_Checker::step3_constant_evaluation_and_control_flow_analysis() {
             expr->accept(const_expr_visitor);
             auto value = const_expr_visitor.const_value;
             size_t size = const_expr_visitor.calc_const_array_size(value);
-            const_expr_to_size_map[expr] = size;
+            const_expr_to_size_map[expr->NodeId] = size;
         }
     }
     // 然后进行控制流检查
@@ -69,6 +95,7 @@ void Semantic_Checker::step4_expr_type_and_let_stmt_analysis() {
     for (auto &item : items) {
         item->accept(array_type_visitor);
     }
+    std::cerr << "ArrayTypeVisitor finish\n";
     // ExprTypeAndLetStmtVisitor 再跑一遍，求出每个表达式的 RealType 和 PlaceKind
     ExprTypeAndLetStmtVisitor expr_type_visitor(
         false,

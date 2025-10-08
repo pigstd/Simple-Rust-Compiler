@@ -109,10 +109,10 @@ struct Array_ConstValue : public ConstValue {
 // 遇到 let 语句，将 RealType 解析出来，并且存到 type_map 中，这样第四步直接查 type_map 即可
 // 遇到 type 和 RepeatArray 中的常量表达式，放入 const_expr_queue
 struct LetStmtAndRepeatArrayVisitor : public AST_Walker {
-    map<AST_Node_ptr, Scope_ptr> &node_scope_map;
-    map<Type_ptr, RealType_ptr> &type_map;
+    map<size_t, Scope_ptr> &node_scope_map;
+    map<size_t, RealType_ptr> &type_map;
     vector<Expr_ptr> &const_expr_queue;
-    LetStmtAndRepeatArrayVisitor(map<AST_Node_ptr, Scope_ptr> &node_scope_map_, map<Type_ptr, RealType_ptr> &type_map_, vector<Expr_ptr> &const_expr_queue_)
+    LetStmtAndRepeatArrayVisitor(map<size_t, Scope_ptr> &node_scope_map_, map<size_t, RealType_ptr> &type_map_, vector<Expr_ptr> &const_expr_queue_)
         : node_scope_map(node_scope_map_), type_map(type_map_), const_expr_queue(const_expr_queue_) {}
     virtual ~LetStmtAndRepeatArrayVisitor() = default;
     virtual void visit(LiteralExpr &node) override;
@@ -179,19 +179,19 @@ struct ConstItemVisitor : public AST_Walker {
     ConstValue_ptr const_value;
 
     // 需要存 node_scope_map 来找 const_decl
-    map<AST_Node_ptr, Scope_ptr> &node_scope_map;
+    map<size_t, Scope_ptr> &node_scope_map;
     
     // 需要存 const_value_map 来找 const 的值
     map<ConstDecl_ptr, ConstValue_ptr> &const_value_map;
 
-    map<Type_ptr, RealType_ptr> &type_map;
-    map<Expr_ptr, size_t> &const_expr_to_size_map;
-    
+    map<size_t, RealType_ptr> &type_map;
+    map<size_t, size_t> &const_expr_to_size_map;
+
     ConstItemVisitor(bool is_need_to_calculate_,
-            map<AST_Node_ptr, Scope_ptr> &node_scope_map_,
+            map<size_t, Scope_ptr> &node_scope_map_,
             map<ConstDecl_ptr, ConstValue_ptr> &const_value_map_,
-            map<Type_ptr, RealType_ptr> &type_map_,
-            map<Expr_ptr, size_t> &const_expr_to_size_map_) :
+            map<size_t, RealType_ptr> &type_map_,
+            map<size_t, size_t> &const_expr_to_size_map_) :
             is_need_to_calculate(is_need_to_calculate_),
             node_scope_map(node_scope_map_),
             const_value_map(const_value_map_),
@@ -275,8 +275,8 @@ struct ControlFlowVisitor : public AST_Walker {
     // 主要是分析 if while loop 的分支是否都返回
     // 以及 return break continue 的 diverge 情况
     size_t loop_depth;
-    map<AST_Node_ptr, OutcomeState> &node_outcome_state_map;
-    ControlFlowVisitor(map<AST_Node_ptr, OutcomeState> &node_outcome_state_map_) :
+    map<size_t, OutcomeState> &node_outcome_state_map;
+    ControlFlowVisitor(map<size_t, OutcomeState> &node_outcome_state_map_) :
         loop_depth(0), node_outcome_state_map(node_outcome_state_map_) {}
     virtual ~ControlFlowVisitor() = default;
     virtual void visit(LiteralExpr &node) override;

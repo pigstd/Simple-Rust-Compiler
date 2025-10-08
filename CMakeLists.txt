@@ -25,5 +25,5 @@ target_link_libraries(code PRIVATE mylib)
 
 
 # 调试时可以打开，用来测越界的问题
-# target_compile_options(code PRIVATE -fsanitize=address,leak,undefined)
-# target_link_libraries(code PRIVATE -fsanitize=address,leak,undefined)
+target_compile_options(code PRIVATE -fsanitize=address,leak,undefined)
+target_link_libraries(code PRIVATE -fsanitize=address,leak,undefined)

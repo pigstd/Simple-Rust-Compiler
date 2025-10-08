@@ -371,7 +371,7 @@ ConstValue_ptr ConstItemVisitor::const_cast_to_realtype(ConstValue_ptr value, Re
             }
             auto array_value = std::dynamic_pointer_cast<Array_ConstValue>(value);
             auto target_array_type = std::dynamic_pointer_cast<ArrayRealType>(target_type);
-            size_t target_size = const_expr_to_size_map[target_array_type->size_expr];
+            size_t target_size = const_expr_to_size_map[target_array_type->size_expr->NodeId];
             if (array_value->elements.size() != target_size) {
                 throw string("CE, array size mismatch in const cast");
             }
@@ -490,7 +490,7 @@ void LetStmtAndRepeatArrayVisitor::visit(ImplItem &node) { AST_Walker::visit(nod
 void LetStmtAndRepeatArrayVisitor::visit(ConstItem &node) { AST_Walker::visit(node); }
 void LetStmtAndRepeatArrayVisitor::visit(LetStmt &node) {
     if (node.type != nullptr) {
-        find_real_type(node_scope_map[std::make_shared<LetStmt>(node)], node.type, type_map, const_expr_queue);
+        find_real_type(node_scope_map[node.NodeId], node.type, type_map, const_expr_queue);
         // 这里不管返回值，因为 type_map 里面已经存了
     }
     AST_Walker::visit(node);
@@ -511,7 +511,7 @@ void ConstItemVisitor::visit(LiteralExpr &node) {
 }
 void ConstItemVisitor::visit(IdentifierExpr &node) {
     if (is_need_to_calculate) {
-        auto const_decl = find_const_decl(node_scope_map[std::make_shared<IdentifierExpr>(node)], node.name);
+        auto const_decl = find_const_decl(node_scope_map[node.NodeId], node.name);
         if (const_decl == nullptr) {
             throw string("CE, undefined constant: ") + node.name;
         }
@@ -653,7 +653,7 @@ void ConstItemVisitor::visit(CastExpr &node) {
         value = const_value;
         const_value = nullptr;
         // 计算结果
-        const_value = const_cast_to_realtype(value, type_map[node.target_type]);
+        const_value = const_cast_to_realtype(value, type_map[node.target_type->NodeId]);
         is_need_to_calculate = false;
     }
     else { AST_Walker::visit(node); }
@@ -742,7 +742,7 @@ void ConstItemVisitor::visit(ConstItem &node) {
     // 如果是数组，就要把表达式也给算出来，并且存在 const_expr_to_size_map 里面
     is_need_to_calculate = true;
     node.const_type->accept(*this);
-    auto const_decl = find_const_decl(node_scope_map[std::make_shared<ConstItem>(node)], node.const_name);
+    auto const_decl = find_const_decl(node_scope_map[node.NodeId], node.const_name);
     // 找到定义
     if (const_decl == nullptr) {
         throw string("CE, undefined constant: ") + node.const_name;
@@ -753,7 +753,7 @@ void ConstItemVisitor::visit(ConstItem &node) {
         // 这个情况不应该发生，发生了说明代码写错了没找到
         throw string("CE, failed to evaluate constant: ") + node.const_name;
     }
-    const_value = const_cast_to_realtype(const_value, type_map[node.const_type]);
+    const_value = const_cast_to_realtype(const_value, type_map[node.const_type->NodeId]);
     const_value_map[const_decl] = const_value;
     const_value = nullptr;
     is_need_to_calculate = false;
@@ -790,7 +790,7 @@ void ConstItemVisitor::visit(ArrayType &node) {
         size_t array_size = calc_const_array_size(const_value);
         const_value = nullptr;
         is_need_to_calculate = false;
-        const_expr_to_size_map[node.size_expr] = array_size;
+        const_expr_to_size_map[node.size_expr->NodeId] = array_size;
     }
     else { AST_Walker::visit(node); }
 }
@@ -903,104 +903,97 @@ OutcomeState loop_outcome_state(const OutcomeState &body) {
 
 void ControlFlowVisitor::visit(LiteralExpr &node) {
     AST_Walker::visit(node);
-    node_outcome_state_map[std::make_shared<LiteralExpr>(node)] =
-        get_outcome_state({OutcomeType::NEXT});
+    node_outcome_state_map[node.NodeId] = get_outcome_state({OutcomeType::NEXT});
 }
 
 void ControlFlowVisitor::visit(IdentifierExpr &node) {
     AST_Walker::visit(node);
-    node_outcome_state_map[std::make_shared<IdentifierExpr>(node)] =
-        get_outcome_state({OutcomeType::NEXT});
+    node_outcome_state_map[node.NodeId] = get_outcome_state({OutcomeType::NEXT});
 }
 
 void ControlFlowVisitor::visit(BinaryExpr &node) {
     AST_Walker::visit(node);
-    node_outcome_state_map[std::make_shared<BinaryExpr>(node)] =
-        sequence_outcome_state(
-            node_outcome_state_map[node.left],
-            node_outcome_state_map[node.right]
-        );
+    node_outcome_state_map[node.NodeId] = sequence_outcome_state(
+        node_outcome_state_map[node.left->NodeId],
+        node_outcome_state_map[node.right->NodeId]
+    );
 }
 void ControlFlowVisitor::visit(UnaryExpr &node) {
     AST_Walker::visit(node);
-    node_outcome_state_map[std::make_shared<UnaryExpr>(node)] =
-        get_outcome_state({OutcomeType::NEXT});
+    node_outcome_state_map[node.NodeId] = get_outcome_state({OutcomeType::NEXT});
 }
 void ControlFlowVisitor::visit(CallExpr &node) {
     AST_Walker::visit(node);
     OutcomeState state = get_outcome_state({OutcomeType::NEXT});
     for (auto arg : node.arguments) {
-        state = sequence_outcome_state(state, node_outcome_state_map[arg]);
+        state = sequence_outcome_state(state, node_outcome_state_map[arg->NodeId]);
     }
-    node_outcome_state_map[std::make_shared<CallExpr>(node)] = state;
+    node_outcome_state_map[node.NodeId] = state;
 }
 void ControlFlowVisitor::visit(FieldExpr &node) {
     AST_Walker::visit(node);
-    node_outcome_state_map[std::make_shared<FieldExpr>(node)] =
-        node_outcome_state_map[node.base];
+    node_outcome_state_map[node.NodeId] = node_outcome_state_map[node.base->NodeId];
 }
 void ControlFlowVisitor::visit(StructExpr &node) {
     AST_Walker::visit(node);
     OutcomeState state = get_outcome_state({OutcomeType::NEXT});
     for (auto &[type, expr] : node.fields) {
-        state = sequence_outcome_state(state, node_outcome_state_map[expr]);
+        state = sequence_outcome_state(state, node_outcome_state_map[expr->NodeId]);
     }
-    node_outcome_state_map[std::make_shared<StructExpr>(node)] = state;
+    node_outcome_state_map[node.NodeId] = state;
 }
 void ControlFlowVisitor::visit(IndexExpr &node) {
     AST_Walker::visit(node);
-    node_outcome_state_map[std::make_shared<IndexExpr>(node)] =
-        sequence_outcome_state(
-            node_outcome_state_map[node.base],
-            node_outcome_state_map[node.index]
-        );
+    node_outcome_state_map[node.NodeId] = sequence_outcome_state(
+        node_outcome_state_map[node.base->NodeId],
+        node_outcome_state_map[node.index->NodeId]
+    );
 }
 void ControlFlowVisitor::visit(BlockExpr &node) {
     AST_Walker::visit(node);
     OutcomeState state = get_outcome_state({OutcomeType::NEXT});
     for (auto stmt : node.statements) {
-        state = sequence_outcome_state(state, node_outcome_state_map[stmt]);
+        state = sequence_outcome_state(state, node_outcome_state_map[stmt->NodeId]);
     }
     if (node.tail_statement != nullptr) {
-        state = sequence_outcome_state(state, node_outcome_state_map[node.tail_statement]);
+        state = sequence_outcome_state(state, node_outcome_state_map[node.tail_statement->NodeId]);
     }
-    node_outcome_state_map[std::make_shared<BlockExpr>(node)] = state;
+    node_outcome_state_map[node.NodeId] = state;
 }
 void ControlFlowVisitor::visit(IfExpr &node) {
     AST_Walker::visit(node);
     OutcomeState state = ifelse_outcome_state(
-        node_outcome_state_map[node.condition],
-        node_outcome_state_map[node.then_branch],
-        node.else_branch == nullptr ? get_outcome_state({OutcomeType::NEXT}) : node_outcome_state_map[node.else_branch]
+        node_outcome_state_map[node.condition->NodeId],
+        node_outcome_state_map[node.then_branch->NodeId],
+        node.else_branch == nullptr ? get_outcome_state({OutcomeType::NEXT}) : node_outcome_state_map[node.else_branch->NodeId]
     );
-    node_outcome_state_map[std::make_shared<IfExpr>(node)] = state;
+    node_outcome_state_map[node.NodeId] = state;
 }
 void ControlFlowVisitor::visit(WhileExpr &node) {
     loop_depth++;
     AST_Walker::visit(node);
     loop_depth--;
     OutcomeState state = while_outcome_state(
-        node_outcome_state_map[node.condition],
-        node_outcome_state_map[node.body]
+        node_outcome_state_map[node.condition->NodeId],
+        node_outcome_state_map[node.body->NodeId]
     );
-    node_outcome_state_map[std::make_shared<WhileExpr>(node)] = state;
+    node_outcome_state_map[node.NodeId] = state;
 }
 void ControlFlowVisitor::visit(LoopExpr &node) {
     loop_depth++;
     AST_Walker::visit(node);
     loop_depth--;
     OutcomeState state = loop_outcome_state(
-        node_outcome_state_map[node.body]
+        node_outcome_state_map[node.body->NodeId]
     );
-    node_outcome_state_map[std::make_shared<LoopExpr>(node)] = state;
+    node_outcome_state_map[node.NodeId] = state;
 }
 void ControlFlowVisitor::visit(ReturnExpr &node) {
     // 需要检查是否在函数内 (?)
     // 其实（应该）不需要检查，因为在 const 里面会报错，其他地方的表达式一定是在函数内 (?)
     // 真的遇到怪情况了再说
     AST_Walker::visit(node);
-    node_outcome_state_map[std::make_shared<ReturnExpr>(node)] =
-        get_outcome_state({OutcomeType::RETURN});
+    node_outcome_state_map[node.NodeId] = get_outcome_state({OutcomeType::RETURN});
     // 有没有可能 return 里面嵌套了一些怪东西（嵌套 break 等等）？
     // 先不管
 }
@@ -1009,8 +1002,7 @@ void ControlFlowVisitor::visit(BreakExpr &node) {
         throw string("CE, break statement not in loop");
     }
     AST_Walker::visit(node);
-    node_outcome_state_map[std::make_shared<BreakExpr>(node)] =
-        get_outcome_state({OutcomeType::BREAK});
+    node_outcome_state_map[node.NodeId] = get_outcome_state({OutcomeType::BREAK});
     // 同上，break 里面套了怪东西也不管
 }
 void ControlFlowVisitor::visit(ContinueExpr &node) {
@@ -1018,42 +1010,36 @@ void ControlFlowVisitor::visit(ContinueExpr &node) {
         throw string("CE, continue statement not in loop");
     }
     AST_Walker::visit(node);
-    node_outcome_state_map[std::make_shared<ContinueExpr>(node)] =
-        get_outcome_state({OutcomeType::BREAK});
+    node_outcome_state_map[node.NodeId] = get_outcome_state({OutcomeType::BREAK});
     // 同上，continue 里面套了怪东西也不管
 }
 void ControlFlowVisitor::visit(CastExpr &node) {
     AST_Walker::visit(node);
-    node_outcome_state_map[std::make_shared<CastExpr>(node)] =
-        node_outcome_state_map[node.expr];
+    node_outcome_state_map[node.NodeId] = node_outcome_state_map[node.expr->NodeId];
 }
 void ControlFlowVisitor::visit(PathExpr &node) {
     AST_Walker::visit(node);
-    node_outcome_state_map[std::make_shared<PathExpr>(node)] =
-        get_outcome_state({OutcomeType::NEXT});
+    node_outcome_state_map[node.NodeId] = get_outcome_state({OutcomeType::NEXT});
 }
 void ControlFlowVisitor::visit(SelfExpr &node) {
     AST_Walker::visit(node);
-    node_outcome_state_map[std::make_shared<SelfExpr>(node)] =
-        get_outcome_state({OutcomeType::NEXT});
+    node_outcome_state_map[node.NodeId] = get_outcome_state({OutcomeType::NEXT});
 }
 void ControlFlowVisitor::visit(UnitExpr &node) {
     AST_Walker::visit(node);
-    node_outcome_state_map[std::make_shared<UnitExpr>(node)] =
-        get_outcome_state({OutcomeType::NEXT});
+    node_outcome_state_map[node.NodeId] = get_outcome_state({OutcomeType::NEXT});
 }
 void ControlFlowVisitor::visit(ArrayExpr &node) {
     AST_Walker::visit(node);
     OutcomeState state = get_outcome_state({OutcomeType::NEXT});
     for (auto expr : node.elements) {
-        state = sequence_outcome_state(state, node_outcome_state_map[expr]);
+        state = sequence_outcome_state(state, node_outcome_state_map[expr->NodeId]);
     }
-    node_outcome_state_map[std::make_shared<ArrayExpr>(node)] = state;
+    node_outcome_state_map[node.NodeId] = state;
 }
 void ControlFlowVisitor::visit(RepeatArrayExpr &node) {
     AST_Walker::visit(node);
-    node_outcome_state_map[std::make_shared<RepeatArrayExpr>(node)] =
-        node_outcome_state_map[node.element];;
+    node_outcome_state_map[node.NodeId] = node_outcome_state_map[node.element->NodeId];
 }
 
 void ControlFlowVisitor::visit(FnItem &node) {
@@ -1062,28 +1048,23 @@ void ControlFlowVisitor::visit(FnItem &node) {
     loop_depth = 0;
     AST_Walker::visit(node);
     loop_depth = prev_loop_depth;
-    node_outcome_state_map[std::make_shared<FnItem>(node)] =
-        get_outcome_state({OutcomeType::NEXT});
+    node_outcome_state_map[node.NodeId] = get_outcome_state({OutcomeType::NEXT});
 }
 void ControlFlowVisitor::visit(StructItem &node) { 
     AST_Walker::visit(node);
-    node_outcome_state_map[std::make_shared<StructItem>(node)] =
-        get_outcome_state({OutcomeType::NEXT});
+    node_outcome_state_map[node.NodeId] = get_outcome_state({OutcomeType::NEXT});
 }
 void ControlFlowVisitor::visit(EnumItem &node) {
     AST_Walker::visit(node);
-    node_outcome_state_map[std::make_shared<EnumItem>(node)] =
-        get_outcome_state({OutcomeType::NEXT});
+    node_outcome_state_map[node.NodeId] = get_outcome_state({OutcomeType::NEXT});
 }
 void ControlFlowVisitor::visit(ImplItem &node) {
     AST_Walker::visit(node);
-    node_outcome_state_map[std::make_shared<ImplItem>(node)] =
-        get_outcome_state({OutcomeType::NEXT});
+    node_outcome_state_map[node.NodeId] = get_outcome_state({OutcomeType::NEXT});
 }
 void ControlFlowVisitor::visit(ConstItem &node) {
     AST_Walker::visit(node);
-    node_outcome_state_map[std::make_shared<ConstItem>(node)] =
-        get_outcome_state({OutcomeType::NEXT});
+    node_outcome_state_map[node.NodeId] = get_outcome_state({OutcomeType::NEXT});
 }
 
 void ControlFlowVisitor::visit(LetStmt &node) {
@@ -1092,40 +1073,32 @@ void ControlFlowVisitor::visit(LetStmt &node) {
     // 先这么写了，到时候再看看
     if (node.initializer == nullptr) {
         // let x: i32;
-        node_outcome_state_map[std::make_shared<LetStmt>(node)] =
-            get_outcome_state({OutcomeType::NEXT});
+        node_outcome_state_map[node.NodeId] = get_outcome_state({OutcomeType::NEXT});
     } else {
-        node_outcome_state_map[std::make_shared<LetStmt>(node)] =
-            node_outcome_state_map[node.initializer];
+        node_outcome_state_map[node.NodeId] = node_outcome_state_map[node.initializer->NodeId];
     }
 }
 void ControlFlowVisitor::visit(ExprStmt &node) {
     AST_Walker::visit(node);
-    node_outcome_state_map[std::make_shared<ExprStmt>(node)] =
-        node_outcome_state_map[node.expr];
+    node_outcome_state_map[node.NodeId] = node_outcome_state_map[node.expr->NodeId];
 }
 void ControlFlowVisitor::visit(ItemStmt &node) {
     AST_Walker::visit(node);
-    node_outcome_state_map[std::make_shared<ItemStmt>(node)] =
-        get_outcome_state({OutcomeType::NEXT});
+    node_outcome_state_map[node.NodeId] = get_outcome_state({OutcomeType::NEXT});
 }
 void ControlFlowVisitor::visit(PathType &node) {
     AST_Walker::visit(node);
-    node_outcome_state_map[std::make_shared<PathType>(node)] =
-        get_outcome_state({OutcomeType::NEXT});
+    node_outcome_state_map[node.NodeId] = get_outcome_state({OutcomeType::NEXT});
 }
 void ControlFlowVisitor::visit(ArrayType &node) {
     AST_Walker::visit(node);
-    node_outcome_state_map[std::make_shared<ArrayType>(node)] =
-        get_outcome_state({OutcomeType::NEXT});
+    node_outcome_state_map[node.NodeId] = get_outcome_state({OutcomeType::NEXT});
 }
 void ControlFlowVisitor::visit(UnitType &node) {
     AST_Walker::visit(node);
-    node_outcome_state_map[std::make_shared<UnitType>(node)] =
-        get_outcome_state({OutcomeType::NEXT});
+    node_outcome_state_map[node.NodeId] = get_outcome_state({OutcomeType::NEXT});
 }
 void ControlFlowVisitor::visit(IdentifierPattern &node) {
     AST_Walker::visit(node);
-    node_outcome_state_map[std::make_shared<IdentifierPattern>(node)] =
-        get_outcome_state({OutcomeType::NEXT});
+    node_outcome_state_map[node.NodeId] = get_outcome_state({OutcomeType::NEXT});
 }

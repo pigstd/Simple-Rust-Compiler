@@ -8,6 +8,7 @@ step1 : 建作用域树 + 符号初收集
 
 #include "ast.h"
 #include "visitor.h"
+#include <cstddef>
 #include <map>
 #include <memory>
 #include <vector>
@@ -148,13 +149,52 @@ struct LetDecl : public ValueDecl {
     LetDecl(RealType_ptr let_type_, Mutibility is_mut_) : ValueDecl(ValueDeclKind::LetStmt), let_type(let_type_), is_mut(is_mut_) {}
 };
 
+struct ASTIdGenerator : public AST_Walker {
+    size_t current_id = 0;
+    ASTIdGenerator() : current_id(0) {}
+    virtual ~ASTIdGenerator() = default;
+    virtual void visit(LiteralExpr &node) override;
+    virtual void visit(IdentifierExpr &node) override;
+    virtual void visit(BinaryExpr &node) override;
+    virtual void visit(UnaryExpr &node) override;
+    virtual void visit(CallExpr &node) override;
+    virtual void visit(FieldExpr &node) override;
+    virtual void visit(StructExpr &node) override;
+    virtual void visit(IndexExpr &node) override;
+    virtual void visit(BlockExpr &node) override;
+    virtual void visit(IfExpr &node) override;
+    virtual void visit(WhileExpr &node) override;
+    virtual void visit(LoopExpr &node) override;
+    virtual void visit(ReturnExpr &node) override;
+    virtual void visit(BreakExpr &node) override;
+    virtual void visit(ContinueExpr &node) override;
+    virtual void visit(CastExpr &node) override;
+    virtual void visit(PathExpr &node) override;
+    virtual void visit(SelfExpr &node) override;
+    virtual void visit(UnitExpr &node) override;
+    virtual void visit(ArrayExpr &node) override;
+    virtual void visit(RepeatArrayExpr &node) override;
+    virtual void visit(FnItem &node) override;
+    virtual void visit(StructItem &node) override;
+    virtual void visit(EnumItem &node) override;
+    virtual void visit(ImplItem &node) override;
+    virtual void visit(ConstItem &node) override;
+    virtual void visit(LetStmt &node) override;
+    virtual void visit(ExprStmt &node) override;
+    virtual void visit(ItemStmt &node) override;
+    virtual void visit(PathType &node) override;
+    virtual void visit(ArrayType &node) override;
+    virtual void visit(UnitType &node) override;
+    virtual void visit(IdentifierPattern &node) override;
+};
+
 struct ScopeBuilder_Visitor : public AST_Walker {
     vector<Scope_ptr> scope_stack; // 作用域栈，最后一个即为当前作用域
-    map<AST_Node_ptr, Scope_ptr> &node_scope_map;
+    map<size_t, Scope_ptr> &node_scope_map;
     bool block_is_in_function;
     // 下一个 block 是不是一定是 fn foo() {} 的 body
     // 如果是 block，那么在遍历的时候才加入，否则在遍历到 Fn 的时候就加入
-    ScopeBuilder_Visitor(Scope_ptr root_scope, map<AST_Node_ptr, Scope_ptr> &node_scope_map_);
+    ScopeBuilder_Visitor(Scope_ptr root_scope, map<size_t, Scope_ptr> &node_scope_map_);
     ~ScopeBuilder_Visitor() override = default;
     Scope_ptr current_scope() { return scope_stack.back(); }
     virtual void visit(LiteralExpr &node) override;

@@ -138,7 +138,7 @@ struct FunctionRealType : public RealType {
 
 // 根据 AST 的 Type 找到真正的类型 RealType，并且返回指针
 // 存放在 map 中，这样后面 let 语句遇到的时候使用这个，直接 find_real_type 即可
-RealType_ptr find_real_type(Scope_ptr current_scope, Type_ptr type_ast, map<Type_ptr, RealType_ptr> &type_map, vector<Expr_ptr> &const_expr_queue);
+RealType_ptr find_real_type(Scope_ptr current_scope, Type_ptr type_ast, map<size_t, RealType_ptr> &type_map, vector<Expr_ptr> &const_expr_queue);
 
 /*
 dfs Scope tree
@@ -147,6 +147,6 @@ dfs Scope tree
 3. 解析 impl 的 self_struct
 let 的类型之后解析
 */
-void Scope_dfs_and_build_type(Scope_ptr scope, map<Type_ptr, RealType_ptr> &type_map, vector<Expr_ptr> &const_expr_queue);
+void Scope_dfs_and_build_type(Scope_ptr scope, map<size_t, RealType_ptr> &type_map, vector<Expr_ptr> &const_expr_queue);
 
 #endif // SEMANTIC_STEP2_H
