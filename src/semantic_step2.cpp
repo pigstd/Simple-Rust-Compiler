@@ -84,9 +84,9 @@ void Scope_dfs_and_build_type(Scope_ptr scope, map<Type_ptr, RealType_ptr> &type
         if (type_decl->kind == TypeDeclKind::Struct) {
             // 解析 fields
             auto struct_decl = std::dynamic_pointer_cast<StructDecl>(type_decl);
-            for (auto [field_name, field_type_ast] : struct_decl->ast_node.fields) {
+            for (auto [field_name, field_type_ast] : struct_decl->ast_node->fields) {
                 if (struct_decl->fields.find(field_name) != struct_decl->fields.end()) {
-                    throw string("CE, field name ") + field_name + " redefined in struct " + struct_decl->ast_node.struct_name;
+                    throw string("CE, field name ") + field_name + " redefined in struct " + struct_decl->ast_node->struct_name;
                 }
                 RealType_ptr field_type = find_real_type(scope, field_type_ast, type_map, const_expr_queue);
                 struct_decl->fields[field_name] = field_type;
@@ -95,9 +95,9 @@ void Scope_dfs_and_build_type(Scope_ptr scope, map<Type_ptr, RealType_ptr> &type
         else {
             auto enum_decl = std::dynamic_pointer_cast<EnumDecl>(type_decl);
             int variant_value = 0;
-            for (auto &variant : enum_decl->ast_node.variants) {
+            for (auto &variant : enum_decl->ast_node->variants) {
                 if (enum_decl->variants.find(variant) != enum_decl->variants.end()) {
-                    throw string("CE, variant name ") + variant + " redefined in enum " + enum_decl->ast_node.enum_name;
+                    throw string("CE, variant name ") + variant + " redefined in enum " + enum_decl->ast_node->enum_name;
                 }
                 enum_decl->variants[variant] = variant_value;
                 variant_value++;
@@ -108,13 +108,13 @@ void Scope_dfs_and_build_type(Scope_ptr scope, map<Type_ptr, RealType_ptr> &type
         if (value_decl->kind == ValueDeclKind::Function) {
             auto fn_decl = std::dynamic_pointer_cast<FnDecl>(value_decl);
             // 解析 parameters
-            for (auto [param_pattern, param_type_ast] : fn_decl->ast_node.parameters) {
+            for (auto [param_pattern, param_type_ast] : fn_decl->ast_node->parameters) {
                 RealType_ptr param_type = find_real_type(scope, param_type_ast, type_map, const_expr_queue);
                 fn_decl->parameters.push_back({param_pattern, param_type});
             }
             // 解析 return type
-            if (fn_decl->ast_node.return_type != nullptr) {
-                RealType_ptr return_type = find_real_type(scope, fn_decl->ast_node.return_type, type_map, const_expr_queue);
+            if (fn_decl->ast_node->return_type != nullptr) {
+                RealType_ptr return_type = find_real_type(scope, fn_decl->ast_node->return_type, type_map, const_expr_queue);
                 fn_decl->return_type = return_type;
             } else {
                 // 没有返回类型，默认为 ()
@@ -123,7 +123,7 @@ void Scope_dfs_and_build_type(Scope_ptr scope, map<Type_ptr, RealType_ptr> &type
         } else if (value_decl->kind == ValueDeclKind::Constant) {
             auto const_decl = std::dynamic_pointer_cast<ConstDecl>(value_decl);
             // 解析 const type
-            RealType_ptr const_type = find_real_type(scope, const_decl->ast_node.const_type, type_map, const_expr_queue);
+            RealType_ptr const_type = find_real_type(scope, const_decl->ast_node->const_type, type_map, const_expr_queue);
             const_decl->const_type = const_type;
         }
     }
@@ -158,7 +158,7 @@ void Scope_dfs_and_build_type(Scope_ptr scope, map<Type_ptr, RealType_ptr> &type
                 struct_decl->methods.find(name) != struct_decl->methods.end() ||
                 struct_decl->associated_func.find(name) != struct_decl->associated_func.end()) {
                 // 一个 struct 里面的 fn 和 const 不能重名
-                throw string("CE, name ") + name + " redefined in impl for struct " + struct_decl->ast_node.struct_name;
+                throw string("CE, name ") + name + " redefined in impl for struct " + struct_decl->ast_node->struct_name;
             }
             if (value_decl->kind == ValueDeclKind::Function) {
                 auto fn_decl = std::dynamic_pointer_cast<FnDecl>(value_decl);

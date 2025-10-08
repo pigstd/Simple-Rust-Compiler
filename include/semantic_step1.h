@@ -106,38 +106,38 @@ struct ValueDecl {
 // 作为基类
 
 struct StructDecl : public TypeDecl {
-    StructItem &ast_node;
+    StructItem_ptr ast_node;
     map<string, RealType_ptr> fields; // 字段名的类型，第二轮填
     map<string, FnDecl_ptr> methods, associated_func;
     // example : point.len() -> methods, point::len() -> associated_func
     map<string, ConstDecl_ptr> associated_const;
     // example : point::ZERO -> associated_const
-    StructDecl(StructItem &ast_node_) : TypeDecl(TypeDeclKind::Struct), ast_node(ast_node_) {}
+    StructDecl(StructItem_ptr ast_node_) : TypeDecl(TypeDeclKind::Struct), ast_node(ast_node_) {}
     virtual ~StructDecl() = default;
 };
 
 struct EnumDecl : public TypeDecl {
-    EnumItem &ast_node;
+    EnumItem_ptr ast_node;
     map<string, int> variants; // 变体名和对应的值，第二轮填
-    EnumDecl(EnumItem &ast_node_) : TypeDecl(TypeDeclKind::Enum), ast_node(ast_node_) {}
+    EnumDecl(EnumItem_ptr ast_node_) : TypeDecl(TypeDeclKind::Enum), ast_node(ast_node_) {}
     virtual ~EnumDecl() = default;
 };
 
 struct FnDecl : public ValueDecl {
-    FnItem &ast_node;
+    FnItem_ptr ast_node;
     weak_ptr<Scope> function_scope; // 函数的作用域
     vector<pair<Pattern_ptr, RealType_ptr>> parameters; // 参数名(pattern)和参数类型，第二轮填
     RealType_ptr return_type; // 返回类型，第二轮填
     fn_reciever_type receiver_type; // 是否有 self 参数
     weak_ptr<StructDecl> self_struct; // 如果是 method，则存储这个 method 属于哪个 struct，第二轮填
-    FnDecl(FnItem &ast_node_, Scope_ptr function_scope_, fn_reciever_type receiver_type_)
+    FnDecl(FnItem_ptr ast_node_, Scope_ptr function_scope_, fn_reciever_type receiver_type_)
         : ValueDecl(ValueDeclKind::Function), ast_node(ast_node_), function_scope(function_scope_), receiver_type(receiver_type_) {}
 };
 
 struct ConstDecl : public ValueDecl {
-    ConstItem &ast_node;
+    ConstItem_ptr ast_node;
     RealType_ptr const_type; // 常量类型，第二轮填
-    ConstDecl(ConstItem &ast_node_) : ValueDecl(ValueDeclKind::Constant), ast_node(ast_node_) {}
+    ConstDecl(ConstItem_ptr ast_node_) : ValueDecl(ValueDeclKind::Constant), ast_node(ast_node_) {}
 };
 
 // Let 语句引入一个局部变量
