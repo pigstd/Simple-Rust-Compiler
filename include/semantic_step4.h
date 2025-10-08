@@ -4,6 +4,7 @@
 
 #include "ast.h"
 #include "semantic_step1.h"
+#include "semantic_step3.h"
 #include "visitor.h"
 #include "semantic_step2.h"
 #include <cstddef>
@@ -60,6 +61,10 @@ RealType_ptr copy(RealType_ptr type);
 // 是否合法，用于 let 和函数传参
 // 如果不合法 throw CE
 void check_let_stmt(Pattern_ptr let_pattern, RealType_ptr target_type, RealType_ptr expr_type, PlaceKind expr_place);
+
+// 检查 cast 是否合法
+// 如果不合法 throw CE
+void check_cast(RealType_ptr expr_type, RealType_ptr target_type);
 
 // 获取 (base_type, placekind) 的 method_name 方法，返回一个函数类型
 // e.g. point.len()
@@ -155,6 +160,9 @@ struct ExprTypeAndLetStmtVisitor : public AST_Walker {
     // 遇到循环的时候，新加一个，然后遇到 break 的时候和这个栈顶的返回值合并
     vector<RealType_ptr> loop_type_stack;
 
+    // 记录每个 AST 树节点的 OutComeState
+    map<AST_Node_ptr, OutcomeState> &node_outcome_state_map;
+
     // 是否在函数内，如果在存储该函数的定义
     FnDecl_ptr now_func_decl;
 
@@ -167,12 +175,14 @@ struct ExprTypeAndLetStmtVisitor : public AST_Walker {
             map<AST_Node_ptr, pair<RealType_ptr, PlaceKind>> &node_type_and_place_kind_map_,
             map<AST_Node_ptr, Scope_ptr> &node_scope_map_,
             map<Type_ptr, RealType_ptr> &type_map_,
-            map<Expr_ptr, size_t> &const_expr_to_size_map_) :
+            map<Expr_ptr, size_t> &const_expr_to_size_map_,
+            map<AST_Node_ptr, OutcomeState> &node_outcome_state_map_) :
             require_function(require_function_),
             node_type_and_place_kind_map(node_type_and_place_kind_map_),
             node_scope_map(node_scope_map_),
             type_map(type_map_),
             const_expr_to_size_map(const_expr_to_size_map_),
+            node_outcome_state_map(node_outcome_state_map_),
             now_func_decl(nullptr) {}
     virtual ~ExprTypeAndLetStmtVisitor() = default;
     virtual void visit(LiteralExpr &node) override;

@@ -2,6 +2,7 @@
 #include "ast.h"
 #include "semantic_step1.h"
 #include "semantic_step2.h"
+#include "semantic_step3.h"
 #include "visitor.h"
 #include "tools.h"
 #include <cassert>
@@ -150,15 +151,15 @@ RealType_ptr copy(RealType_ptr type) {
     } else if (type->kind == RealTypeKind::FUNCTION) {
         auto fn_type = std::dynamic_pointer_cast<FunctionRealType>(type);
         assert(fn_type != nullptr);
-        return std::make_shared<FunctionRealType>(fn_type->decl, type->is_ref);
+        return std::make_shared<FunctionRealType>(fn_type->decl.lock(), type->is_ref);
     } else if (type->kind == RealTypeKind::STRUCT) {
         auto struct_type = std::dynamic_pointer_cast<StructRealType>(type);
         assert(struct_type != nullptr);
-        return std::make_shared<StructRealType>(struct_type->decl, type->is_ref);
+        return std::make_shared<StructRealType>(struct_type->name, type->is_ref, struct_type->decl.lock());
     } else if (type->kind == RealTypeKind::ENUM) {
         auto enum_type = std::dynamic_pointer_cast<EnumRealType>(type);
         assert(enum_type != nullptr);
-        return std::make_shared<EnumRealType>(enum_type->decl, type->is_ref);
+        return std::make_shared<EnumRealType>(enum_type->name, type->is_ref, enum_type->decl.lock());
     } else if (type->kind == RealTypeKind::STR) {
         return std::make_shared<StrRealType>(type->is_ref);
     } else if (type->kind == RealTypeKind::I32) {
@@ -192,7 +193,7 @@ void ExprTypeAndLetStmtVisitor::visit(LiteralExpr &node) {
     node_type_and_place_kind_map[std::make_shared<LiteralExpr>(node)] = {literal_type, PlaceKind::NotPlace};
 }
 void ExprTypeAndLetStmtVisitor::visit(IdentifierExpr &node) {
-    auto decl = find_value_decl(node_scope_map[std::make_shared<AST_Node>(node)], node.name);
+    auto decl = find_value_decl(node_scope_map[std::make_shared<IdentifierExpr>(node)], node.name);
     if (decl == nullptr) {
         throw "CE, cannot find identifier declaration: " + node.name;
     }
@@ -212,6 +213,7 @@ void ExprTypeAndLetStmtVisitor::visit(IdentifierExpr &node) {
             auto const_decl = std::dynamic_pointer_cast<ConstDecl>(decl);
             assert(const_decl != nullptr);
             result_type = const_decl->const_type;
+            place_kind = PlaceKind::NotPlace;
         } else if (decl->kind == ValueDeclKind::LetStmt) {
             auto let_decl = std::dynamic_pointer_cast<LetDecl>(decl);
             assert(let_decl != nullptr);
@@ -397,9 +399,7 @@ void ExprTypeAndLetStmtVisitor::visit(UnaryExpr &node) {
             throw "CE, unary operator ! requires bool type";
         }
     } else if (node.op == Unary_Operator::REF) {
-        if (right_place == PlaceKind::NotPlace) {
-            throw "CE, unary operator & requires a place operand";
-        }
+        // 右值也可以被引用，所以都可以被引用
         if (right_type->is_ref != ReferenceType::NO_REF) {
             throw "CE, cannot take reference of a reference type";
         }
@@ -409,7 +409,9 @@ void ExprTypeAndLetStmtVisitor::visit(UnaryExpr &node) {
         result_type->is_ref = ReferenceType::REF;
         place_kind = PlaceKind::NotPlace;
     } else if (node.op == Unary_Operator::REF_MUT) {
-        if (right_place != PlaceKind::ReadWritePlace) {
+        // 右值和 mut 的左值都可以被 &mut 引用
+        // 但是不可变的左值不行
+        if (right_place == PlaceKind::ReadOnlyPlace) {
             throw "CE, unary operator &mut requires a mutable place operand";
         }
         if (right_type->is_ref != ReferenceType::NO_REF) {
@@ -518,7 +520,7 @@ void ExprTypeAndLetStmtVisitor::visit(StructExpr &node) {
         throw "CE, struct expression is not function";
     }
     AST_Walker::visit(node);
-    auto decl = find_type_decl(node_scope_map[std::make_shared<AST_Node>(node)], node.struct_name);
+    auto decl = find_type_decl(node_scope_map[std::make_shared<StructExpr>(node)], node.struct_name);
     if (decl == nullptr || decl->kind != TypeDeclKind::Struct) {
         throw "CE, cannot find struct declaration: " + node.struct_name;
     }
@@ -534,8 +536,293 @@ void ExprTypeAndLetStmtVisitor::visit(StructExpr &node) {
         type_merge(struct_decl->fields[fname], node_type_and_place_kind_map[fexpr].first);
     }
     node_type_and_place_kind_map[std::make_shared<StructExpr>(node)] =
-        {std::make_shared<StructRealType>(struct_decl, ReferenceType::NO_REF), PlaceKind::NotPlace};
+        {std::make_shared<StructRealType>(node.struct_name, ReferenceType::NO_REF, struct_decl), PlaceKind::NotPlace};
 }
-// 后面的处理还要解引用啥的，有点烦
-// NOT FINISHED !!!!
-// TO DO !!!!
+void ExprTypeAndLetStmtVisitor::visit(IndexExpr &node) {
+    if (require_function) {
+        throw "CE, index expression is not function";
+    }
+    node.base->accept(*this);
+    node.index->accept(*this);
+    auto [base_type, base_place] = node_type_and_place_kind_map[node.base];
+    auto [index_type, index_place] = node_type_and_place_kind_map[node.index];
+    if (index_type->is_ref != ReferenceType::NO_REF ||
+        (index_type->kind != RealTypeKind::USIZE && index_type->kind != RealTypeKind::ANYINT)) {
+        throw "CE, index expression requires usize type index";
+    }
+    if (base_type->kind != RealTypeKind::ARRAY) {
+        throw "CE, index expression requires array type base";
+    }
+    auto array_type = std::dynamic_pointer_cast<ArrayRealType>(base_type);
+    PlaceKind place_kind;
+    if (base_type->is_ref == ReferenceType::NO_REF) {
+        // 不可变 -> 不可变
+        // 可变 -> 可变
+        // 右值 -> 自动引用 -> 可变 (?)
+        if (base_place == PlaceKind::ReadOnlyPlace) {
+            place_kind = PlaceKind::ReadOnlyPlace;
+        } else {
+            place_kind = PlaceKind::ReadWritePlace;
+        }
+    } else if (base_type->is_ref == ReferenceType::REF) {
+        place_kind = PlaceKind::ReadOnlyPlace;
+    } else {
+        place_kind = PlaceKind::ReadWritePlace;
+    }
+    node_type_and_place_kind_map[std::make_shared<IndexExpr>(node)] =
+        {array_type->element_type, place_kind};
+}
+void ExprTypeAndLetStmtVisitor::visit(BlockExpr &node) {
+    if (require_function) {
+        throw "CE, block expression is not function";
+    }
+    AST_Walker::visit(node);
+    if (!has_state(node_outcome_state_map[std::make_shared<BlockExpr>(node)], OutcomeType::NEXT)) {
+        node_type_and_place_kind_map[std::make_shared<BlockExpr>(node)] =
+            {std::make_shared<NeverRealType>(ReferenceType::NO_REF), PlaceKind::NotPlace};
+    } else if (node.tail_statement != nullptr) {
+        auto [tail_type, tail_place] = node_type_and_place_kind_map[node.tail_statement];
+        node_type_and_place_kind_map[std::make_shared<BlockExpr>(node)] =
+            {tail_type, PlaceKind::NotPlace};
+    } else {
+        node_type_and_place_kind_map[std::make_shared<BlockExpr>(node)] =
+            {std::make_shared<UnitRealType>(ReferenceType::NO_REF), PlaceKind::NotPlace};
+    }
+}
+void ExprTypeAndLetStmtVisitor::visit(IfExpr &node) {
+    if (require_function) {
+        throw "CE, if expression is not function";
+    }
+    AST_Walker::visit(node);
+    if (!has_state(node_outcome_state_map[std::make_shared<IfExpr>(node)], OutcomeType::NEXT)) {
+        node_type_and_place_kind_map[std::make_shared<IfExpr>(node)] =
+            {std::make_shared<NeverRealType>(ReferenceType::NO_REF), PlaceKind::NotPlace};
+        return;
+    }
+    auto [cond_type, cond_place] = node_type_and_place_kind_map[node.condition];
+    if (cond_type->is_ref != ReferenceType::NO_REF || cond_type->kind != RealTypeKind::BOOL) {
+        throw "CE, if expression requires bool type condition";
+    }
+    RealType_ptr then_type = node_type_and_place_kind_map[node.then_branch].first;
+    RealType_ptr else_type = std::make_shared<UnitRealType>(ReferenceType::NO_REF);
+    if (node.else_branch != nullptr) {
+        else_type = node_type_and_place_kind_map[node.else_branch].first;
+    }
+    node_type_and_place_kind_map[std::make_shared<IfExpr>(node)] =
+        {type_merge(then_type, else_type), PlaceKind::NotPlace};
+}
+void ExprTypeAndLetStmtVisitor::visit(WhileExpr &node) {
+    if (require_function) {
+        throw "CE, while expression is not function";
+    }
+    // 放一个 UnitType 在栈里，表示 while 的结果类型
+    // 这样 break 的时候，一定得是 Unit Type，否则就不能合并
+    // 最后结果一定是 Unit Type
+    loop_type_stack.push_back(std::make_shared<UnitRealType>(ReferenceType::NO_REF));
+    AST_Walker::visit(node);
+    auto [cond_type, cond_place] = node_type_and_place_kind_map[node.condition];
+    if (cond_type->is_ref != ReferenceType::NO_REF || cond_type->kind != RealTypeKind::BOOL) {
+        throw "CE, while expression requires bool type condition";
+    }
+    node_type_and_place_kind_map[std::make_shared<WhileExpr>(node)] =
+        {loop_type_stack.back(), PlaceKind::NotPlace};
+    loop_type_stack.pop_back();
+}
+void ExprTypeAndLetStmtVisitor::visit(LoopExpr &node) {
+    if (require_function) {
+        throw "CE, loop expression is not function";
+    }
+    // 放一个 NeverType 在栈里，表示 loop 的结果类型
+    // break 有任何 type 都可以和他合并
+    loop_type_stack.push_back(std::make_shared<NeverRealType>(ReferenceType::NO_REF));
+    AST_Walker::visit(node);
+    node_type_and_place_kind_map[std::make_shared<LoopExpr>(node)] =
+        {loop_type_stack.back(), PlaceKind::NotPlace};
+    loop_type_stack.pop_back();
+}
+void ExprTypeAndLetStmtVisitor::visit(ReturnExpr &node) {
+    if (require_function) {
+        throw "CE, return expression is not function";
+    }
+    if (now_func_decl == nullptr) {
+        throw "CE, return expression is not in a function";
+    }
+    AST_Walker::visit(node);
+    RealType_ptr return_type;
+    if (node.return_value != nullptr) {
+        auto [value_type, value_place] = node_type_and_place_kind_map[node.return_value];
+        return_type = value_type;
+    } else {
+        return_type = std::make_shared<UnitRealType>(ReferenceType::NO_REF);
+    }
+    type_merge(now_func_decl->return_type, return_type);
+    node_type_and_place_kind_map[std::make_shared<ReturnExpr>(node)] =
+        {std::make_shared<NeverRealType>(ReferenceType::NO_REF), PlaceKind::NotPlace};
+}
+void ExprTypeAndLetStmtVisitor::visit(BreakExpr &node) {
+    if (require_function) {
+        throw "CE, break expression is not function";
+    }
+    if (loop_type_stack.empty()) {
+        throw "CE, break expression is not in a loop";
+    }
+    AST_Walker::visit(node);
+    RealType_ptr break_type;
+    if (node.break_value != nullptr) {
+        auto [value_type, value_place] = node_type_and_place_kind_map[node.break_value];
+        break_type = value_type;
+    } else {
+        break_type = std::make_shared<UnitRealType>(ReferenceType::NO_REF);
+    }
+    loop_type_stack.back() = type_merge(loop_type_stack.back(), break_type);
+    node_type_and_place_kind_map[std::make_shared<BreakExpr>(node)] =
+        {std::make_shared<NeverRealType>(ReferenceType::NO_REF), PlaceKind::NotPlace};
+}
+void ExprTypeAndLetStmtVisitor::visit(ContinueExpr &node) {
+    if (require_function) {
+        throw "CE, continue expression is not function";
+    }
+    if (loop_type_stack.empty()) {
+        throw "CE, continue expression is not in a loop";
+    }
+    AST_Walker::visit(node);
+    node_type_and_place_kind_map[std::make_shared<ContinueExpr>(node)] =
+        {std::make_shared<NeverRealType>(ReferenceType::NO_REF), PlaceKind::NotPlace};
+}
+void ExprTypeAndLetStmtVisitor::visit(CastExpr &node) {
+    if (require_function) {
+        throw "CE, cast expression is not function";
+    }
+    node.expr->accept(*this);
+    // target_type 已经在前面被求出来过了
+    auto target_type = type_map[node.target_type];
+    check_cast(node_type_and_place_kind_map[node.expr].first, target_type);
+    node_type_and_place_kind_map[std::make_shared<CastExpr>(node)] =
+        {target_type, PlaceKind::NotPlace};
+}
+void ExprTypeAndLetStmtVisitor::visit(PathExpr &node) {
+    // 有两种可能
+    // 结构体的关联函数和结构体或者枚举的字段
+    // 因为比较简单，所以路径表达式只可能套一层，所以 node.path 虽然也可以是一个表达式，但是规定只能是一个 IdentifierExpr
+    // 这个时候就不递归下去了
+    string base_name;
+    if (auto ident_expr = std::dynamic_pointer_cast<IdentifierExpr>(node.base)) {
+        base_name = ident_expr->name;
+    } else {
+        throw "CE, path expression base must be an identifier";
+    }
+    auto type_decl = find_type_decl(node_scope_map[std::make_shared<PathExpr>(node)], base_name);
+    if (require_function) {
+        RealType_ptr base_type;
+        if (type_decl == nullptr) {
+            // 说明是默认类型
+            if (base_name == "i32") {
+                base_type = std::make_shared<I32RealType>(ReferenceType::NO_REF);
+            } else if (base_name == "u32") {
+                base_type = std::make_shared<U32RealType>(ReferenceType::NO_REF);
+            } else if (base_name == "isize") {
+                base_type = std::make_shared<IsizeRealType>(ReferenceType::NO_REF);
+            } else if (base_name == "usize") {
+                base_type = std::make_shared<UsizeRealType>(ReferenceType::NO_REF);
+            } else if (base_name == "bool") {
+                base_type = std::make_shared<BoolRealType>(ReferenceType::NO_REF);
+            } else if (base_name == "char") {
+                base_type = std::make_shared<CharRealType>(ReferenceType::NO_REF);
+            } else if (base_name == "str") {
+                base_type = std::make_shared<StrRealType>(ReferenceType::NO_REF);
+            } else if (base_name == "String") {
+                base_type = std::make_shared<StrRealType>(ReferenceType::NO_REF);
+            } else if (base_name == "()") {
+                base_type = std::make_shared<UnitRealType>(ReferenceType::NO_REF);
+            } else {
+                throw "CE, cannot find type declaration: " + base_name;
+            }
+        } else if (type_decl->kind == TypeDeclKind::Enum) {
+            throw "CE, enum type cannot have associated functions: " + base_name;
+        } else {
+            auto struct_decl = std::dynamic_pointer_cast<StructDecl>(type_decl);
+            assert(struct_decl != nullptr);
+            base_type = std::make_shared<StructRealType>(base_name, ReferenceType::NO_REF, struct_decl);
+        }
+        require_function = false;
+        node_type_and_place_kind_map[std::make_shared<PathExpr>(node)] =
+            {get_associated_func(base_type, node.name), PlaceKind::NotPlace};
+    } else {
+        if (type_decl == nullptr) {
+            throw "CE, cannot find type declaration: " + base_name;
+        }
+        if (type_decl->kind == TypeDeclKind::Struct) {
+            auto struct_decl = std::dynamic_pointer_cast<StructDecl>(type_decl);
+            assert(struct_decl != nullptr);
+            RealType_ptr field_type = nullptr;
+            for (auto &[fname, ftype] : struct_decl->associated_const) {
+                if (fname == node.name) {
+                    field_type = ftype->const_type;
+                    break;
+                }
+            }
+            if (field_type == nullptr) {
+                throw "CE, struct has no field named " + node.name;
+            }
+            node_type_and_place_kind_map[std::make_shared<PathExpr>(node)] =
+                {field_type, PlaceKind::ReadOnlyPlace};
+        } else {
+            auto enum_decl = std::dynamic_pointer_cast<EnumDecl>(type_decl);
+            assert(enum_decl != nullptr);
+            if (enum_decl->variants.find(node.name) == enum_decl->variants.end()) {
+                throw "CE, enum has no variant named " + node.name;
+            }
+            node_type_and_place_kind_map[std::make_shared<PathExpr>(node)] =
+                {std::make_shared<EnumRealType>(node.name, ReferenceType::NO_REF, enum_decl), PlaceKind::NotPlace};
+        }
+    }
+}
+void ExprTypeAndLetStmtVisitor::visit(SelfExpr &node) {
+    // 一定得是函数内的 self.
+    if (require_function) {
+        throw "CE, self expression is not function";
+    }
+    if (now_func_decl == nullptr) {
+        throw "CE, self expression is not in a function";
+    }
+    if (now_func_decl->receiver_type == fn_reciever_type::NO_RECEIVER) {
+        throw "CE, self expression is in a function without self receiver";
+    } else if (now_func_decl->receiver_type == fn_reciever_type::SELF) {
+        // Struct 的 name：无所谓了，就当作 Self 吧
+        // PlaceKind ：暂时应该是 ReadWritePlace，不是特别确定
+        node_type_and_place_kind_map[std::make_shared<SelfExpr>(node)] =
+            {std::make_shared<StructRealType>("Self", ReferenceType::NO_REF, now_func_decl->self_struct.lock()), PlaceKind::ReadWritePlace};
+    } else if (now_func_decl->receiver_type == fn_reciever_type::SELF_REF) {
+        node_type_and_place_kind_map[std::make_shared<SelfExpr>(node)] =
+            {std::make_shared<StructRealType>("Self", ReferenceType::REF, now_func_decl->self_struct.lock()), PlaceKind::NotPlace};
+    } else if (now_func_decl->receiver_type == fn_reciever_type::SELF_REF_MUT) {
+        node_type_and_place_kind_map[std::make_shared<SelfExpr>(node)] =
+            {std::make_shared<StructRealType>("Self", ReferenceType::REF_MUT, now_func_decl->self_struct.lock()), PlaceKind::NotPlace};
+    } else {
+        throw "Error, unknown self receiver type";
+    }
+}
+void ExprTypeAndLetStmtVisitor::visit(ArrayExpr &node) {
+    if (require_function) {
+        throw "CE, array expression is not function";
+    }
+    AST_Walker::visit(node);
+    // 因为 never 和任何的都可以合并，所以一开始就放一个 never
+    RealType_ptr element_type = std::make_shared<NeverRealType>(ReferenceType::NO_REF);
+    for (auto &elem : node.elements) {
+        auto [etype, eplace] = node_type_and_place_kind_map[elem];
+        element_type = type_merge(element_type, etype);
+    }
+    node_type_and_place_kind_map[std::make_shared<ArrayExpr>(node)] =
+        {std::make_shared<ArrayRealType>(element_type, nullptr, ReferenceType::NO_REF, node.elements.size()), PlaceKind::NotPlace};
+}
+void ExprTypeAndLetStmtVisitor::visit(RepeatArrayExpr &node) {
+    if (require_function) {
+        throw "CE, repeat array expression is not function";
+    }
+    node.element->accept(*this);
+    auto [elem_type, elem_place] = node_type_and_place_kind_map[node.element];
+    size_t size = const_expr_to_size_map[node.element];
+    node_type_and_place_kind_map[std::make_shared<RepeatArrayExpr>(node)] =
+        {std::make_shared<ArrayRealType>(elem_type, nullptr, ReferenceType::NO_REF, size), PlaceKind::NotPlace};
+}
