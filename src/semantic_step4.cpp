@@ -826,3 +826,84 @@ void ExprTypeAndLetStmtVisitor::visit(RepeatArrayExpr &node) {
     node_type_and_place_kind_map[std::make_shared<RepeatArrayExpr>(node)] =
         {std::make_shared<ArrayRealType>(elem_type, nullptr, ReferenceType::NO_REF, size), PlaceKind::NotPlace};
 }
+
+void ExprTypeAndLetStmtVisitor::visit(FnItem &node) {
+    if (require_function) {
+        throw "CE, function item is not function";
+    }
+    auto prev_func_decl = now_func_decl;
+    auto now_scope = node_scope_map[std::make_shared<FnItem>(node)];
+    if (now_scope->value_namespace.find(node.function_name) == now_scope->value_namespace.end()) {
+        // 不可能，所以是 Error
+        throw "Error, function declaration not found in scope";
+    }
+    auto decl = now_scope->value_namespace[node.function_name];
+    if (decl->kind != ValueDeclKind::Function) {
+        throw "Error, function declaration is not a function";
+    }
+    now_func_decl = std::dynamic_pointer_cast<FnDecl>(decl);
+    // 函数的参数可以认为在下一个定义域里面加了这些局部变量
+    for (auto &[pattern, type] : now_func_decl->parameters) {
+        intro_let_stmt(now_func_decl->function_scope.lock(), pattern, type);
+    }
+    node.body->accept(*this);
+    /*
+    检查返回类型：首先，return 的类型在 return 会判断
+    所以就是 body 的类型和 return type 合并
+    如果 body 是 never 在前面应该就会判断
+    */
+    type_merge(node_type_and_place_kind_map[node.body].first, now_func_decl->return_type);
+    now_func_decl = prev_func_decl;
+}
+void ExprTypeAndLetStmtVisitor::visit([[maybe_unused]]StructItem &node) {
+    // struct item 不用管
+    if (require_function) {
+        throw "CE, struct item is not function";
+    }
+    return;
+}
+void ExprTypeAndLetStmtVisitor::visit([[maybe_unused]]EnumItem &node) {
+    // enum item 不用管
+    if (require_function) {
+        throw "CE, enum item is not function";
+    }
+    return;    
+}
+void ExprTypeAndLetStmtVisitor::visit(ImplItem &node) {
+    if (require_function) {
+        throw "CE, impl item is not function";
+    }
+    // 这个时候要进去递归函数
+    AST_Walker::visit(node);
+}
+void ExprTypeAndLetStmtVisitor::visit([[maybe_unused]]ConstItem &node) {
+    if (require_function) {
+        throw "CE, const item is not function";
+    }
+    // 之前检查过了，不用管
+    return;
+}
+void ExprTypeAndLetStmtVisitor::visit(LetStmt &node) {
+    if (require_function) {
+        throw "CE, let statement is not function";
+    }
+    if (node.initializer != nullptr) {
+        throw "CE, let statement must have an initializer";
+    }
+    node.initializer->accept(*this);
+    auto [init_type, init_place] = node_type_and_place_kind_map[node.initializer];
+    check_let_stmt(node.pattern, type_map[node.type], init_type, init_place);
+    intro_let_stmt(node_scope_map[std::make_shared<LetStmt>(node)], node.pattern, type_map[node.type]);
+}
+void ExprTypeAndLetStmtVisitor::visit(ExprStmt &node) {
+    AST_Walker::visit(node);
+    node_type_and_place_kind_map[std::make_shared<ExprStmt>(node)] =
+        node_type_and_place_kind_map[node.expr];
+}
+void ExprTypeAndLetStmtVisitor::visit(ItemStmt &node) {
+    AST_Walker::visit(node);
+}
+void ExprTypeAndLetStmtVisitor::visit([[maybe_unused]]PathType &node) { return; }
+void ExprTypeAndLetStmtVisitor::visit([[maybe_unused]]ArrayType &node) { return; }
+void ExprTypeAndLetStmtVisitor::visit([[maybe_unused]]UnitType &node) { return; }
+void ExprTypeAndLetStmtVisitor::visit([[maybe_unused]]IdentifierPattern &node) { return; }

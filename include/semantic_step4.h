@@ -62,6 +62,10 @@ RealType_ptr copy(RealType_ptr type);
 // 如果不合法 throw CE
 void check_let_stmt(Pattern_ptr let_pattern, RealType_ptr target_type, RealType_ptr expr_type, PlaceKind expr_place);
 
+// 将 let 语句加入到当前作用域
+// 同样，用于 let 语句和函数参数
+void intro_let_stmt(Scope_ptr current_scope, Pattern_ptr let_pattern, RealType_ptr let_type);
+
 // 检查 cast 是否合法
 // 如果不合法 throw CE
 void check_cast(RealType_ptr expr_type, RealType_ptr target_type);
