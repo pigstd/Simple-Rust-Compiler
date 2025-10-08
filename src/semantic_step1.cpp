@@ -117,7 +117,7 @@ void ScopeBuilder_Visitor::visit(FnItem &node) {
     node_scope_map[make_shared<FnItem>(node)] = current_scope();
     Scope_ptr new_scope = make_shared<Scope>(current_scope(), ScopeKind::Function);
 
-    FnDecl_ptr fn_decl = make_shared<FnDecl>(node, new_scope);
+    FnDecl_ptr fn_decl = make_shared<FnDecl>(node, new_scope, node.receiver_type);
     // 关联函数的事情，第二轮再搞
     // 加入 value_namespace
     if (current_scope()->value_namespace.find(node.function_name) != 

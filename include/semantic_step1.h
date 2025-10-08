@@ -128,8 +128,10 @@ struct FnDecl : public ValueDecl {
     weak_ptr<Scope> function_scope; // 函数的作用域
     vector<pair<Pattern_ptr, RealType_ptr>> parameters; // 参数名(pattern)和参数类型，第二轮填
     RealType_ptr return_type; // 返回类型，第二轮填
-    FnDecl(FnItem &ast_node_, Scope_ptr function_scope_)
-        : ValueDecl(ValueDeclKind::Function), ast_node(ast_node_), function_scope(function_scope_) {}
+    fn_reciever_type receiver_type; // 是否有 self 参数
+    weak_ptr<StructDecl> self_struct; // 如果是 method，则存储这个 method 属于哪个 struct，第二轮填
+    FnDecl(FnItem &ast_node_, Scope_ptr function_scope_, fn_reciever_type receiver_type_)
+        : ValueDecl(ValueDeclKind::Function), ast_node(ast_node_), function_scope(function_scope_), receiver_type(receiver_type_) {}
 };
 
 struct ConstDecl : public ValueDecl {

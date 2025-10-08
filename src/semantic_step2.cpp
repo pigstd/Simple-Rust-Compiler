@@ -162,12 +162,13 @@ void Scope_dfs_and_build_type(Scope_ptr scope, map<Type_ptr, RealType_ptr> &type
             }
             if (value_decl->kind == ValueDeclKind::Function) {
                 auto fn_decl = std::dynamic_pointer_cast<FnDecl>(value_decl);
-                if (fn_decl->ast_node.receiver_type != fn_reciever_type::NO_RECEIVER) {
+                if (fn_decl->receiver_type != fn_reciever_type::NO_RECEIVER) {
                     // 方法
                     struct_decl->methods[name] = fn_decl;
                 } else {
                     // 关联函数
                     struct_decl->associated_func[name] = fn_decl;
+                    fn_decl->self_struct = struct_decl;
                 }
                 struct_decl->methods[name] = fn_decl;
             } else if (value_decl->kind == ValueDeclKind::Constant) {
@@ -180,7 +181,7 @@ void Scope_dfs_and_build_type(Scope_ptr scope, map<Type_ptr, RealType_ptr> &type
         for (auto [name, value_decl] : scope->value_namespace) {
             if (value_decl->kind == ValueDeclKind::Function) {
                 auto fn_decl = std::dynamic_pointer_cast<FnDecl>(value_decl);
-                if (fn_decl->ast_node.receiver_type != fn_reciever_type::NO_RECEIVER) {
+                if (fn_decl->receiver_type != fn_reciever_type::NO_RECEIVER) {
                     throw string("CE, function ") + name + " has receiver but not in impl";
                 }
             }
