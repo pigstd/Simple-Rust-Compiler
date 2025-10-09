@@ -120,6 +120,7 @@ struct ItemStmt; // 项目语句 item;
 struct PathType; // 类型路径 i32, String, MyStruct ()
 struct ArrayType; // 数组类型 [T; n]
 struct UnitType; // 单元类型 ()
+struct SelfType; // Self 类型
 
 // Patterns 只需要考虑 IdentifierPattern 即可
 struct IdentifierPattern; // 标识符模式 let x = expr; 的 x
@@ -156,6 +157,7 @@ using ItemStmt_ptr = shared_ptr<ItemStmt>;
 using PathType_ptr = shared_ptr<PathType>;
 using ArrayType_ptr = shared_ptr<ArrayType>;
 using UnitType_ptr = shared_ptr<UnitType>;
+using SelfType_ptr = shared_ptr<SelfType>;
 using IdentifierPattern_ptr = shared_ptr<IdentifierPattern>;
 
 enum class LiteralType {
@@ -419,6 +421,10 @@ struct ArrayType : public Type_Node {
 };
 struct UnitType : public Type_Node {
     UnitType(ReferenceType ref_type_) : Type_Node(ref_type_) {}
+    void accept(AST_visitor &v) override;
+};
+struct SelfType : public Type_Node {
+    SelfType(ReferenceType ref_type_) : Type_Node(ref_type_) {}
     void accept(AST_visitor &v) override;
 };
 

@@ -64,6 +64,7 @@ void ArrayTypeVisitor::visit(ArrayType &node) {
     AST_Walker::visit(node);
 }
 void ArrayTypeVisitor::visit(UnitType &node) { AST_Walker::visit(node); }
+void ArrayTypeVisitor::visit(SelfType &node) { AST_Walker::visit(node); }
 void ArrayTypeVisitor::visit(IdentifierPattern &node) { AST_Walker::visit(node); }
 
 bool type_is_number(RealType_ptr checktype) {
@@ -980,6 +981,7 @@ void ExprTypeAndLetStmtVisitor::visit(ItemStmt &node) {
 void ExprTypeAndLetStmtVisitor::visit([[maybe_unused]]PathType &node) { return; }
 void ExprTypeAndLetStmtVisitor::visit([[maybe_unused]]ArrayType &node) { return; }
 void ExprTypeAndLetStmtVisitor::visit([[maybe_unused]]UnitType &node) { return; }
+void ExprTypeAndLetStmtVisitor::visit([[maybe_unused]]SelfType &node) { return; }
 void ExprTypeAndLetStmtVisitor::visit([[maybe_unused]]IdentifierPattern &node) { return; }
 
 ValueDecl_ptr ExprTypeAndLetStmtVisitor::find_value_decl(Scope_ptr now_scope, const string &name) {

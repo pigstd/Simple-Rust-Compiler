@@ -139,6 +139,10 @@ void ASTIdGenerator::visit(UnitType &node) {
     node.NodeId = current_id++;
     AST_Walker::visit(node);
 }
+void ASTIdGenerator::visit(SelfType &node) {
+    node.NodeId = current_id++;
+    AST_Walker::visit(node);
+}
 void ASTIdGenerator::visit(IdentifierPattern &node) {
     node.NodeId = current_id++;
     AST_Walker::visit(node);
@@ -345,6 +349,10 @@ void ScopeBuilder_Visitor::visit(ArrayType &node) {
     AST_Walker::visit(node);
 }
 void ScopeBuilder_Visitor::visit(UnitType &node) {
+    node_scope_map[node.NodeId] = current_scope();
+    AST_Walker::visit(node);
+}
+void ScopeBuilder_Visitor::visit(SelfType &node) {
     node_scope_map[node.NodeId] = current_scope();
     AST_Walker::visit(node);
 }

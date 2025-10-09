@@ -120,6 +120,7 @@ void AST_Walker::visit(ArrayType &node) {
     node.size_expr->accept(*this);
 }
 void AST_Walker::visit([[maybe_unused]] UnitType &node) { return; }
+void AST_Walker::visit([[maybe_unused]] SelfType &node) { return; }
 void AST_Walker::visit([[maybe_unused]] IdentifierPattern &node) { return; }
 
 // AST_Printer: 有些调用 AST_Walker 遍历会比较方便，但是有些还是要自己写遍历
@@ -409,6 +410,13 @@ void AST_Printer::visit(ArrayType &node) {
 }
 void AST_Printer::visit(UnitType &node) {
     cout << tab() << "UnitType , NodeId = " << node.NodeId << endl;
+    cout << tab() << ", Reference Type = " << reference_type_to_string(node.ref_type) << endl;
+    depth++;
+    AST_Walker::visit(node);
+    depth--;
+}
+void AST_Printer::visit(SelfType &node) {
+    cout << tab() << "SelfType , NodeId = " << node.NodeId << endl;
     cout << tab() << ", Reference Type = " << reference_type_to_string(node.ref_type) << endl;
     depth++;
     AST_Walker::visit(node);

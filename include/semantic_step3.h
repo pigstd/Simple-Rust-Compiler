@@ -147,6 +147,7 @@ struct OtherTypeAndRepeatArrayVisitor : public AST_Walker {
     virtual void visit(PathType &node) override;
     virtual void visit(ArrayType &node) override;
     virtual void visit(UnitType &node) override;
+    virtual void visit(SelfType &node) override;
     virtual void visit(IdentifierPattern &node) override;
 };
 
@@ -230,6 +231,7 @@ struct ConstItemVisitor : public AST_Walker {
     virtual void visit(PathType &node) override;
     virtual void visit(ArrayType &node) override;
     virtual void visit(UnitType &node) override;
+    virtual void visit(SelfType &node) override;
     virtual void visit(IdentifierPattern &node) override;
 };
 // 先 visit 整个 ast 树求出 const item
@@ -311,6 +313,7 @@ struct ControlFlowVisitor : public AST_Walker {
     virtual void visit(PathType &node) override;
     virtual void visit(ArrayType &node) override;
     virtual void visit(UnitType &node) override;
+    virtual void visit(SelfType &node) override;
     virtual void visit(IdentifierPattern &node) override;
 };
 

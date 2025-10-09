@@ -83,6 +83,7 @@ enum class Token_type {
     REF,               // ref
     USE,               // use
     SELF,              // self
+    BIG_SELF,          // Self
     // 还有些不确定也不会搞的，后面再加
 };
 

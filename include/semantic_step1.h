@@ -187,6 +187,7 @@ struct ASTIdGenerator : public AST_Walker {
     virtual void visit(PathType &node) override;
     virtual void visit(ArrayType &node) override;
     virtual void visit(UnitType &node) override;
+    virtual void visit(SelfType &node) override;
     virtual void visit(IdentifierPattern &node) override;
 };
 
@@ -231,6 +232,7 @@ struct ScopeBuilder_Visitor : public AST_Walker {
     virtual void visit(PathType &node) override;
     virtual void visit(ArrayType &node) override;
     virtual void visit(UnitType &node) override;
+    virtual void visit(SelfType &node) override;
     virtual void visit(IdentifierPattern &node) override;
 };
 

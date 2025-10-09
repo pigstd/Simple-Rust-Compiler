@@ -25,6 +25,7 @@ Lexer::Lexer() {
         {"ref", Token_type::REF},
         {"use", Token_type::USE},
         {"self", Token_type::SELF},
+        {"Self", Token_type::BIG_SELF},
         {"true", Token_type::TRUE},
         {"false", Token_type::FALSE}
     };
@@ -146,6 +147,7 @@ string token_type_to_string(Token_type type) {
         case Token_type::REF: return "REF";
         case Token_type::USE: return "USE";
         case Token_type::SELF: return "SELF";
+        case Token_type::BIG_SELF: return "BIG_SELF";
         default: return "UNKNOWN";
     }
 }

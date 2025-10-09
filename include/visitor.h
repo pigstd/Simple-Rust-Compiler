@@ -47,6 +47,7 @@ public:
     virtual void visit(PathType &node) = 0;
     virtual void visit(ArrayType &node) = 0;
     virtual void visit(UnitType &node) = 0;
+    virtual void visit(SelfType &node) = 0;
     virtual void visit(IdentifierPattern &node) = 0;
 };
 
@@ -87,6 +88,7 @@ public:
     virtual void visit(PathType &node) override;
     virtual void visit(ArrayType &node) override;
     virtual void visit(UnitType &node) override;
+    virtual void visit(SelfType &node) override;
     virtual void visit(IdentifierPattern &node) override;
 };
 
@@ -132,6 +134,7 @@ public:
     virtual void visit(PathType &node) override;
     virtual void visit(ArrayType &node) override;
     virtual void visit(UnitType &node) override;
+    virtual void visit(SelfType &node) override;
     virtual void visit(IdentifierPattern &node) override;
 };
 

@@ -126,13 +126,51 @@ RealType_ptr find_real_type(Scope_ptr current_scope, Type_ptr type_ast, map<size
         result_type = result_array_type;
         // 数组大小的表达式放入 const_expr_queue
         const_expr_queue.push_back(array_type->size_expr);
-    } else {
+    } else if (dynamic_cast<UnitType*>(type_ast.get())) {
         result_type = std::make_shared<UnitRealType>(ref_type);
+    } else {
+        assert(dynamic_cast<SelfType*>(type_ast.get()) != nullptr);
+        // SelfType，一定在 Impl 里面
+        if (current_scope->kind != ScopeKind::Impl) {
+            throw string("CE, Self type used outside of impl block");
+        }
+        assert(current_scope->self_struct != nullptr);
+        return current_scope->self_struct;
     }
     return type_map[type_ast->NodeId] = result_type;
 }
 
 void Scope_dfs_and_build_type(Scope_ptr scope, map<size_t, RealType_ptr> &type_map, vector<Expr_ptr> &const_expr_queue) {
+    // 如果是 impl，先找到 impl_struct 对应的 StructDecl
+    StructDecl_ptr impl_struct_decl = nullptr;
+    if (scope->kind == ScopeKind::Impl) {
+        /*
+        impl impl_struct {
+
+        }
+        将这里面的 fn 和 const 加入到 impl_struct 的 StructDecl 里面
+        */
+        // 先找到 impl_struct 对应的 StructDecl
+        Scope_ptr current_scope = scope;
+        while (current_scope != nullptr) {
+            if (current_scope->type_namespace.find(scope->impl_struct) != current_scope->type_namespace.end()) {
+                TypeDecl_ptr type_decl = current_scope->type_namespace[scope->impl_struct];
+                if (type_decl->kind == TypeDeclKind::Struct) {
+                    impl_struct_decl = std::dynamic_pointer_cast<StructDecl>(type_decl);
+                    break;
+                } else {
+                    throw string("CE, impl struct name ") + scope->impl_struct + " is not a struct";
+                }
+            } else {
+                current_scope = current_scope->parent.lock();
+            }
+        }
+        if (impl_struct_decl == nullptr) {
+            throw string("CE, impl struct name ") + scope->impl_struct + " not found";
+        }
+        scope->self_struct = std::make_shared<StructRealType>(scope->impl_struct, ReferenceType::NO_REF, impl_struct_decl);
+    }
+    
     for (auto [name, type_decl] : scope->type_namespace) {
         if (type_decl->kind == TypeDeclKind::Struct) {
             // 解析 fields
@@ -180,54 +218,29 @@ void Scope_dfs_and_build_type(Scope_ptr scope, map<size_t, RealType_ptr> &type_m
             const_decl->const_type = const_type;
         }
     }
-    if (scope->impl_struct != "") {
-        /*
-        impl impl_struct {
-
-        }
-        将这里面的 fn 和 const 加入到 impl_struct 的 StructDecl 里面
-        */
-        // 先找到 impl_struct 对应的 StructDecl
-        Scope_ptr current_scope = scope;
-        StructDecl_ptr struct_decl = nullptr;
-        while (current_scope != nullptr) {
-            if (current_scope->type_namespace.find(scope->impl_struct) != current_scope->type_namespace.end()) {
-                TypeDecl_ptr type_decl = current_scope->type_namespace[scope->impl_struct];
-                if (type_decl->kind == TypeDeclKind::Struct) {
-                    struct_decl = std::dynamic_pointer_cast<StructDecl>(type_decl);
-                    break;
-                } else {
-                    throw string("CE, impl struct name ") + scope->impl_struct + " is not a struct";
-                }
-            } else {
-                current_scope = current_scope->parent.lock();
-            }
-        }
-        if (struct_decl == nullptr) {
-            throw string("CE, impl struct name ") + scope->impl_struct + " not found";
-        }
+    if (scope->kind == ScopeKind::Impl) {
         for (auto [name, value_decl] : scope->value_namespace) {
-            if (struct_decl->associated_const.find(name) != struct_decl->associated_const.end() ||
-                struct_decl->methods.find(name) != struct_decl->methods.end() ||
-                struct_decl->associated_func.find(name) != struct_decl->associated_func.end()) {
+            if (impl_struct_decl->associated_const.find(name) != impl_struct_decl->associated_const.end() ||
+                impl_struct_decl->methods.find(name) != impl_struct_decl->methods.end() ||
+                impl_struct_decl->associated_func.find(name) != impl_struct_decl->associated_func.end()) {
                 // 一个 struct 里面的 fn 和 const 不能重名
-                throw string("CE, name ") + name + " redefined in impl for struct " + struct_decl->ast_node->struct_name;
+                throw string("CE, name ") + name + " redefined in impl for struct " + impl_struct_decl->ast_node->struct_name;
             }
             if (value_decl->kind == ValueDeclKind::Function) {
                 auto fn_decl = std::dynamic_pointer_cast<FnDecl>(value_decl);
                 if (fn_decl->receiver_type != fn_reciever_type::NO_RECEIVER) {
                     // 方法
-                    struct_decl->methods[name] = fn_decl;
-                    fn_decl->self_struct = struct_decl;
+                    impl_struct_decl->methods[name] = fn_decl;
+                    fn_decl->self_struct = impl_struct_decl;
                 } else {
                     // 关联函数
-                    struct_decl->associated_func[name] = fn_decl;
-                    fn_decl->self_struct = struct_decl;
+                    impl_struct_decl->associated_func[name] = fn_decl;
+                    fn_decl->self_struct = impl_struct_decl;
                 }
-                struct_decl->methods[name] = fn_decl;
+                impl_struct_decl->methods[name] = fn_decl;
             } else if (value_decl->kind == ValueDeclKind::Constant) {
                 auto const_decl = std::dynamic_pointer_cast<ConstDecl>(value_decl);
-                struct_decl->associated_const[name] = const_decl;
+                impl_struct_decl->associated_const[name] = const_decl;
             }
         }
     } else {

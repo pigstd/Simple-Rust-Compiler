@@ -40,6 +40,7 @@ void ItemStmt::accept(AST_visitor &v) { v.visit(*this); }
 void PathType::accept(AST_visitor &v) { v.visit(*this); }
 void ArrayType::accept(AST_visitor &v) { v.visit(*this); }
 void UnitType::accept(AST_visitor &v) { v.visit(*this); }
+void SelfType::accept(AST_visitor &v) { v.visit(*this); }
 
 void IdentifierPattern::accept(AST_visitor &v) { v.visit(*this); }
 
@@ -370,7 +371,7 @@ LoopExpr_ptr Parser::parse_loop_expression() {
 }
 Type_ptr Parser::parse_type() {
     // example :
-    // identifier, [Type; size_expr], (), &Type, &mut Type
+    // identifier, [Type; size_expr], (), &Type, &mut Type, Self
     ReferenceType ref_type = ReferenceType::NO_REF;
     if (lexer.peek_token().type == Token_type::AMPERSAND) {
         lexer.consume_expect_token(Token_type::AMPERSAND);
@@ -398,7 +399,11 @@ Type_ptr Parser::parse_type() {
         lexer.consume_expect_token(Token_type::RIGHT_PARENTHESIS);
         return std::make_shared<UnitType>(ref_type);
     }
-    else {
+    else if (lexer.peek_token().type == Token_type::BIG_SELF) {
+        // Self
+        lexer.consume_expect_token(Token_type::BIG_SELF);
+        return std::make_shared<SelfType>(ref_type);
+    } else {
         // identifier
         string type_name = lexer.consume_expect_token(Token_type::IDENTIFIER).value;
         return std::make_shared<PathType>(type_name, ref_type);

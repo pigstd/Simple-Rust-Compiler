@@ -504,6 +504,7 @@ void OtherTypeAndRepeatArrayVisitor::visit(ItemStmt &node) { AST_Walker::visit(n
 void OtherTypeAndRepeatArrayVisitor::visit(PathType &node) { AST_Walker::visit(node); }
 void OtherTypeAndRepeatArrayVisitor::visit(ArrayType &node) { AST_Walker::visit(node); }
 void OtherTypeAndRepeatArrayVisitor::visit(UnitType &node) { AST_Walker::visit(node); }
+void OtherTypeAndRepeatArrayVisitor::visit(SelfType &node) { AST_Walker::visit(node); }
 void OtherTypeAndRepeatArrayVisitor::visit(IdentifierPattern &node) { AST_Walker::visit(node); }
 
 void ConstItemVisitor::visit(LiteralExpr &node) {
@@ -804,6 +805,12 @@ void ConstItemVisitor::visit(UnitType &node) {
     }
     AST_Walker::visit(node);
 }
+void ConstItemVisitor::visit(SelfType &node) {
+    if (is_need_to_calculate) {
+        throw string("CE, self type not allowed in constant expression");
+    }
+    AST_Walker::visit(node);
+}
 void ConstItemVisitor::visit(IdentifierPattern &node) {
     if (is_need_to_calculate) {
         throw string("CE, pattern not allowed in constant expression");
@@ -1099,6 +1106,10 @@ void ControlFlowVisitor::visit(ArrayType &node) {
     node_outcome_state_map[node.NodeId] = get_outcome_state({OutcomeType::NEXT});
 }
 void ControlFlowVisitor::visit(UnitType &node) {
+    AST_Walker::visit(node);
+    node_outcome_state_map[node.NodeId] = get_outcome_state({OutcomeType::NEXT});
+}
+void ControlFlowVisitor::visit(SelfType &node) {
     AST_Walker::visit(node);
     node_outcome_state_map[node.NodeId] = get_outcome_state({OutcomeType::NEXT});
 }

@@ -103,6 +103,7 @@ struct ArrayTypeVisitor : public AST_Walker {
     virtual void visit(PathType &node) override;
     virtual void visit(ArrayType &node) override;
     virtual void visit(UnitType &node) override;
+    virtual void visit(SelfType &node) override;
     virtual void visit(IdentifierPattern &node) override;
 };
 
@@ -234,6 +235,7 @@ struct ExprTypeAndLetStmtVisitor : public AST_Walker {
     virtual void visit(PathType &node) override;
     virtual void visit(ArrayType &node) override;
     virtual void visit(UnitType &node) override;
+    virtual void visit(SelfType &node) override;
     virtual void visit(IdentifierPattern &node) override;
 };
 
