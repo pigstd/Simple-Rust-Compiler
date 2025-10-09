@@ -121,21 +121,21 @@ RealType_ptr type_of_literal(LiteralType type, string value) {
         return std::make_shared<RealType>(RealTypeKind::BOOL, ReferenceType::NO_REF);
     } else if (type == LiteralType::NUMBER) {
         // 看后缀，以及要 check 是否是合法的数字
-        if (value.size() >= 4 && value.substr(value.size() - 4) == "_i32") {
+        if (value.size() >= 3 && value.substr(value.size() - 3) == "i32") {
             // i32
-            safe_stoll(value.substr(0, value.size() - 4), INT32_MAX);
+            safe_stoll(value.substr(0, value.size() - 3), INT32_MAX);
             return std::make_shared<I32RealType>(ReferenceType::NO_REF);
-        } else if (value.size() >= 4 && value.substr(value.size() - 4) == "_u32") {
+        } else if (value.size() >= 3 && value.substr(value.size() - 3) == "u32") {
             // u32
-            safe_stoll(value.substr(0, value.size() - 4), UINT32_MAX);
+            safe_stoll(value.substr(0, value.size() - 3), UINT32_MAX);
             return std::make_shared<U32RealType>(ReferenceType::NO_REF);
-        } else if (value.size() >= 6 && value.substr(value.size() - 6) == "_isize") {
+        } else if (value.size() >= 5 && value.substr(value.size() - 5) == "isize") {
             // isize
-            safe_stoll(value.substr(0, value.size() - 6), INT32_MAX);
+            safe_stoll(value.substr(0, value.size() - 5), INT32_MAX);
             return std::make_shared<IsizeRealType>(ReferenceType::NO_REF);
-        } else if (value.size() >= 6 && value.substr(value.size() - 6) == "_usize") {
+        } else if (value.size() >= 5 && value.substr(value.size() - 5) == "usize") {
             // usize
-            safe_stoll(value.substr(0, value.size() - 6), UINT32_MAX);
+            safe_stoll(value.substr(0, value.size() - 5), UINT32_MAX);
             return std::make_shared<UsizeRealType>(ReferenceType::NO_REF);
         } else {
             // anyint

@@ -26,22 +26,22 @@ string const_value_kind_to_string(ConstValueKind kind) {
 
 ConstValue_ptr ConstItemVisitor::parse_literal_token_to_const_value(LiteralType type, string value) {
     if (type == LiteralType::NUMBER) {
-        // ..._i32, ..._u32, ..._isize, ..._usize, ...
-        if (value.size() >= 4 && value.substr(value.size() - 4) == "_i32") {
+        // ...i32, ...u32, ...isize, ...usize, ...
+        if (value.size() >= 3 && value.substr(value.size() - 3) == "i32") {
             // i32
-            int int_value = static_cast<int>(safe_stoll(value.substr(0, value.size() - 4), INT32_MAX));
+            int int_value = static_cast<int>(safe_stoll(value.substr(0, value.size() - 3), INT32_MAX));
             return std::make_shared<I32_ConstValue>(int_value);
-        } else if (value.size() >= 4 && value.substr(value.size() - 4) == "_u32") {
+        } else if (value.size() >= 3 && value.substr(value.size() - 3) == "u32") {
             // u32
-            unsigned int uint_value = static_cast<unsigned int>(safe_stoll(value.substr(0, value.size() - 4), UINT32_MAX));
+            unsigned int uint_value = static_cast<unsigned int>(safe_stoll(value.substr(0, value.size() - 3), UINT32_MAX));
             return std::make_shared<U32_ConstValue>(uint_value);
-        } else if (value.size() >= 6 && value.substr(value.size() - 6) == "_isize") {
+        } else if (value.size() >= 5 && value.substr(value.size() - 5) == "isize") {
             // isize
-            int isize_value = static_cast<int>(safe_stoll(value.substr(0, value.size() - 6), INT32_MAX));
+            int isize_value = static_cast<int>(safe_stoll(value.substr(0, value.size() - 5), INT32_MAX));
             return std::make_shared<Isize_ConstValue>(isize_value);
-        } else if (value.size() >= 6 && value.substr(value.size() - 6) == "_usize") {
+        } else if (value.size() >= 5 && value.substr(value.size() - 5) == "usize") {
             // usize
-            unsigned int usize_value = static_cast<unsigned int>(safe_stoll(value.substr(0, value.size() - 6), UINT32_MAX));
+            unsigned int usize_value = static_cast<unsigned int>(safe_stoll(value.substr(0, value.size() - 5), UINT32_MAX));
             return std::make_shared<Usize_ConstValue>(usize_value);
         } else {
             // anyint
