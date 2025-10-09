@@ -58,14 +58,18 @@ struct RealType {
     ReferenceType is_ref;
     RealType(RealTypeKind k, ReferenceType ref) : kind(k), is_ref(ref) {}
     virtual ~RealType() = default;
+    // 输出这个 type 的信息，方便调试
+    virtual string show_real_type_info() = 0;
 };
 struct UnitRealType : public RealType {
     UnitRealType(ReferenceType ref) : RealType(RealTypeKind::UNIT, ref) {}
     ~UnitRealType() override = default;
+    virtual string show_real_type_info() override;
 };
 struct NeverRealType : public RealType {
     NeverRealType(ReferenceType ref) : RealType(RealTypeKind::NEVER, ref) {}
     ~NeverRealType() override = default;
+    virtual string show_real_type_info() override;
 };
 struct ArrayRealType : public RealType {
     RealType_ptr element_type;
@@ -76,6 +80,7 @@ struct ArrayRealType : public RealType {
     ArrayRealType(RealType_ptr elem_type, Expr_ptr size_expr_, ReferenceType ref, size_t size_ = 0)
         : RealType(RealTypeKind::ARRAY, ref), element_type(elem_type), size_expr(size_expr_), size(size_) {}
     ~ArrayRealType() override = default;
+    virtual string show_real_type_info() override;
 };
 struct StructRealType : public RealType {
     string name;
@@ -83,6 +88,7 @@ struct StructRealType : public RealType {
     StructRealType(const string &name_, ReferenceType ref, StructDecl_ptr struct_decl = nullptr)
         : RealType(RealTypeKind::STRUCT, ref), name(name_), decl(struct_decl) {}
     ~StructRealType() override = default;
+    virtual string show_real_type_info() override;
 };
 struct EnumRealType : public RealType {
     string name;
@@ -90,42 +96,52 @@ struct EnumRealType : public RealType {
     EnumRealType(const string &name_, ReferenceType ref, EnumDecl_ptr enum_decl = nullptr)
         : RealType(RealTypeKind::ENUM, ref), name(name_), decl(enum_decl) {}
     ~EnumRealType() override = default;
+    virtual string show_real_type_info() override;
 };
 struct BoolRealType : public RealType {
     BoolRealType(ReferenceType ref) : RealType(RealTypeKind::BOOL, ref) {}
     ~BoolRealType() override = default;
+    virtual string show_real_type_info() override;
 };
 struct I32RealType : public RealType {
     I32RealType(ReferenceType ref) : RealType(RealTypeKind::I32, ref) {}
     ~I32RealType() override = default;
+    virtual string show_real_type_info() override;
 };
 struct IsizeRealType : public RealType {
     IsizeRealType(ReferenceType ref) : RealType(RealTypeKind::ISIZE, ref) {}
     ~IsizeRealType() override = default;
+    virtual string show_real_type_info() override;
 };
 struct U32RealType : public RealType {
     U32RealType(ReferenceType ref) : RealType(RealTypeKind::U32, ref) {}
     ~U32RealType() override = default;
+    virtual string show_real_type_info() override;
 };
 struct UsizeRealType : public RealType {
     UsizeRealType(ReferenceType ref) : RealType(RealTypeKind::USIZE, ref) {}
     ~UsizeRealType() override = default;
+    virtual string show_real_type_info() override;
 };
 struct AnyIntRealType : public RealType {
     AnyIntRealType(ReferenceType ref) : RealType(RealTypeKind::ANYINT, ref) {}
     ~AnyIntRealType() override = default;
+    virtual string show_real_type_info() override;
 };
 struct CharRealType : public RealType {
     CharRealType(ReferenceType ref) : RealType(RealTypeKind::CHAR, ref) {}
     ~CharRealType() override = default;
+    virtual string show_real_type_info() override;
 };
 struct StrRealType : public RealType {
     StrRealType(ReferenceType ref) : RealType(RealTypeKind::STR, ref) {}
     ~StrRealType() override = default;
+    virtual string show_real_type_info() override;
 };
 struct StringRealType : public RealType {
     StringRealType(ReferenceType ref) : RealType(RealTypeKind::STRING, ref) {}
     ~StringRealType() override = default;
+    virtual string show_real_type_info() override;
 };
 struct FunctionRealType : public RealType {
     // 函数的定义
@@ -133,6 +149,7 @@ struct FunctionRealType : public RealType {
     FunctionRealType(FnDecl_ptr decl_, ReferenceType ref) :
         RealType(RealTypeKind::FUNCTION, ref), decl(decl_) {}
     ~FunctionRealType() override = default;
+    virtual string show_real_type_info() override;
 };
 
 

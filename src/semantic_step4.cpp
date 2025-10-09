@@ -83,26 +83,35 @@ RealType_ptr type_merge(RealType_ptr left, RealType_ptr right) {
     if (left->kind == RealTypeKind::NEVER) { return right; }
     if (right->kind == RealTypeKind::NEVER) { return left; }
     if (left->is_ref != right->is_ref) {
-        throw string("CE, cannot merge two different reference types");
+        throw string("CE, cannot merge two different reference types\n type info:")
+            + left->show_real_type_info() + " and " + right->show_real_type_info();
     }
     if (left->kind == RealTypeKind::ANYINT) {
         if (type_is_number(right)) { return right; }
-        else { throw string("CE, cannot merge AnyInt with non-number type"); }
+        else {
+            throw string("CE, cannot merge AnyInt with non-number type\n type info:")
+            + left->show_real_type_info() + " and " + right->show_real_type_info();
+        }
     }
     if (right->kind == RealTypeKind::ANYINT) {
         if (type_is_number(left)) { return left; }
-        else { throw string("CE, cannot merge AnyInt with non-number type"); }
+        else {
+            throw string("CE, cannot merge AnyInt with non-number type\n type info:")
+            + left->show_real_type_info() + " and " + right->show_real_type_info();
+        }
     }
     // 其他情况的 type 必须完全相同
     if (left->kind != right->kind) {
-        throw string("CE, cannot merge two different types");
+        throw string("CE, cannot merge two different types\n type info:")
+            + left->show_real_type_info() + " and " + right->show_real_type_info();
     }
     if (left->kind == RealTypeKind::ARRAY) {
         auto left_array = std::dynamic_pointer_cast<ArrayRealType>(left);
         auto right_array = std::dynamic_pointer_cast<ArrayRealType>(right);
         assert(left_array != nullptr && right_array != nullptr);
         if (left_array->size != right_array->size) {
-            throw string("CE, cannot merge two different array types with size ") + std::to_string(left_array->size) + " and " + std::to_string(right_array->size);
+            throw string("CE, cannot merge two different array types with size\n type info:")
+            + left->show_real_type_info() + " and " + right->show_real_type_info();
         }
         auto merged_element_type = type_merge(left_array->element_type, right_array->element_type);
         return std::make_shared<ArrayRealType>(merged_element_type, nullptr, left->is_ref, left_array->size);
@@ -116,9 +125,9 @@ RealType_ptr type_of_literal(LiteralType type, string value) {
         // 类型是 &str
         return std::make_shared<StrRealType>(ReferenceType::REF);
     } else if (type == LiteralType::CHAR) {
-        return std::make_shared<RealType>(RealTypeKind::CHAR, ReferenceType::NO_REF);
+        return std::make_shared<CharRealType>(ReferenceType::NO_REF);
     } else if (type == LiteralType::BOOL) {
-        return std::make_shared<RealType>(RealTypeKind::BOOL, ReferenceType::NO_REF);
+        return std::make_shared<BoolRealType>(ReferenceType::NO_REF);
     } else if (type == LiteralType::NUMBER) {
         // 看后缀，以及要 check 是否是合法的数字
         if (value.size() >= 3 && value.substr(value.size() - 3) == "i32") {
@@ -296,7 +305,7 @@ void ExprTypeAndLetStmtVisitor::visit(BinaryExpr &node) {
             // 不确定一些奇怪的类型支不支持比较（比如 struct）
             // 先假设支持
             if (type_merge(left_type, right_type) != nullptr) {
-                result_type = std::make_shared<RealType>(RealTypeKind::BOOL, ReferenceType::NO_REF);
+                result_type = std::make_shared<BoolRealType>(ReferenceType::NO_REF);
             } else {
                 throw string("CE, binary operator ") + binary_operator_to_string(node.op) + " requires two same types";
             }
@@ -433,10 +442,10 @@ void ExprTypeAndLetStmtVisitor::visit(UnaryExpr &node) {
         }
         result_type = copy(right_type);
         result_type->is_ref = ReferenceType::NO_REF;
-        if (right_place == PlaceKind::ReadWritePlace) {
-            place_kind = PlaceKind::ReadWritePlace;
-        } else {
+        if (right_type->is_ref == ReferenceType::REF) {
             place_kind = PlaceKind::ReadOnlyPlace;
+        } else {
+            place_kind = PlaceKind::ReadWritePlace;
         }
     } else {
         throw string("CE, unexpected unary operator: ") + unary_operator_to_string(node.op);

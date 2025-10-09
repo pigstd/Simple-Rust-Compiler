@@ -1,9 +1,11 @@
 #include "semantic_step2.h"
+#include "ast.h"
 #include "semantic_step1.h"
 #include <cassert>
 #include <cstddef>
 // #include <iostream>
 #include <memory>
+#include <string>
 
 string real_type_kind_to_string(RealTypeKind kind) {
     switch (kind) {
@@ -22,6 +24,52 @@ string real_type_kind_to_string(RealTypeKind kind) {
         case RealTypeKind::STR: return "STR";
         default: return "UNKNOWN";
     }
+}
+
+string UnitRealType::show_real_type_info() {
+    return reference_type_to_string(is_ref) + " UNIT";
+}
+string NeverRealType::show_real_type_info() {
+    return reference_type_to_string(is_ref) + " NEVER";
+}
+string ArrayRealType::show_real_type_info() {
+    return reference_type_to_string(is_ref) + " ARRAY[" + std::to_string(size) + "] of " + element_type->show_real_type_info();
+}
+string StructRealType::show_real_type_info() {
+    return reference_type_to_string(is_ref) + " STRUCT " + name;
+}
+string EnumRealType::show_real_type_info() {
+    return reference_type_to_string(is_ref) + " ENUM " + name;
+}
+string BoolRealType::show_real_type_info() {
+    return reference_type_to_string(is_ref) + " BOOL";
+}
+string I32RealType::show_real_type_info() {
+    return reference_type_to_string(is_ref) + " I32";
+}
+string IsizeRealType::show_real_type_info() {
+    return reference_type_to_string(is_ref) + " ISIZE";
+}
+string U32RealType::show_real_type_info() {
+    return reference_type_to_string(is_ref) + " U32";
+}
+string UsizeRealType::show_real_type_info() {
+    return reference_type_to_string(is_ref) + " USIZE";
+}
+string AnyIntRealType::show_real_type_info() {
+    return reference_type_to_string(is_ref) + " ANYINT";
+}
+string CharRealType::show_real_type_info() {
+    return reference_type_to_string(is_ref) + " CHAR";
+}
+string StrRealType::show_real_type_info() {
+    return reference_type_to_string(is_ref) + " STR";
+}
+string StringRealType::show_real_type_info() {
+    return reference_type_to_string(is_ref) + " STRING";
+}
+string FunctionRealType::show_real_type_info() {
+    return reference_type_to_string(is_ref) + " FUNCTION";
 }
 
 RealType_ptr find_real_type(Scope_ptr current_scope, Type_ptr type_ast, map<size_t, RealType_ptr> &type_map, vector<Expr_ptr> &const_expr_queue) {
