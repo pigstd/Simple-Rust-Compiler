@@ -212,6 +212,8 @@ RealType_ptr copy(RealType_ptr type) {
         return std::make_shared<EnumRealType>(enum_type->name, type->is_ref, enum_type->decl.lock());
     } else if (type->kind == RealTypeKind::STR) {
         return std::make_shared<StrRealType>(type->is_ref);
+    } else if (type->kind == RealTypeKind::STRING) {
+        return std::make_shared<StringRealType>(type->is_ref);
     } else if (type->kind == RealTypeKind::I32) {
         return std::make_shared<I32RealType>(type->is_ref);
     } else if (type->kind == RealTypeKind::U32) {

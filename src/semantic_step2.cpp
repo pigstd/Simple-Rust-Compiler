@@ -114,6 +114,8 @@ RealType_ptr find_real_type(Scope_ptr current_scope, Type_ptr type_ast, map<size
                 result_type = std::make_shared<CharRealType>(ref_type);
             } else if (name == "str") {
                 result_type = std::make_shared<StrRealType>(ref_type);
+            } else if (name == "String") {
+                result_type = std::make_shared<StringRealType>(ref_type);
             } else {
                 throw string("CE, type name ") + name + " not found";
             }

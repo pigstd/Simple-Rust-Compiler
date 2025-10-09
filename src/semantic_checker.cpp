@@ -215,6 +215,7 @@ void Semantic_Checker::add_builtin_methods_and_associated_funcs() {
     /*
     fn to_string(&self) -> String
     Available on: u32, usize
+    Anyint can be converted u32 or usize, So Anyint has to_string method too.
     */
     {
         auto to_string_fn_decl = std::make_shared<FnDecl>(
@@ -225,6 +226,7 @@ void Semantic_Checker::add_builtin_methods_and_associated_funcs() {
         to_string_fn_decl->return_type = std::make_shared<StringRealType>(ReferenceType::NO_REF);
         builtin_method_funcs.push_back({RealTypeKind::U32, "to_string", to_string_fn_decl});
         builtin_method_funcs.push_back({RealTypeKind::USIZE, "to_string", to_string_fn_decl});
+        builtin_method_funcs.push_back({RealTypeKind::ANYINT, "to_string", to_string_fn_decl});
     }
     /*    
     as_str and as_mut_str
