@@ -19,14 +19,17 @@ CHECK = "✓"
 CROSS = "✗"
 
 # Semantic Testcases Tester
-# Usage: ./semantic_testcases_tester -t <folder_path> (-n <max_test_num>) (-p <prefix>)
-# Example: ./semantic_testcases_tester -t ./testcases/semantic_check (-n 10) 
-# 测试前 max_test_num 个测试用例，如果不指定 max_test_num 则测试所有测试用例 
-# 如果指定了 prefix，则只测试以 prefix 开头的测试用例
+# Usage: ./semantic_testcases_tester -t <folder_path> (-n <max_test_num>) (-p <prefix>) (-o (<outputfile>))
+# Example: ./semantic_testcases_tester -t ./testcases/semantic_check (-n 10) (-p array) (-o semantic-1-result.txt)
+# -n 测试前 max_test_num 个测试用例，如果不指定 max_test_num 则测试所有测试用例 
+# -p : 如果指定了 prefix，则只测试以 prefix 开头的测试用例
+# -o : 如果指定了 outputfile，则将输出写入该文件，否则输出到终端
+# 如果 -o 没有参数，那么就是输出到 <t>-result
 # 找到 folder_path 下的每个文件夹，每个文件夹里面应该有一个 .rx 文件和一个 .json 文件 
-# 对每个文件夹，调用 checker_path 来检查 .rx 文件，将输出放在临时文件 tmp_output 中，将 stderr 放在 tmp_error 中 
+# 对每个文件夹，调用 checker_path 来检查 .rx 文件，捕获 stdout/stderr
 # 如果输出和 .json 文件内容中 compileexitcode 这一项相同，则测试通过，否则测试不通过 
-# 如果不通过，并且是输出 -1，则打印 tmp_error 的内容 
+# 如果不通过，并且是输出 -1，则打印 stderr 的内容 
+# 若 checker 本身非零退出（RE），打印“(RE)”并输出 stderr
 # 最后打印测试通过的数量和测试不通过的数量
 
 checker_path = "../test/build/semantic_check/test_semantic_check"
@@ -65,27 +68,66 @@ def main():
     parser.add_argument("-n", "--max_test_num", type=int, default=-1,
                         help="Maximum number of test cases to run (default: all)")
     parser.add_argument("-p", "--pre", type=str, default=None,
-                    help="Only test cases whose folder name starts with this prefix; stop when a non-matching name is encountered")
+                        help="Only test cases whose folder name starts with this prefix; stop when a non-matching name is encountered")
+    parser.add_argument(
+        "-o", "--outputfile",
+        nargs="?",              # ← 允许不带参数
+        const="",               # ← 如果没写参数，值会是空字符串 ""
+        default=None,
+        help="Write all outputs to this file instead of the terminal (if no argument is given, defaults to <testcases_folder>+result)"
+    )
+
     args = parser.parse_args()
 
     testcases_folder = f"../testcases/{args.testcases_folder}"
     max_test_num = args.max_test_num
+    outputfile = args.outputfile
+    if outputfile == "":
+        outputfile = f"{args.testcases_folder}-result"
+
+    # 统一输出流与颜色开关
+    out_stream = sys.stdout
+    if outputfile:
+        out_stream = open(outputfile, "w", encoding="utf-8")
+
+    use_color = (out_stream is sys.stdout and hasattr(out_stream, "isatty") and out_stream.isatty())
+    if not use_color:
+        # 写文件或非 TTY：去掉 ANSI 颜色以避免日志包含控制符
+        global GREEN, RED, RESET
+        GREEN = RED = RESET = ""
+
+    def log(*a, **kw):  # 统一打印
+        print(*a, file=out_stream, **kw)
+        try:
+            out_stream.flush()
+        except Exception:
+            pass
 
     # 基本检查
     if not os.path.exists(testcases_folder):
-        print(f"Error: Folder {testcases_folder} does not exist.")
+        log(f"Error: Folder {testcases_folder} does not exist.")
+        if outputfile and out_stream is not sys.stdout:
+            out_stream.close()
         sys.exit(1)
     if not os.path.isdir(testcases_folder):
-        print(f"Error: {testcases_folder} is not a folder.")
+        log(f"Error: {testcases_folder} is not a folder.")
+        if outputfile and out_stream is not sys.stdout:
+            out_stream.close()
         sys.exit(1)
     if not os.path.exists(checker_path):
-        print(f"Error: Checker {checker_path} does not exist.")
+        log(f"Error: Checker {checker_path} does not exist.")
+        if outputfile and out_stream is not sys.stdout:
+            out_stream.close()
         sys.exit(1)
     if not os.path.isfile(checker_path):
-        print(f"Error: {checker_path} is not a file.")
+        log(f"Error: {checker_path} is not a file.")
+        if outputfile and out_stream is not sys.stdout:
+            out_stream.close()
         sys.exit(1)
     if not os.access(checker_path, os.X_OK):
-        print(f"Error: Checker {checker_path} is not executable.")
+        log(f"Error: Checker {checker_path} is not executable.")
+        if outputfile and out_stream is not sys.stdout:
+            out_stream.close()
         sys.exit(1)
 
     total_tests = 0
@@ -106,11 +148,11 @@ def main():
         rx_candidates = [n for n in os.listdir(testcase_path) if n.endswith(".rx")]
         json_candidates = [n for n in os.listdir(testcase_path) if n.endswith(".json")]
 
-        print(f"testing {testcase}...")
+        log(f"testing {testcase}...")
 
         if len(rx_candidates) != 1 or len(json_candidates) != 1:
-            print(f"Warning: {testcase} should contain exactly one .rx and one .json "
-                  f"(got {len(rx_candidates)} .rx, {len(json_candidates)} .json). Skipping.")
+            log(f"Warning: {testcase} should contain exactly one .rx and one .json "
+                f"(got {len(rx_candidates)} .rx, {len(json_candidates)} .json). Skipping.")
             continue
 
         rs_file = os.path.join(testcase_path, rx_candidates[0])
@@ -131,9 +173,15 @@ def main():
                     text=True             # 解码为 str（默认 utf-8 / locale）
                 )
 
+            # RE 检测与输出（包含 stderr）
             if result.returncode != 0:
                 failed_tests += 1
-                print(f"{RED}{CROSS}{RESET} Test case {testcase} failed (checker exited with code {result.returncode}).")
+                log(f"{RED}{CROSS}{RESET} {testcase} (RE) - checker exited with code {result.returncode}")
+                if result.stderr:
+                    log("=== stderr ===")
+                    log(result.stderr.strip())
+                if max_test_num != -1 and total_tests >= max_test_num:
+                    break
                 continue
 
             # 从 stdout 解析整数
@@ -141,36 +189,39 @@ def main():
 
             if output_content is None:
                 failed_tests += 1
-                print(f"{RED}{CROSS}{RESET} Test case {testcase} failed (stdout not an int).")
-                print(f"Expect {expected_content}, Read <parse-failed>")
-                if result.returncode != 0 or result.stderr:
-                    print("=== stderr ===")
-                    print(result.stderr.strip())
-                # 继续下一个用例
+                log(f"{RED}{CROSS}{RESET} {testcase} failed (stdout not an int).")
+                log(f"Expect {expected_content}, Read <parse-failed>")
+                if result.stderr:
+                    log("=== stderr ===")
+                    log(result.stderr.strip())
             else:
                 if output_content == expected_content:
                     passed_tests += 1
-                    print(f"{GREEN}{CHECK}{RESET} {testcase} passed")
+                    log(f"{GREEN}{CHECK}{RESET} {testcase} passed")
                 else:
                     failed_tests += 1
-                    print(f"{RED}{CROSS}{RESET} {testcase} failed")
-                    print(f"Expect {expected_content}, Read {output_content}")
-                    # 维持你原先的逻辑：当输出为 -1 时才打印错误
+                    log(f"{RED}{CROSS}{RESET} {testcase} failed")
+                    log(f"Expect {expected_content}, Read {output_content}")
+                    # 当输出为 -1 时打印错误
                     if output_content == -1:
                         if result.stderr:
-                            print("=== stderr ===")
-                            print(result.stderr.strip())
+                            log("=== stderr ===")
+                            log(result.stderr.strip())
                         else:
-                            print("=== stderr is empty ===")
+                            log("=== stderr is empty ===")
 
         except Exception as e:
             failed_tests += 1
-            print(f"{RED}{CROSS}{RESET} Test case {testcase} raised an exception: {e}")
+            log(f"{RED}{CROSS}{RESET} {testcase} raised an exception: {e}")
 
         if max_test_num != -1 and total_tests >= max_test_num:
             break
 
-    print(f"Total test cases: {total_tests}, Passed: {passed_tests}, Failed: {failed_tests}")
+    log(f"Total test cases: {total_tests}, Passed: {passed_tests}, Failed: {failed_tests}")
+
+    # NEW: 如果写入文件，结束时关闭
+    if outputfile and out_stream is not sys.stdout:
+        out_stream.close()
 
 if __name__ == "__main__":
     main()
