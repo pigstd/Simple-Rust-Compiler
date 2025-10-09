@@ -698,12 +698,13 @@ std::tuple<int, int, int> Parser::get_binding_power(Token_type type) {
         case Token_type::DOT:               // 字段访问
         case Token_type::LEFT_BRACKET:      // 数组下标访问
         case Token_type::LEFT_BRACE:        // struct 初始化
-        case Token_type::AS:                // 类型转换
         case Token_type::COLON_COLON:       // 路径表达式
             return {-1, 100, 100};
         // ( [ 作为前缀的时候不会调用 get_binding_power，所以都可以返回 -1
         case Token_type::STAR:              //  解引用 / 乘法
             return {90, 80, 80};
+        case Token_type::AS:                  // 类型转换，在 一元和二元 之间
+            return {-1, 85, 85};
         case Token_type::MINUS:             //  负号 / 减法
             return {90, 70, 70};
         case Token_type::AMPERSAND:         //  引用 / 按位与
