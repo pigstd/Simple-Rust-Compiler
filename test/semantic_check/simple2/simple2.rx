@@ -1,0 +1,17 @@
+/*
+Test Package: simple-2
+Test Target: misc
+Author: Zemu Zhu
+Time: 2025-10-09
+Verdict: Success
+Comment: Test == and as operators
+*/
+
+fn main() {
+    let x : i32 = 1;
+    let index : u32 = 0;
+    if (x == index as i32) {
+        printInt(10);
+    }
+    exit(0);
+}

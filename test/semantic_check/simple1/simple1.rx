@@ -1,0 +1,15 @@
+/*
+Test Package: simple-1
+Test Target: misc
+Author: Zemu Zhu
+Time: 2025-10-09
+Verdict: Success
+Comment: Test * and as operators
+*/
+
+fn main() {
+    let x : i32 = 1;
+    let y : &i32 = &x;
+    let z : u32 = *y as u32;
+    exit(0);
+}

@@ -19,8 +19,10 @@ CHECK = "✓"
 CROSS = "✗"
 
 # Semantic Testcases Tester
-# Usage: ./semantic_testcases_tester -t <folder_path> (-n <max_test_num>) (-p <prefix>) (-o (<outputfile>))
+# Usage: ./semantic_testcases_tester (-t <folder_path>) (-m <myfolder_path>) (-n <max_test_num>) (-p <prefix>) (-o (<outputfile>))
 # Example: ./semantic_testcases_tester -t ./testcases/semantic_check (-n 10) (-p array) (-o semantic-1-result.txt)
+# -t 测试 testcases 下的 folder_path 文件夹
+# -m 测试 test 下的 myfolder_path 文件夹
 # -n 测试前 max_test_num 个测试用例，如果不指定 max_test_num 则测试所有测试用例 
 # -p : 如果指定了 prefix，则只测试以 prefix 开头的测试用例
 # -o : 如果指定了 outputfile，则将输出写入该文件，否则输出到终端
@@ -63,8 +65,10 @@ def load_expected_exitcode(json_path: str):
 
 def main():
     parser = argparse.ArgumentParser(description="Semantic Testcases Tester")
-    parser.add_argument("-t", "--testcases_folder", type=str, required=True,
+    parser.add_argument("-t", "--testcases_folder", type=str,
                         help="Path to the folder containing test case folders")
+    parser.add_argument("-m", "--myfolder_path", type=str,
+                        help="Path to the folder containing my test case folders")
     parser.add_argument("-n", "--max_test_num", type=int, default=-1,
                         help="Maximum number of test cases to run (default: all)")
     parser.add_argument("-p", "--pre", type=str, default=None,
@@ -79,7 +83,13 @@ def main():
 
     args = parser.parse_args()
 
-    testcases_folder = f"../testcases/{args.testcases_folder}"
+    if args.testcases_folder != None:
+        testcases_folder = f"../testcases/{args.testcases_folder}"
+    elif args.myfolder_path != None:
+        testcases_folder = f"../test/{args.myfolder_path}"
+    else:
+        print("Error: You must specify either -t <testcases_folder> or -m <myfolder_path>.")
+        sys.exit(1)
     max_test_num = args.max_test_num
     outputfile = args.outputfile
     if outputfile == "":
