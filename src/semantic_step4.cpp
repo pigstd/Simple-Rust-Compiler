@@ -9,6 +9,7 @@
 #include <cstddef>
 // #include <iostream>
 #include <memory>
+#include <string>
 // #include <ostream>
 
 // 只有遇到 ArrayType 的时候，才会用到这个 visitor
@@ -101,7 +102,7 @@ RealType_ptr type_merge(RealType_ptr left, RealType_ptr right) {
         auto right_array = std::dynamic_pointer_cast<ArrayRealType>(right);
         assert(left_array != nullptr && right_array != nullptr);
         if (left_array->size != right_array->size) {
-            throw string("CE, cannot merge two different array types with different size");
+            throw string("CE, cannot merge two different array types with size ") + std::to_string(left_array->size) + " and " + std::to_string(right_array->size);
         }
         auto merged_element_type = type_merge(left_array->element_type, right_array->element_type);
         return std::make_shared<ArrayRealType>(merged_element_type, nullptr, left->is_ref, left_array->size);
@@ -835,7 +836,7 @@ void ExprTypeAndLetStmtVisitor::visit(RepeatArrayExpr &node) {
     }
     node.element->accept(*this);
     auto [elem_type, elem_place] = node_type_and_place_kind_map[node.element->NodeId];
-    size_t size = const_expr_to_size_map[node.element->NodeId];
+    size_t size = const_expr_to_size_map[node.size->NodeId];
     node_type_and_place_kind_map[node.NodeId] =
         {std::make_shared<ArrayRealType>(elem_type, nullptr, ReferenceType::NO_REF, size), PlaceKind::NotPlace};
 }
