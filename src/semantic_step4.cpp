@@ -9,7 +9,6 @@
 #include <cstddef>
 // #include <iostream>
 #include <memory>
-#include <string>
 // #include <ostream>
 
 // 只有遇到 ArrayType 的时候，才会用到这个 visitor
@@ -78,46 +77,83 @@ bool type_is_number(RealType_ptr checktype) {
     return false;
 }
 
-RealType_ptr type_merge(RealType_ptr left, RealType_ptr right) {
+// rust 支持 &mut -> & 的隐式转换
+// 但是赋值的时候要注意只能从 &mut T 赋值给 &T，不能反过来
+// 如果是 赋值操作，则 is_assignment = true
+RealType_ptr type_merge(RealType_ptr left, RealType_ptr right, bool is_assignment) {
     assert(left != nullptr && right != nullptr);
     if (left->kind == RealTypeKind::NEVER) { return right; }
     if (right->kind == RealTypeKind::NEVER) { return left; }
-    if (left->is_ref != right->is_ref) {
+    ReferenceType result_ref;
+    RealType_ptr result_type;
+    if (left->is_ref == right->is_ref) {
+        result_ref = left->is_ref;
+    } else if (left->is_ref == ReferenceType::REF_MUT && right->is_ref == ReferenceType::REF) {
+        if (is_assignment) {
+            throw string("CE, cannot assign &T to &mut T\n type info:")
+            + left->show_real_type_info() + " and " + right->show_real_type_info();
+        } else {
+            result_ref = ReferenceType::REF;
+        }
+    } else if (left->is_ref == ReferenceType::REF && right->is_ref == ReferenceType::REF_MUT) {
+        result_ref = ReferenceType::REF;
+    } else {
+        // std::cerr << "!!!" << reference_type_to_string(left->is_ref) << ' '
+        // << reference_type_to_string(right->is_ref) << std::endl;
         throw string("CE, cannot merge two different reference types\n type info:")
             + left->show_real_type_info() + " and " + right->show_real_type_info();
     }
     if (left->kind == RealTypeKind::ANYINT) {
-        if (type_is_number(right)) { return right; }
+        if (type_is_number(right)) { result_type = copy(right); }
         else {
             throw string("CE, cannot merge AnyInt with non-number type\n type info:")
             + left->show_real_type_info() + " and " + right->show_real_type_info();
         }
-    }
-    if (right->kind == RealTypeKind::ANYINT) {
-        if (type_is_number(left)) { return left; }
+    } else if (right->kind == RealTypeKind::ANYINT) {
+        if (type_is_number(left)) { result_type = copy(left); }
         else {
             throw string("CE, cannot merge AnyInt with non-number type\n type info:")
             + left->show_real_type_info() + " and " + right->show_real_type_info();
         }
-    }
-    // 其他情况的 type 必须完全相同
-    if (left->kind != right->kind) {
-        throw string("CE, cannot merge two different types\n type info:")
-            + left->show_real_type_info() + " and " + right->show_real_type_info();
-    }
-    if (left->kind == RealTypeKind::ARRAY) {
-        auto left_array = std::dynamic_pointer_cast<ArrayRealType>(left);
-        auto right_array = std::dynamic_pointer_cast<ArrayRealType>(right);
-        assert(left_array != nullptr && right_array != nullptr);
-        if (left_array->size != right_array->size) {
-            throw string("CE, cannot merge two different array types with size\n type info:")
-            + left->show_real_type_info() + " and " + right->show_real_type_info();
-        }
-        auto merged_element_type = type_merge(left_array->element_type, right_array->element_type);
-        return std::make_shared<ArrayRealType>(merged_element_type, nullptr, left->is_ref, left_array->size);
     } else {
-        return left;
+        // 其他情况的 type 必须完全相同
+        if (left->kind != right->kind) {
+            throw string("CE, cannot merge two different types\n type info:")
+                + left->show_real_type_info() + " and " + right->show_real_type_info();
+        }
+        if (left->kind == RealTypeKind::ARRAY) {
+            auto left_array = std::dynamic_pointer_cast<ArrayRealType>(left);
+            auto right_array = std::dynamic_pointer_cast<ArrayRealType>(right);
+            assert(left_array != nullptr && right_array != nullptr);
+            if (left_array->size != right_array->size) {
+                throw string("CE, cannot merge two different array types with size\n type info:")
+                + left->show_real_type_info() + " and " + right->show_real_type_info();
+            }
+            auto merged_element_type = type_merge(left_array->element_type, right_array->element_type, is_assignment);
+            result_type = std::make_shared<ArrayRealType>(merged_element_type, nullptr, left->is_ref, left_array->size);
+        } else {
+            if (left->kind == RealTypeKind::STRUCT) {
+                auto left_struct = std::dynamic_pointer_cast<StructRealType>(left);
+                auto right_struct = std::dynamic_pointer_cast<StructRealType>(right);
+                assert(left_struct != nullptr && right_struct != nullptr);
+                if (left_struct->decl.lock() != right_struct->decl.lock()) {
+                    throw string("CE, cannot merge two different struct types\n type info:")
+                    + left->show_real_type_info() + " and " + right->show_real_type_info();
+                }
+            } else if (left->kind == RealTypeKind::ENUM) {
+                auto left_enum = std::dynamic_pointer_cast<EnumRealType>(left);
+                auto right_enum = std::dynamic_pointer_cast<EnumRealType>(right);
+                assert(left_enum != nullptr && right_enum != nullptr);
+                if (left_enum->decl.lock() != right_enum->decl.lock()) {
+                    throw string("CE, cannot merge two different enum types\n type info:")
+                    + left->show_real_type_info() + " and " + right->show_real_type_info();
+                }
+            }
+            result_type = copy(left);
+        }
     }
+    result_type->is_ref = result_ref;
+    return result_type;
 }
 
 RealType_ptr type_of_literal(LiteralType type, string value) {
@@ -326,7 +362,7 @@ void ExprTypeAndLetStmtVisitor::visit(BinaryExpr &node) {
                 throw string("CE, left side of assignment must be a mutable place");
             }
             // 如果类型不同，type_merge 的时候就直接会报错
-            type_merge(left_type, right_type);
+            type_merge(left_type, right_type, true);
             result_type = std::make_shared<UnitRealType>(ReferenceType::NO_REF);
             break;
         }
@@ -340,7 +376,7 @@ void ExprTypeAndLetStmtVisitor::visit(BinaryExpr &node) {
             }
             if (type_is_number(left_type) && type_is_number(right_type)) {
                 // 如果类型不同，type_merge 的时候就直接会报错
-                type_merge(left_type, right_type);
+                type_merge(left_type, right_type, true);
                 result_type = std::make_shared<UnitRealType>(ReferenceType::NO_REF);
             } else {
                 throw string("CE, binary operator ") + binary_operator_to_string(node.op) + " requires number types";
@@ -356,7 +392,7 @@ void ExprTypeAndLetStmtVisitor::visit(BinaryExpr &node) {
             if ((type_is_number(left_type) || left_type->kind == RealTypeKind::BOOL) &&
                 (type_is_number(right_type) || right_type->kind == RealTypeKind::BOOL)) {
                 // 如果类型不同，type_merge 的时候就直接会报错
-                type_merge(left_type, right_type);
+                type_merge(left_type, right_type, true);
                 result_type = std::make_shared<UnitRealType>(ReferenceType::NO_REF);
             } else {
                 throw string("CE, binary operator ") + binary_operator_to_string(node.op) + " requires number or bool types";
@@ -968,10 +1004,10 @@ void ExprTypeAndLetStmtVisitor::check_let_stmt(Pattern_ptr let_pattern, RealType
     // 考虑：let x, let mut x, let &mut x, let &x
     if (ident_pattern->is_mut == Mutibility::IMMUTABLE && ident_pattern->is_ref == ReferenceType::NO_REF) {
         // let x
-        type_merge(target_type, expr_type);
+        type_merge(target_type, expr_type, true);
     } else if (ident_pattern->is_mut == Mutibility::MUTABLE && ident_pattern->is_ref == ReferenceType::NO_REF) {
         // let mut x
-        type_merge(target_type, expr_type);
+        type_merge(target_type, expr_type, true);
     } else if (ident_pattern->is_mut == Mutibility::IMMUTABLE && ident_pattern->is_ref == ReferenceType::REF) {
         // let &x
         if (expr_type->is_ref == ReferenceType::NO_REF) {
@@ -979,7 +1015,7 @@ void ExprTypeAndLetStmtVisitor::check_let_stmt(Pattern_ptr let_pattern, RealType
         }
         auto real_type = copy(expr_type);
         real_type->is_ref = ReferenceType::NO_REF;
-        type_merge(target_type, real_type);
+        type_merge(target_type, real_type, true);
     } else if (ident_pattern->is_mut == Mutibility::MUTABLE && ident_pattern->is_ref == ReferenceType::REF) {
         // let &mut x
         if (expr_type->is_ref != ReferenceType::REF_MUT) {
@@ -990,7 +1026,7 @@ void ExprTypeAndLetStmtVisitor::check_let_stmt(Pattern_ptr let_pattern, RealType
         }
         auto real_type = copy(expr_type);
         real_type->is_ref = ReferenceType::NO_REF;
-        type_merge(target_type, real_type);
+        type_merge(target_type, real_type, true);
     } else {
         throw string("Error, unknown pattern mutibility and reference type");
     }

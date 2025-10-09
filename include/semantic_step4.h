@@ -42,8 +42,10 @@ enum class PlaceKind {
 特殊情况：
 Never 可以和任何类型合并，结果为另一个类型
 AnyInt 可以和任何整数类型合并，结果为另一个整数类型
+支持 &mut T 和 &T 的隐式转换，结果为 &T
+如果 是赋值操作 left = right，则 &T 不能赋值给 &mut T
 */
-RealType_ptr type_merge(RealType_ptr left, RealType_ptr right);
+RealType_ptr type_merge(RealType_ptr left, RealType_ptr right, bool is_assignment = false);
 
 /*
 Anyint 可以合并的内容：
