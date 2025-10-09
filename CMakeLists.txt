@@ -16,7 +16,8 @@ target_include_directories(mylib
     $<INSTALL_INTERFACE:include>
 )
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Ofast")
+# 先不开 Ofast
+# set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Ofast")
 
 add_executable(code
     main.cpp
@@ -25,5 +26,5 @@ target_link_libraries(code PRIVATE mylib)
 
 
 # 调试时可以打开，用来测越界的问题
-target_compile_options(code PRIVATE -fsanitize=address,leak,undefined)
-target_link_libraries(code PRIVATE -fsanitize=address,leak,undefined)
+add_compile_options(-fsanitize=address,undefined -fno-omit-frame-pointer)
+add_link_options(-fsanitize=address,undefined)

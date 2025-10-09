@@ -47,7 +47,7 @@ void Semantic_Checker::step2_resolve_types_and_check() {
 }
 
 void Semantic_Checker::step3_constant_evaluation_and_control_flow_analysis() {
-    LetStmtAndRepeatArrayVisitor let_stmt_visitor(
+    OtherTypeAndRepeatArrayVisitor let_stmt_visitor(
         node_scope_map,
         type_map,
         const_expr_queue

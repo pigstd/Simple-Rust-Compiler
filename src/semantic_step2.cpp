@@ -2,6 +2,7 @@
 #include "semantic_step1.h"
 #include <cassert>
 #include <cstddef>
+// #include <iostream>
 #include <memory>
 
 string real_type_kind_to_string(RealTypeKind kind) {
@@ -167,6 +168,7 @@ void Scope_dfs_and_build_type(Scope_ptr scope, map<size_t, RealType_ptr> &type_m
                 if (fn_decl->receiver_type != fn_reciever_type::NO_RECEIVER) {
                     // 方法
                     struct_decl->methods[name] = fn_decl;
+                    fn_decl->self_struct = struct_decl;
                 } else {
                     // 关联函数
                     struct_decl->associated_func[name] = fn_decl;
@@ -188,5 +190,8 @@ void Scope_dfs_and_build_type(Scope_ptr scope, map<size_t, RealType_ptr> &type_m
                 }
             }
         }
+    }
+    for (auto &child_scope : scope->children) {
+        Scope_dfs_and_build_type(child_scope, type_map, const_expr_queue);
     }
 }

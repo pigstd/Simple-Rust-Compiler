@@ -485,8 +485,12 @@ void ExprTypeAndLetStmtVisitor::visit(FieldExpr &node) {
         require_function = false;
         node.base->accept(*this);
         auto [base_type, base_place] = node_type_and_place_kind_map[node.base->NodeId];
+        auto func = get_method_func(base_type, base_place, node.field_name);
+        if (func == nullptr) {
+            throw string("CE, struct has no method named ") + node.field_name;
+        }
         node_type_and_place_kind_map[node.NodeId] =
-            {get_associated_func(base_type, node.field_name), PlaceKind::NotPlace};
+            {func, PlaceKind::NotPlace};
     } else {
         // 这个时候是返回一个结构体内的一个字段
         node.base->accept(*this);
@@ -703,6 +707,7 @@ void ExprTypeAndLetStmtVisitor::visit(CastExpr &node) {
     node.expr->accept(*this);
     // target_type 已经在前面被求出来过了
     auto target_type = type_map[node.target_type->NodeId];
+    assert(target_type != nullptr);
     check_cast(node_type_and_place_kind_map[node.expr->NodeId].first, target_type);
     node_type_and_place_kind_map[node.NodeId] =
         {target_type, PlaceKind::NotPlace};

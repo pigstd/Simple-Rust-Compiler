@@ -1,6 +1,7 @@
 #include "ast.h"
 #include "lexer.h"
 #include "visitor.h"
+// #include <iostream>
 #include <memory>
 #include <tuple>
 
@@ -78,9 +79,13 @@ FnItem_ptr Parser::parse_fn_item() {
     if (lexer.peek_token().type == Token_type::SELF) {
         receiver_type = fn_reciever_type::SELF;
         lexer.consume_expect_token(Token_type::SELF); // 消费掉 self
-        lexer.consume_expect_token(Token_type::COMMA); // 消费掉逗号
-    } else if (lexer.peek_token().type == Token_type::REF) {
-        lexer.consume_expect_token(Token_type::REF); // 消费掉 &
+        if (lexer.peek_token().type == Token_type::COMMA)
+            lexer.consume_expect_token(Token_type::COMMA); // 消费掉逗号
+        else if (lexer.peek_token().type != Token_type::RIGHT_PARENTHESIS) {
+            throw string("PE, expected , or ) after self but got ") + lexer.peek_token().value;
+        }
+    } else if (lexer.peek_token().type == Token_type::AMPERSAND) {
+        lexer.consume_expect_token(Token_type::AMPERSAND); // 消费掉 &
         if (lexer.peek_token().type == Token_type::MUT) {
             receiver_type = fn_reciever_type::SELF_REF_MUT;
             lexer.consume_expect_token(Token_type::MUT); // 消费掉 mut
@@ -88,7 +93,11 @@ FnItem_ptr Parser::parse_fn_item() {
             receiver_type = fn_reciever_type::SELF_REF;
         }
         lexer.consume_expect_token(Token_type::SELF); // 消费掉 self
-        lexer.consume_expect_token(Token_type::COMMA); // 消费掉逗号
+        if (lexer.peek_token().type == Token_type::COMMA)
+            lexer.consume_expect_token(Token_type::COMMA); // 消费掉逗号
+        else if (lexer.peek_token().type != Token_type::RIGHT_PARENTHESIS) {
+            throw string("PE, expected , or ) after self but got ") + lexer.peek_token().value;
+        }
     }
     vector<pair<Pattern_ptr, Type_ptr>> parameters;
     while(lexer.peek_token().type != Token_type::RIGHT_PARENTHESIS) {

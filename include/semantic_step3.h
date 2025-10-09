@@ -106,15 +106,15 @@ struct Array_ConstValue : public ConstValue {
 };
 
 // 遍历 AST 树,
-// 遇到 let 语句，将 RealType 解析出来，并且存到 type_map 中，这样第四步直接查 type_map 即可
+// 遇到 let 语句和 As 语句，将 RealType 解析出来，并且存到 type_map 中，这样第四步直接查 type_map 即可 
 // 遇到 type 和 RepeatArray 中的常量表达式，放入 const_expr_queue
-struct LetStmtAndRepeatArrayVisitor : public AST_Walker {
+struct OtherTypeAndRepeatArrayVisitor : public AST_Walker {
     map<size_t, Scope_ptr> &node_scope_map;
     map<size_t, RealType_ptr> &type_map;
     vector<Expr_ptr> &const_expr_queue;
-    LetStmtAndRepeatArrayVisitor(map<size_t, Scope_ptr> &node_scope_map_, map<size_t, RealType_ptr> &type_map_, vector<Expr_ptr> &const_expr_queue_)
+    OtherTypeAndRepeatArrayVisitor(map<size_t, Scope_ptr> &node_scope_map_, map<size_t, RealType_ptr> &type_map_, vector<Expr_ptr> &const_expr_queue_)
         : node_scope_map(node_scope_map_), type_map(type_map_), const_expr_queue(const_expr_queue_) {}
-    virtual ~LetStmtAndRepeatArrayVisitor() = default;
+    virtual ~OtherTypeAndRepeatArrayVisitor() = default;
     virtual void visit(LiteralExpr &node) override;
     virtual void visit(IdentifierExpr &node) override;
     virtual void visit(BinaryExpr &node) override;

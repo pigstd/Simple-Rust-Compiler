@@ -459,48 +459,52 @@ size_t ConstItemVisitor::calc_const_array_size(ConstValue_ptr size_value) {
     return size;
 }
 
-void LetStmtAndRepeatArrayVisitor::visit(LiteralExpr &node) { AST_Walker::visit(node); }
-void LetStmtAndRepeatArrayVisitor::visit(IdentifierExpr &node) { AST_Walker::visit(node); }
-void LetStmtAndRepeatArrayVisitor::visit(BinaryExpr &node) { AST_Walker::visit(node); }
-void LetStmtAndRepeatArrayVisitor::visit(UnaryExpr &node) { AST_Walker::visit(node); }
-void LetStmtAndRepeatArrayVisitor::visit(CallExpr &node) { AST_Walker::visit(node); }
-void LetStmtAndRepeatArrayVisitor::visit(FieldExpr &node) { AST_Walker::visit(node); }
-void LetStmtAndRepeatArrayVisitor::visit(StructExpr &node) { AST_Walker::visit(node); }
-void LetStmtAndRepeatArrayVisitor::visit(IndexExpr &node) { AST_Walker::visit(node); }
-void LetStmtAndRepeatArrayVisitor::visit(BlockExpr &node) { AST_Walker::visit(node); }
-void LetStmtAndRepeatArrayVisitor::visit(IfExpr &node) { AST_Walker::visit(node); }
-void LetStmtAndRepeatArrayVisitor::visit(WhileExpr &node) { AST_Walker::visit(node); }
-void LetStmtAndRepeatArrayVisitor::visit(LoopExpr &node) { AST_Walker::visit(node); }
-void LetStmtAndRepeatArrayVisitor::visit(ReturnExpr &node) { AST_Walker::visit(node); }
-void LetStmtAndRepeatArrayVisitor::visit(BreakExpr &node) { AST_Walker::visit(node); }
-void LetStmtAndRepeatArrayVisitor::visit(ContinueExpr &node) { AST_Walker::visit(node); }
-void LetStmtAndRepeatArrayVisitor::visit(CastExpr &node) { AST_Walker::visit(node); }
-void LetStmtAndRepeatArrayVisitor::visit(PathExpr &node) { AST_Walker::visit(node); }
-void LetStmtAndRepeatArrayVisitor::visit(SelfExpr &node) { AST_Walker::visit(node); }
-void LetStmtAndRepeatArrayVisitor::visit(UnitExpr &node) { AST_Walker::visit(node); }
-void LetStmtAndRepeatArrayVisitor::visit(ArrayExpr &node) { AST_Walker::visit(node); }
-void LetStmtAndRepeatArrayVisitor::visit(RepeatArrayExpr &node) {
+void OtherTypeAndRepeatArrayVisitor::visit(LiteralExpr &node) { AST_Walker::visit(node); }
+void OtherTypeAndRepeatArrayVisitor::visit(IdentifierExpr &node) { AST_Walker::visit(node); }
+void OtherTypeAndRepeatArrayVisitor::visit(BinaryExpr &node) { AST_Walker::visit(node); }
+void OtherTypeAndRepeatArrayVisitor::visit(UnaryExpr &node) { AST_Walker::visit(node); }
+void OtherTypeAndRepeatArrayVisitor::visit(CallExpr &node) { AST_Walker::visit(node); }
+void OtherTypeAndRepeatArrayVisitor::visit(FieldExpr &node) { AST_Walker::visit(node); }
+void OtherTypeAndRepeatArrayVisitor::visit(StructExpr &node) { AST_Walker::visit(node); }
+void OtherTypeAndRepeatArrayVisitor::visit(IndexExpr &node) { AST_Walker::visit(node); }
+void OtherTypeAndRepeatArrayVisitor::visit(BlockExpr &node) { AST_Walker::visit(node); }
+void OtherTypeAndRepeatArrayVisitor::visit(IfExpr &node) { AST_Walker::visit(node); }
+void OtherTypeAndRepeatArrayVisitor::visit(WhileExpr &node) { AST_Walker::visit(node); }
+void OtherTypeAndRepeatArrayVisitor::visit(LoopExpr &node) { AST_Walker::visit(node); }
+void OtherTypeAndRepeatArrayVisitor::visit(ReturnExpr &node) { AST_Walker::visit(node); }
+void OtherTypeAndRepeatArrayVisitor::visit(BreakExpr &node) { AST_Walker::visit(node); }
+void OtherTypeAndRepeatArrayVisitor::visit(ContinueExpr &node) { AST_Walker::visit(node); }
+void OtherTypeAndRepeatArrayVisitor::visit(CastExpr &node) {
+    // 将 as 后面的类型解析出来
+    AST_Walker::visit(node);
+    find_real_type(node_scope_map[node.target_type->NodeId], node.target_type, type_map, const_expr_queue);
+}
+void OtherTypeAndRepeatArrayVisitor::visit(PathExpr &node) { AST_Walker::visit(node); }
+void OtherTypeAndRepeatArrayVisitor::visit(SelfExpr &node) { AST_Walker::visit(node); }
+void OtherTypeAndRepeatArrayVisitor::visit(UnitExpr &node) { AST_Walker::visit(node); }
+void OtherTypeAndRepeatArrayVisitor::visit(ArrayExpr &node) { AST_Walker::visit(node); }
+void OtherTypeAndRepeatArrayVisitor::visit(RepeatArrayExpr &node) {
     const_expr_queue.push_back(node.size);
     AST_Walker::visit(node);
 }
-void LetStmtAndRepeatArrayVisitor::visit(FnItem &node) { AST_Walker::visit(node); }
-void LetStmtAndRepeatArrayVisitor::visit(StructItem &node) { AST_Walker::visit(node); }
-void LetStmtAndRepeatArrayVisitor::visit(EnumItem &node) { AST_Walker::visit(node); }
-void LetStmtAndRepeatArrayVisitor::visit(ImplItem &node) { AST_Walker::visit(node); }
-void LetStmtAndRepeatArrayVisitor::visit(ConstItem &node) { AST_Walker::visit(node); }
-void LetStmtAndRepeatArrayVisitor::visit(LetStmt &node) {
+void OtherTypeAndRepeatArrayVisitor::visit(FnItem &node) { AST_Walker::visit(node); }
+void OtherTypeAndRepeatArrayVisitor::visit(StructItem &node) { AST_Walker::visit(node); }
+void OtherTypeAndRepeatArrayVisitor::visit(EnumItem &node) { AST_Walker::visit(node); }
+void OtherTypeAndRepeatArrayVisitor::visit(ImplItem &node) { AST_Walker::visit(node); }
+void OtherTypeAndRepeatArrayVisitor::visit(ConstItem &node) { AST_Walker::visit(node); }
+void OtherTypeAndRepeatArrayVisitor::visit(LetStmt &node) {
     if (node.type != nullptr) {
         find_real_type(node_scope_map[node.NodeId], node.type, type_map, const_expr_queue);
         // 这里不管返回值，因为 type_map 里面已经存了
     }
     AST_Walker::visit(node);
 }
-void LetStmtAndRepeatArrayVisitor::visit(ExprStmt &node) { AST_Walker::visit(node); }
-void LetStmtAndRepeatArrayVisitor::visit(ItemStmt &node) { AST_Walker::visit(node); }
-void LetStmtAndRepeatArrayVisitor::visit(PathType &node) { AST_Walker::visit(node); }
-void LetStmtAndRepeatArrayVisitor::visit(ArrayType &node) { AST_Walker::visit(node); }
-void LetStmtAndRepeatArrayVisitor::visit(UnitType &node) { AST_Walker::visit(node); }
-void LetStmtAndRepeatArrayVisitor::visit(IdentifierPattern &node) { AST_Walker::visit(node); }
+void OtherTypeAndRepeatArrayVisitor::visit(ExprStmt &node) { AST_Walker::visit(node); }
+void OtherTypeAndRepeatArrayVisitor::visit(ItemStmt &node) { AST_Walker::visit(node); }
+void OtherTypeAndRepeatArrayVisitor::visit(PathType &node) { AST_Walker::visit(node); }
+void OtherTypeAndRepeatArrayVisitor::visit(ArrayType &node) { AST_Walker::visit(node); }
+void OtherTypeAndRepeatArrayVisitor::visit(UnitType &node) { AST_Walker::visit(node); }
+void OtherTypeAndRepeatArrayVisitor::visit(IdentifierPattern &node) { AST_Walker::visit(node); }
 
 void ConstItemVisitor::visit(LiteralExpr &node) {
     if (is_need_to_calculate) {
