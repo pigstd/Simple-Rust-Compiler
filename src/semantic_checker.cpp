@@ -2,9 +2,10 @@
 #include "semantic_step1.h"
 #include "semantic_step2.h"
 #include "semantic_step3.h"
-#include "visitor.h"
+// #include "visitor.h"
 #include <cstddef>
-#include <iostream>
+// #include <iostream>
+#include <memory>
 #include <vector>
 #include "semantic_checker.h"
 
@@ -13,14 +14,14 @@ Semantic_Checker::Semantic_Checker(std::vector<Item_ptr> &items_) :
 
 void Semantic_Checker::checker() {
     step1_build_scopes_and_collect_symbols();
-    std::cerr << "step 1 finish\n";
+    // std::cerr << "step 1 finish\n";
     step2_resolve_types_and_check();
-    std::cerr << "step 2 finish\n";
+    // std::cerr << "step 2 finish\n";
     add_builtin_methods_and_associated_funcs();
     step3_constant_evaluation_and_control_flow_analysis();
-    std::cerr << "step 3 finish\n";
+    // std::cerr << "step 3 finish\n";
     step4_expr_type_and_let_stmt_analysis();
-    std::cerr << "step 4 finish\n";
+    // std::cerr << "step 4 finish\n";
 }
 
 void Semantic_Checker::step1_build_scopes_and_collect_symbols() {
@@ -30,10 +31,10 @@ void Semantic_Checker::step1_build_scopes_and_collect_symbols() {
         item->accept(id_generator);
     }
     // show ast
-    AST_Printer ast_printer;
-    for (auto &item : items) {
-        item->accept(ast_printer);
-    }
+    // AST_Printer ast_printer;
+    // for (auto &item : items) {
+    //     item->accept(ast_printer);
+    // }
     // 建作用域树
     ScopeBuilder_Visitor visitor(root_scope, node_scope_map);
     for (auto &item : items) {
@@ -54,7 +55,7 @@ void Semantic_Checker::step3_constant_evaluation_and_control_flow_analysis() {
     for (auto &item : items) {
         item->accept(let_stmt_visitor);
     }
-    std::cerr << "LetStmtAndRepeatArrayVisitor finish\n";
+    // std::cerr << "LetStmtAndRepeatArrayVisitor finish\n";
     // 先求所有的 const item
     ConstItemVisitor const_item_visitor(
         false,
@@ -95,7 +96,7 @@ void Semantic_Checker::step4_expr_type_and_let_stmt_analysis() {
     for (auto &item : items) {
         item->accept(array_type_visitor);
     }
-    std::cerr << "ArrayTypeVisitor finish\n";
+    // std::cerr << "ArrayTypeVisitor finish\n";
     // ExprTypeAndLetStmtVisitor 再跑一遍，求出每个表达式的 RealType 和 PlaceKind
     ExprTypeAndLetStmtVisitor expr_type_visitor(
         false,
@@ -122,8 +123,8 @@ void Semantic_Checker::add_builtin_methods_and_associated_funcs() {
             nullptr,
             fn_reciever_type::NO_RECEIVER
         );
-        // pattern 是啥不用管，只要 type 对就行
-        print_fn_decl->parameters.push_back({nullptr, std::make_shared<StrRealType>(ReferenceType::REF)});
+        IdentifierPattern_ptr id_pattern = std::make_shared<IdentifierPattern>("s", Mutibility::IMMUTABLE, ReferenceType::NO_REF);
+        print_fn_decl->parameters.push_back({id_pattern, std::make_shared<StrRealType>(ReferenceType::REF)});
         print_fn_decl->return_type = std::make_shared<UnitRealType>(ReferenceType::NO_REF);
         string fn_name = "print";
         if (root_scope->value_namespace.find(fn_name) != root_scope->value_namespace.end()) {
@@ -138,8 +139,8 @@ void Semantic_Checker::add_builtin_methods_and_associated_funcs() {
             nullptr,
             fn_reciever_type::NO_RECEIVER
         );
-        // pattern 是啥不用管，只要 type 对就行
-        println_fn_decl->parameters.push_back({nullptr, std::make_shared<StrRealType>(ReferenceType::REF)});
+        IdentifierPattern_ptr id_pattern = std::make_shared<IdentifierPattern>("s", Mutibility::IMMUTABLE, ReferenceType::NO_REF);
+        println_fn_decl->parameters.push_back({id_pattern, std::make_shared<StrRealType>(ReferenceType::REF)});
         println_fn_decl->return_type = std::make_shared<UnitRealType>(ReferenceType::NO_REF);
         string fn_name = "println";
         if (root_scope->value_namespace.find(fn_name) != root_scope->value_namespace.end()) {
@@ -154,8 +155,8 @@ void Semantic_Checker::add_builtin_methods_and_associated_funcs() {
             nullptr,
             fn_reciever_type::NO_RECEIVER
         );
-        // pattern 是啥不用管，只要 type 对就行
-        printint_fn_decl->parameters.push_back({nullptr, std::make_shared<I32RealType>(ReferenceType::NO_REF)});
+        IdentifierPattern_ptr id_pattern = std::make_shared<IdentifierPattern>("n", Mutibility::IMMUTABLE, ReferenceType::NO_REF);
+        printint_fn_decl->parameters.push_back({id_pattern, std::make_shared<I32RealType>(ReferenceType::NO_REF)});
         printint_fn_decl->return_type = std::make_shared<UnitRealType>(ReferenceType::NO_REF);
         string fn_name = "printInt";
         if (root_scope->value_namespace.find(fn_name) != root_scope->value_namespace.end()) {
@@ -170,8 +171,8 @@ void Semantic_Checker::add_builtin_methods_and_associated_funcs() {
             nullptr,
             fn_reciever_type::NO_RECEIVER
         );
-        // pattern 是啥不用管，只要 type 对就行
-        printlnint_fn_decl->parameters.push_back({nullptr, std::make_shared<I32RealType>(ReferenceType::NO_REF)});
+        IdentifierPattern_ptr id_pattern = std::make_shared<IdentifierPattern>("n", Mutibility::IMMUTABLE, ReferenceType::NO_REF);
+        printlnint_fn_decl->parameters.push_back({id_pattern, std::make_shared<I32RealType>(ReferenceType::NO_REF)});
         printlnint_fn_decl->return_type = std::make_shared<UnitRealType>(ReferenceType::NO_REF);
         string fn_name = "printlnInt";
         if (root_scope->value_namespace.find(fn_name) != root_scope->value_namespace.end()) {
@@ -186,7 +187,6 @@ void Semantic_Checker::add_builtin_methods_and_associated_funcs() {
             nullptr,
             fn_reciever_type::NO_RECEIVER
         );
-        // pattern 是啥不用管，只要 type 对就行
         getstring_fn_decl->return_type = std::make_shared<StringRealType>(ReferenceType::NO_REF);
         string fn_name = "getString";
         if (root_scope->value_namespace.find(fn_name) != root_scope->value_namespace.end()) {
@@ -203,8 +203,8 @@ void Semantic_Checker::add_builtin_methods_and_associated_funcs() {
             nullptr,
             fn_reciever_type::NO_RECEIVER
         );
-        // pattern 是啥不用管，只要 type 对就行
-        exit_fn_decl->parameters.push_back({nullptr, std::make_shared<I32RealType>(ReferenceType::NO_REF)});
+        IdentifierPattern_ptr id_pattern = std::make_shared<IdentifierPattern>("code", Mutibility::IMMUTABLE, ReferenceType::NO_REF);
+        exit_fn_decl->parameters.push_back({id_pattern, std::make_shared<I32RealType>(ReferenceType::NO_REF)});
         exit_fn_decl->return_type = std::make_shared<UnitRealType>(ReferenceType::NO_REF);
         string fn_name = "exit";
         if (root_scope->value_namespace.find(fn_name) != root_scope->value_namespace.end()) {
@@ -277,7 +277,8 @@ void Semantic_Checker::add_builtin_methods_and_associated_funcs() {
             nullptr,
             fn_reciever_type::NO_RECEIVER
         );
-        from_fn_decl->parameters.push_back({nullptr, std::make_shared<StrRealType>(ReferenceType::REF)});
+        IdentifierPattern_ptr from_id_pattern = std::make_shared<IdentifierPattern>("s", Mutibility::IMMUTABLE, ReferenceType::NO_REF);
+        from_fn_decl->parameters.push_back({from_id_pattern, std::make_shared<StrRealType>(ReferenceType::REF)});
         from_fn_decl->return_type = std::make_shared<StringRealType>(ReferenceType::NO_REF);
         builtin_associated_funcs.push_back({RealTypeKind::STRING, "from", from_fn_decl});
         auto from_mut_fn_decl = std::make_shared<FnDecl>(
@@ -285,7 +286,8 @@ void Semantic_Checker::add_builtin_methods_and_associated_funcs() {
             nullptr,
             fn_reciever_type::NO_RECEIVER
         );
-        from_mut_fn_decl->parameters.push_back({nullptr, std::make_shared<StrRealType>(ReferenceType::REF_MUT)});
+        IdentifierPattern_ptr from_mut_id_pattern = std::make_shared<IdentifierPattern>("s", Mutibility::IMMUTABLE, ReferenceType::NO_REF);
+        from_mut_fn_decl->parameters.push_back({from_mut_id_pattern, std::make_shared<StrRealType>(ReferenceType::REF_MUT)});
         from_mut_fn_decl->return_type = std::make_shared<StringRealType>(ReferenceType::NO_REF);
         builtin_associated_funcs.push_back({RealTypeKind::STRING, "from", from_mut_fn_decl});
     }
@@ -300,7 +302,8 @@ void Semantic_Checker::add_builtin_methods_and_associated_funcs() {
             nullptr,
             fn_reciever_type::SELF_REF_MUT
         );
-        append_fn_decl->parameters.push_back({nullptr, std::make_shared<StrRealType>(ReferenceType::REF)});
+        IdentifierPattern_ptr append_id_pattern = std::make_shared<IdentifierPattern>("s", Mutibility::IMMUTABLE, ReferenceType::NO_REF);
+        append_fn_decl->parameters.push_back({append_id_pattern, std::make_shared<StrRealType>(ReferenceType::REF)});
         append_fn_decl->return_type = std::make_shared<UnitRealType>(ReferenceType::NO_REF);
         builtin_method_funcs.push_back({RealTypeKind::STRING, "append", append_fn_decl});
     }

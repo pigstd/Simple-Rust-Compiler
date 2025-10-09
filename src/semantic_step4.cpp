@@ -7,9 +7,9 @@
 #include "tools.h"
 #include <cassert>
 #include <cstddef>
-#include <iostream>
+// #include <iostream>
 #include <memory>
-#include <ostream>
+// #include <ostream>
 
 // 只有遇到 ArrayType 的时候，才会用到这个 visitor
 // 其他节点都直接调用 AST_Walker 的 visit 即可
@@ -197,7 +197,7 @@ void ExprTypeAndLetStmtVisitor::visit(LiteralExpr &node) {
     node_type_and_place_kind_map[node.NodeId] = {literal_type, PlaceKind::NotPlace};
 }
 void ExprTypeAndLetStmtVisitor::visit(IdentifierExpr &node) {
-    std::cerr << "start identifier expr visit: " << node.name << "\n";
+    // std::cerr << "start identifier expr visit: " << node.name << "\n";
     auto decl = find_value_decl(node_scope_map[node.NodeId], node.name);
     if (decl == nullptr) {
         throw string("CE, cannot find identifier declaration: ") + node.name;
@@ -234,7 +234,7 @@ void ExprTypeAndLetStmtVisitor::visit(IdentifierExpr &node) {
     }
     assert(result_type != nullptr);
     node_type_and_place_kind_map[node.NodeId] = {result_type, place_kind};
-    std::cerr << "end identifier expr visit: " << node.name << "\n";
+    // std::cerr << "end identifier expr visit: " << node.name << "\n";
 }
 void ExprTypeAndLetStmtVisitor::visit(BinaryExpr &node) {
     if (require_function) {
@@ -445,7 +445,6 @@ void ExprTypeAndLetStmtVisitor::visit(UnaryExpr &node) {
         {result_type, place_kind};
 }
 void ExprTypeAndLetStmtVisitor::visit(CallExpr &node) {
-    std::cerr << "start call expr visit\n";
     if (require_function) {
         throw string("CE, call expression is not function");
     }
@@ -470,19 +469,14 @@ void ExprTypeAndLetStmtVisitor::visit(CallExpr &node) {
     if (fn_decl->parameters.size() != arg_types.size()) {
         throw string("CE, function call argument number mismatch");
     }
-    std::cerr << "!!!" << std::endl;
-    std::cerr << "sz : " << fn_decl->parameters.size() << " " << arg_types.size() << std::endl;
     for (size_t i = 0; i < arg_types.size(); i++) {
         // 这里相当于 let 语句的类型检查
         auto [pattern, target_type] = fn_decl->parameters[i];
         auto [expr_type, expr_place] = arg_types[i];
-        std::cerr << "checking param " << i << std::endl;
         check_let_stmt(pattern, target_type, expr_type, expr_place);
     }
-    std::cerr << "!!!" << std::endl;
     node_type_and_place_kind_map[node.NodeId] =
         {fn_decl->return_type, PlaceKind::NotPlace};
-    std::cerr << "end call expr visit\n";
 }
 void ExprTypeAndLetStmtVisitor::visit(FieldExpr &node) {
     if (require_function) {

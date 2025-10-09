@@ -2,9 +2,7 @@
 #include "semantic_step1.h"
 #include <cassert>
 #include <cstddef>
-#include <iostream>
 #include <memory>
-#include <ostream>
 
 string real_type_kind_to_string(RealTypeKind kind) {
     switch (kind) {
@@ -80,9 +78,6 @@ RealType_ptr find_real_type(Scope_ptr current_scope, Type_ptr type_ast, map<size
     } else {
         result_type = std::make_shared<UnitRealType>(ref_type);
     }
-    std::cerr << "Debug: find_real_type for AST type, got RealType kind = " << real_type_kind_to_string(result_type->kind) << "\n";
-    // std::cerr << "ast_ptr = " << type_ast.get() << std::endl;
-    std::cerr << "ast_id = " << type_ast->NodeId << std::endl;
     return type_map[type_ast->NodeId] = result_type;
 }
 
