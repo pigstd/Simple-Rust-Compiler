@@ -232,13 +232,22 @@ void Scope_dfs_and_build_type(Scope_ptr scope, map<size_t, RealType_ptr> &type_m
         }
     } else {
         // 不是 impl，如果 fn 里面 receiver_type 不是 NO_RECEIVER 就报错
+        // 如果 name = main 并且 scope.kind == Root，标记为 main 函数
+        bool find_main = false;
         for (auto [name, value_decl] : scope->value_namespace) {
             if (value_decl->kind == ValueDeclKind::Function) {
                 auto fn_decl = std::dynamic_pointer_cast<FnDecl>(value_decl);
                 if (fn_decl->receiver_type != fn_reciever_type::NO_RECEIVER) {
                     throw string("CE, function ") + name + " has receiver but not in impl";
                 }
+                if (name == "main" && scope->kind == ScopeKind::Root) {
+                    fn_decl->is_main = true;
+                    find_main = true;
+                }
             }
+        }
+        if (scope->kind == ScopeKind::Root && !find_main) {
+            throw string("CE, main function not found");
         }
     }
     for (auto &child_scope : scope->children) {

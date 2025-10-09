@@ -194,15 +194,29 @@ void Semantic_Checker::add_builtin_methods_and_associated_funcs() {
         }
         root_scope->value_namespace[fn_name] = getstring_fn_decl;
     }
+    // fn getInt() -> i32
+    {
+        auto getint_fn_decl = std::make_shared<FnDecl>(
+            nullptr,
+            nullptr,
+            fn_reciever_type::NO_RECEIVER
+        );
+        getint_fn_decl->return_type = std::make_shared<I32RealType>(ReferenceType::NO_REF);
+        string fn_name = "getInt";
+        if (root_scope->value_namespace.find(fn_name) != root_scope->value_namespace.end()) {
+            throw string("CE, builtin function name conflict: ") + fn_name;
+        }
+        root_scope->value_namespace[fn_name] = getint_fn_decl;
+    }
     // fn exit(code: i32) -> ()
-    // exit 有特殊行为
-    // 先不管，到时候再改改代码
+    // exit 有特殊行为，标记为 exit 函数
     {
         auto exit_fn_decl = std::make_shared<FnDecl>(
             nullptr,
             nullptr,
             fn_reciever_type::NO_RECEIVER
         );
+        exit_fn_decl->is_exit = true;
         IdentifierPattern_ptr id_pattern = std::make_shared<IdentifierPattern>("code", Mutibility::IMMUTABLE, ReferenceType::NO_REF);
         exit_fn_decl->parameters.push_back({id_pattern, std::make_shared<I32RealType>(ReferenceType::NO_REF)});
         exit_fn_decl->return_type = std::make_shared<UnitRealType>(ReferenceType::NO_REF);

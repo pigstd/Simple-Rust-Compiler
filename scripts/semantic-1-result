@@ -243,205 +243,94 @@ testing loop8...
 testing loop9...
 ✓ loop9 passed
 testing misc1...
-✗ misc1 failed
-Expect 0, Read -1
-=== stderr ===
-CE, cannot find identifier declaration: getInt
+✓ misc1 passed
 testing misc10...
-✗ misc10 failed
-Expect 0, Read -1
-=== stderr ===
-CE, cannot find identifier declaration: getInt
+✓ misc10 passed
 testing misc11...
-✗ misc11 failed
-Expect 0, Read -1
-=== stderr ===
-CE, cannot find identifier declaration: getInt
+✓ misc11 passed
 testing misc12...
-✗ misc12 failed
-Expect 0, Read -1
-=== stderr ===
-CE, cannot find identifier declaration: getInt
+✓ misc12 passed
 testing misc13...
-✗ misc13 failed
-Expect 0, Read -1
-=== stderr ===
-CE, cannot find identifier declaration: getInt
+✓ misc13 passed
 testing misc14...
-✗ misc14 failed
-Expect 0, Read -1
-=== stderr ===
-CE, cannot find identifier declaration: getInt
+✓ misc14 passed
 testing misc15...
-✗ misc15 failed
-Expect 0, Read -1
-=== stderr ===
-CE, cannot find identifier declaration: getInt
+✓ misc15 passed
 testing misc16...
-✗ misc16 failed
-Expect 0, Read -1
-=== stderr ===
-CE, cannot find identifier declaration: getInt
+✓ misc16 passed
 testing misc17...
-✗ misc17 failed
-Expect 0, Read -1
-=== stderr ===
-CE, cannot find identifier declaration: getInt
+✓ misc17 passed
 testing misc18...
-✗ misc18 failed
-Expect 0, Read -1
-=== stderr ===
-CE, cannot find identifier declaration: getInt
+✓ misc18 passed
 testing misc19...
-✗ misc19 failed
-Expect 0, Read -1
-=== stderr ===
-CE, cannot find identifier declaration: getInt
+✓ misc19 passed
 testing misc2...
-✗ misc2 failed
-Expect 0, Read -1
-=== stderr ===
-CE, cannot find identifier declaration: getInt
+✓ misc2 passed
 testing misc20...
-✗ misc20 failed
-Expect 0, Read -1
-=== stderr ===
-CE, cannot find identifier declaration: getInt
+✓ misc20 passed
 testing misc21...
-✗ misc21 failed
-Expect 0, Read -1
-=== stderr ===
-CE, cannot find identifier declaration: getInt
+✓ misc21 passed
 testing misc22...
-✗ misc22 failed
-Expect 0, Read -1
-=== stderr ===
-CE, cannot find identifier declaration: getInt
+✓ misc22 passed
 testing misc23...
-✗ misc23 failed
-Expect 0, Read -1
-=== stderr ===
-CE, cannot find identifier declaration: getInt
+✓ misc23 passed
 testing misc24...
-✗ misc24 failed
-Expect 0, Read -1
-=== stderr ===
-CE, cannot find identifier declaration: getInt
+✓ misc24 passed
 testing misc25...
-✗ misc25 failed
-Expect 0, Read -1
-=== stderr ===
-CE, cannot find identifier declaration: getInt
+✓ misc25 passed
 testing misc26...
-✗ misc26 failed
-Expect 0, Read -1
-=== stderr ===
-CE, cannot find identifier declaration: getInt
+✓ misc26 passed
 testing misc27...
-✗ misc27 failed
-Expect 0, Read -1
-=== stderr ===
-CE, cannot find identifier declaration: getInt
+✓ misc27 passed
 testing misc28...
-✗ misc28 failed
-Expect 0, Read -1
-=== stderr ===
-CE, cannot find identifier declaration: getInt
+✓ misc28 passed
 testing misc29...
 ✗ misc29 failed
 Expect 0, Read -1
 === stderr ===
 CE, cannot find type declaration: Self
 testing misc3...
-✗ misc3 failed
-Expect 0, Read -1
-=== stderr ===
-CE, cannot find identifier declaration: getInt
+✓ misc3 passed
 testing misc30...
-✗ misc30 failed
-Expect 0, Read -1
-=== stderr ===
-CE, cannot find identifier declaration: getInt
+✓ misc30 passed
 testing misc31...
-✗ misc31 failed
-Expect 0, Read -1
-=== stderr ===
-CE, cannot find identifier declaration: getInt
+✓ misc31 passed
 testing misc32...
-✗ misc32 failed
-Expect 0, Read -1
-=== stderr ===
-CE, cannot find identifier declaration: getInt
+✓ misc32 passed
 testing misc33...
 ✗ misc33 failed
 Expect 0, Read -1
 === stderr ===
 CE, cannot cast &mut T to T
 testing misc34...
-✗ misc34 failed
-Expect 0, Read -1
-=== stderr ===
-CE, cannot find identifier declaration: getInt
+✓ misc34 passed
 testing misc35...
-✗ misc35 failed
-Expect 0, Read -1
-=== stderr ===
-CE, cannot find identifier declaration: getInt
+✓ misc35 passed
 testing misc36...
-✗ misc36 failed
-Expect 0, Read -1
-=== stderr ===
-CE, cannot find identifier declaration: getInt
+✓ misc36 passed
 testing misc37...
-✗ misc37 failed
-Expect 0, Read -1
-=== stderr ===
-CE, cannot find identifier declaration: getInt
+✓ misc37 passed
 testing misc38...
 ✗ misc38 failed
 Expect 0, Read -1
 === stderr ===
 CE, cannot cast &mut T to T
 testing misc39...
-✗ misc39 failed
-Expect 0, Read -1
-=== stderr ===
-CE, cannot find identifier declaration: getInt
+✓ misc39 passed
 testing misc4...
-✗ misc4 failed
-Expect 0, Read -1
-=== stderr ===
-CE, cannot find identifier declaration: getInt
+✓ misc4 passed
 testing misc40...
-✗ misc40 failed
-Expect 0, Read -1
-=== stderr ===
-CE, cannot find identifier declaration: getInt
+✓ misc40 passed
 testing misc41...
-✗ misc41 failed
-Expect 0, Read -1
-=== stderr ===
-CE, cannot find identifier declaration: getInt
+✓ misc41 passed
 testing misc42...
-✗ misc42 failed
-Expect 0, Read -1
-=== stderr ===
-CE, cannot find identifier declaration: getInt
+✓ misc42 passed
 testing misc43...
-✗ misc43 failed
-Expect 0, Read -1
-=== stderr ===
-CE, cannot find identifier declaration: getInt
+✓ misc43 passed
 testing misc44...
-✗ misc44 failed
-Expect 0, Read -1
-=== stderr ===
-CE, cannot find identifier declaration: getInt
+✓ misc44 passed
 testing misc45...
-✗ misc45 failed
-Expect 0, Read -1
-=== stderr ===
-CE, cannot find identifier declaration: getInt
+✓ misc45 passed
 testing misc46...
 ✓ misc46 passed
 testing misc47...
@@ -451,10 +340,7 @@ testing misc48...
 testing misc49...
 ✓ misc49 passed
 testing misc5...
-✗ misc5 failed
-Expect 0, Read -1
-=== stderr ===
-CE, cannot find identifier declaration: getInt
+✓ misc5 passed
 testing misc50...
 ✓ misc50 passed
 testing misc51...
@@ -476,10 +362,7 @@ testing misc58...
 testing misc59...
 ✓ misc59 passed
 testing misc6...
-✗ misc6 failed
-Expect 0, Read -1
-=== stderr ===
-CE, cannot find identifier declaration: getInt
+✓ misc6 passed
 testing misc60...
 ✓ misc60 passed
 testing misc61...
@@ -493,20 +376,11 @@ testing misc64...
 testing misc65...
 ✓ misc65 passed
 testing misc7...
-✗ misc7 failed
-Expect 0, Read -1
-=== stderr ===
-CE, cannot find identifier declaration: getInt
+✓ misc7 passed
 testing misc8...
-✗ misc8 failed
-Expect 0, Read -1
-=== stderr ===
-CE, cannot find identifier declaration: getInt
+✓ misc8 passed
 testing misc9...
-✗ misc9 failed
-Expect 0, Read -1
-=== stderr ===
-CE, cannot find identifier declaration: getInt
+✓ misc9 passed
 testing return1...
 ✓ return1 passed
 testing return10...
@@ -528,11 +402,9 @@ testing return3...
 testing return4...
 ✓ return4 passed
 testing return5...
-✗ return5 failed
-Expect -1, Read 0
+✓ return5 passed
 testing return6...
-✗ return6 failed
-Expect -1, Read 0
+✓ return6 passed
 testing return7...
 ✗ return7 failed
 Expect -1, Read 0
@@ -580,4 +452,4 @@ testing type8...
 ✓ type8 passed
 testing type9...
 ✓ type9 passed
-Total test cases: 222, Passed: 174, Failed: 48
+Total test cases: 222, Passed: 218, Failed: 4

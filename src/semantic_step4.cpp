@@ -523,6 +523,14 @@ void ExprTypeAndLetStmtVisitor::visit(CallExpr &node) {
         auto [expr_type, expr_place] = arg_types[i];
         check_let_stmt(pattern, target_type, expr_type, expr_place);
     }
+    // 特殊情况： exit 一定要在 main 里面
+    if (fn_decl->is_exit) {
+        if (now_func_decl == nullptr) {
+            throw string("CE, exit function can only be called inside main");
+        } else if (!now_func_decl->is_main) {
+            throw string("CE, exit function can only be called inside main");
+        }
+    }
     node_type_and_place_kind_map[node.NodeId] =
         {fn_decl->return_type, PlaceKind::NotPlace};
 }

@@ -131,8 +131,10 @@ struct FnDecl : public ValueDecl {
     RealType_ptr return_type; // 返回类型，第二轮填
     fn_reciever_type receiver_type; // 是否有 self 参数
     weak_ptr<StructDecl> self_struct; // 如果是 method，则存储这个 method 属于哪个 struct，第二轮填
+    bool is_main, is_exit; // 是否是 main 函数，是否是 exit 函数
     FnDecl(FnItem_ptr ast_node_, Scope_ptr function_scope_, fn_reciever_type receiver_type_)
-        : ValueDecl(ValueDeclKind::Function), ast_node(ast_node_), function_scope(function_scope_), receiver_type(receiver_type_) {}
+        : ValueDecl(ValueDeclKind::Function), ast_node(ast_node_), function_scope(function_scope_), receiver_type(receiver_type_),
+          is_main(false), is_exit(false) {}
 };
 
 struct ConstDecl : public ValueDecl {
