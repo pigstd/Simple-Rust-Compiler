@@ -6,10 +6,23 @@ import json
 import subprocess
 import re
 
+try:
+    import colorama
+    colorama.just_fix_windows_console()
+except Exception:
+    pass
+
+GREEN = "\033[92m"
+RED   = "\033[91m"
+RESET = "\033[0m"
+CHECK = "✓"
+CROSS = "✗"
+
 # Semantic Testcases Tester
-# Usage: ./semantic_testcases_tester -t <folder_path> (-n <max_test_num>) 
+# Usage: ./semantic_testcases_tester -t <folder_path> (-n <max_test_num>) (-p <prefix>)
 # Example: ./semantic_testcases_tester -t ./testcases/semantic_check (-n 10) 
 # 测试前 max_test_num 个测试用例，如果不指定 max_test_num 则测试所有测试用例 
+# 如果指定了 prefix，则只测试以 prefix 开头的测试用例
 # 找到 folder_path 下的每个文件夹，每个文件夹里面应该有一个 .rx 文件和一个 .json 文件 
 # 对每个文件夹，调用 checker_path 来检查 .rx 文件，将输出放在临时文件 tmp_output 中，将 stderr 放在 tmp_error 中 
 # 如果输出和 .json 文件内容中 compileexitcode 这一项相同，则测试通过，否则测试不通过 
@@ -51,6 +64,8 @@ def main():
                         help="Path to the folder containing test case folders")
     parser.add_argument("-n", "--max_test_num", type=int, default=-1,
                         help="Maximum number of test cases to run (default: all)")
+    parser.add_argument("-p", "--pre", type=str, default=None,
+                    help="Only test cases whose folder name starts with this prefix; stop when a non-matching name is encountered")
     args = parser.parse_args()
 
     testcases_folder = f"../testcases/{args.testcases_folder}"
@@ -79,6 +94,10 @@ def main():
 
     # 确定性顺序
     for testcase in sorted(os.listdir(testcases_folder)):
+        # 如果指定了前缀且不匹配则跳过
+        if args.pre is not None and not testcase.startswith(args.pre):
+            continue
+
         testcase_path = os.path.join(testcases_folder, testcase)
         if not os.path.isdir(testcase_path):
             continue
@@ -112,12 +131,17 @@ def main():
                     text=True             # 解码为 str（默认 utf-8 / locale）
                 )
 
+            if result.returncode != 0:
+                failed_tests += 1
+                print(f"{RED}{CROSS}{RESET} Test case {testcase} failed (checker exited with code {result.returncode}).")
+                continue
+
             # 从 stdout 解析整数
             output_content = parse_int_from_text(result.stdout)
 
             if output_content is None:
                 failed_tests += 1
-                print(f"Test case {testcase} failed (stdout not an int).")
+                print(f"{RED}{CROSS}{RESET} Test case {testcase} failed (stdout not an int).")
                 print(f"Expect {expected_content}, Read <parse-failed>")
                 if result.returncode != 0 or result.stderr:
                     print("=== stderr ===")
@@ -126,10 +150,10 @@ def main():
             else:
                 if output_content == expected_content:
                     passed_tests += 1
-                    print(f"Test case {testcase} passed.")
+                    print(f"{GREEN}{CHECK}{RESET} {testcase} passed")
                 else:
                     failed_tests += 1
-                    print(f"Test case {testcase} failed.")
+                    print(f"{RED}{CROSS}{RESET} {testcase} failed")
                     print(f"Expect {expected_content}, Read {output_content}")
                     # 维持你原先的逻辑：当输出为 -1 时才打印错误
                     if output_content == -1:
@@ -141,7 +165,7 @@ def main():
 
         except Exception as e:
             failed_tests += 1
-            print(f"Test case {testcase} raised an exception: {e}")
+            print(f"{RED}{CROSS}{RESET} Test case {testcase} raised an exception: {e}")
 
         if max_test_num != -1 and total_tests >= max_test_num:
             break
