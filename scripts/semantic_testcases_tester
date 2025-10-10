@@ -229,9 +229,13 @@ def main():
 
     log(f"Total test cases: {total_tests}, Passed: {passed_tests}, Failed: {failed_tests}")
 
-    # NEW: 如果写入文件，结束时关闭
     if outputfile and out_stream is not sys.stdout:
         out_stream.close()
+    
+    if failed_tests > 0:
+        sys.exit(1)
+    else:
+        sys.exit(0)
 
 if __name__ == "__main__":
     main()
