@@ -9,8 +9,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-        submodules: recursive   # 关键！把所有子模块拉取
-        fetch-depth: 0          # 可选：需要完整历史时
+          submodules: recursive   # 关键！把所有子模块拉取
+          fetch-depth: 0          # 可选：需要完整历史时
 
       - name: Install dependencies
         run: sudo apt-get update && sudo apt-get install -y cmake g++
