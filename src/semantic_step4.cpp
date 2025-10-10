@@ -522,7 +522,7 @@ void ExprTypeAndLetStmtVisitor::visit(CallExpr &node) {
         // 这里相当于 let 语句的类型检查
         auto [pattern, target_type] = fn_decl->parameters[i];
         auto [expr_type, expr_place] = arg_types[i];
-        check_let_stmt(pattern, target_type, expr_type, expr_place);
+        check_let_stmt(pattern, target_type, expr_type, expr_place, node.arguments[i]);
     }
     // 特殊情况： exit 一定要在 main 里面
     if (fn_decl->is_exit) {
@@ -946,7 +946,7 @@ void ExprTypeAndLetStmtVisitor::visit(LetStmt &node) {
     }
     node.initializer->accept(*this);
     auto [init_type, init_place] = node_type_and_place_kind_map[node.initializer->NodeId];
-    check_let_stmt(node.pattern, type_map[node.type->NodeId], init_type, init_place);
+    check_let_stmt(node.pattern, type_map[node.type->NodeId], init_type, init_place, node.initializer);
     intro_let_stmt(node_scope_map[node.NodeId], node.pattern, type_map[node.type->NodeId]);
 }
 void ExprTypeAndLetStmtVisitor::visit(ExprStmt &node) {
@@ -989,7 +989,23 @@ TypeDecl_ptr ExprTypeAndLetStmtVisitor::find_type_decl(Scope_ptr now_scope, cons
 // expr_place 好像没啥用
 // 我纳闷了，为啥我当时觉得有用呢？
 // 先打个 maybe_unused 再说
-void ExprTypeAndLetStmtVisitor::check_let_stmt(Pattern_ptr let_pattern, RealType_ptr target_type, RealType_ptr expr_type, [[maybe_unused]]PlaceKind expr_place) {
+void ExprTypeAndLetStmtVisitor::check_let_stmt(Pattern_ptr let_pattern, RealType_ptr target_type, RealType_ptr expr_type, [[maybe_unused]]PlaceKind expr_place, Expr_ptr initializer) {
+    // 如果 initializer 是 LiteralExpr，检查是否越界
+    if (auto literal_expr = std::dynamic_pointer_cast<LiteralExpr>(initializer)) {
+        auto literal_type = type_of_literal(literal_expr->literal_type, literal_expr->value);
+        // 只需要考虑是 anyint 的情况，其他情况早已被检查掉了
+        if (literal_type->kind == RealTypeKind::ANYINT) {
+            if (target_type->kind == RealTypeKind::USIZE ||
+                target_type->kind == RealTypeKind::U32) {
+                safe_stoll(literal_expr->value, UINT32_MAX);
+            } else if (target_type->kind == RealTypeKind::ISIZE ||
+                       target_type->kind == RealTypeKind::I32) {
+                safe_stoll(literal_expr->value, INT32_MAX);
+            } else {
+                throw string("CE, cannot assign anyint literal to non-integer type");
+            }
+        }
+    }
     // Pattern 目前只有 IdentifierPattern
     auto ident_pattern = std::dynamic_pointer_cast<IdentifierPattern>(let_pattern);
     // 考虑：let x, let mut x, let &mut x, let &x

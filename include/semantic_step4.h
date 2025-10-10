@@ -170,10 +170,12 @@ struct ExprTypeAndLetStmtVisitor : public AST_Walker {
     RealType_ptr get_associated_func(RealType_ptr base_type, const string &func_name);
 
     // 检查 let 语句：
-    // let pattern : target_type = (expr_type, expr_place)
+    // let pattern : target_type = (expr_type, expr_place, expr_value)
+    // 如果是一些溢出的赋值 (比如 let a: i32 = 2147483648;) 会报 CE
+    // 不需要考虑常量折叠，那么先只考虑 expr_value 是 literalexpr 的情况，其他就不管了
     // 是否合法，用于 let 和函数传参
     // 如果不合法 throw CE
-    void check_let_stmt(Pattern_ptr let_pattern, RealType_ptr target_type, RealType_ptr expr_type, PlaceKind expr_place);
+    void check_let_stmt(Pattern_ptr let_pattern, RealType_ptr target_type, RealType_ptr expr_type, PlaceKind expr_place, Expr_ptr initializer);
 
     // 将 let 语句加入到当前作用域
     // 同样，用于 let 语句和函数参数
