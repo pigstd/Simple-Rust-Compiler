@@ -10,4 +10,5 @@ Comment: Test integer literal out of range for i32 in let statement
 fn main() {
     let a: i32 = 2147483648; // CE, integer literal out of range for i32
     printInt(a);
+    exit(0);
 }

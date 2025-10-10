@@ -34,4 +34,5 @@ fn main() {
     counter.increment();
     counter.increment();
     printInt(counter.get_count());
+    exit(0)
 }

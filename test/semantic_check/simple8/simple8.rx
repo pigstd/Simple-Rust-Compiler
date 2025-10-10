@@ -1,0 +1,13 @@
+/*
+Test Package: simple-3
+Test Target: misc
+Author: Zemu Zhu
+Time: 2025-10-10
+Verdict: Failed
+Comment: Test no exit in main
+*/
+
+fn main() {
+    println("Hello, World!");
+    // no exit here
+}

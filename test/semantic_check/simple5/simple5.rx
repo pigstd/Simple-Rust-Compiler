@@ -13,4 +13,5 @@ fn foo(x: i32) {
 
 fn main() {
     foo(2147483648); // CE, integer literal out of range for i32
+    exit(0);
 }
