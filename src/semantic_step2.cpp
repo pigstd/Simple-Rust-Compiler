@@ -260,6 +260,7 @@ void Scope_dfs_and_build_type(Scope_ptr scope, map<size_t, RealType_ptr> &type_m
                 if (name == "main" && scope->kind == ScopeKind::Root) {
                     fn_decl->is_main = true;
                     find_main = true;
+                    fn_decl->function_scope.lock()->is_main_scope = true;
                 }
             }
         }

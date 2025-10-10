@@ -68,7 +68,14 @@ struct Scope {
     string impl_struct; // impl 作用于 struct 的名字，若这个 Scope 不是 impl，则为空字符串
     RealType_ptr self_struct; // impl 作用的类型，在第二轮被解析出来
 
-    Scope(Scope_ptr parent_, ScopeKind kind_, string impl_struct_ = "") : parent(parent_), kind(kind_), impl_struct(impl_struct_), self_struct(nullptr) {}
+    // 是否是 main 函数的作用域
+    bool is_main_scope;
+    // main 有没有 exit，没有就是 CE
+    bool has_exit;
+    
+    Scope(Scope_ptr parent_, ScopeKind kind_, string impl_struct_ = "") :
+        parent(parent_), kind(kind_), impl_struct(impl_struct_), self_struct(nullptr),
+        is_main_scope(false), has_exit(false) {}
 };
 
 /*

@@ -531,6 +531,7 @@ void ExprTypeAndLetStmtVisitor::visit(CallExpr &node) {
         } else if (!now_func_decl->is_main) {
             throw string("CE, exit function can only be called inside main");
         }
+        now_func_decl->function_scope.lock()->has_exit = true;
     }
     node_type_and_place_kind_map[node.NodeId] =
         {fn_decl->return_type, PlaceKind::NotPlace};
@@ -647,7 +648,22 @@ void ExprTypeAndLetStmtVisitor::visit(BlockExpr &node) {
     if (require_function) {
         throw string("CE, block expression is not function");
     }
-    AST_Walker::visit(node);
+    auto now_scope = node_scope_map[node.NodeId];
+    for (auto &stmt : node.statements) {
+        if (now_scope->is_main_scope && now_scope->has_exit) {
+            throw string("CE, unreachable statement after exit in main function");
+        }
+        stmt->accept(*this);
+    }
+    if (node.tail_statement != nullptr) {
+        if (now_scope->is_main_scope && now_scope->has_exit) {
+            throw string("CE, unreachable statement after exit in main function");
+        }
+        node.tail_statement->accept(*this);
+    }
+    if (now_scope->is_main_scope && !now_scope->has_exit) {
+        throw string("CE, main function must have an exit call");
+    }
     if (!has_state(node_outcome_state_map[node.NodeId], OutcomeType::NEXT)) {
         node_type_and_place_kind_map[node.NodeId] =
             {std::make_shared<NeverRealType>(ReferenceType::NO_REF), PlaceKind::NotPlace};
