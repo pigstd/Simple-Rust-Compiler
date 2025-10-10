@@ -1,0 +1,16 @@
+/*
+Test Package: simple-3
+Test Target: misc
+Author: Zemu Zhu
+Time: 2025-10-10
+Verdict: Failed
+Comment: Test integer literal out of range for i32 in fn
+*/
+
+fn foo(x: i32) {
+    printInt(x);
+}
+
+fn main() {
+    foo(2147483648); // CE, integer literal out of range for i32
+}

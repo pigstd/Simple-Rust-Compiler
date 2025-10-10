@@ -1,0 +1,37 @@
+/*
+Test Package: simple-3
+Test Target: misc
+Author: Zemu Zhu
+Time: 2025-10-10
+Verdict: Success
+Comment: Test Self
+*/
+
+/*
+prompt:
+写一个简单的运用到了 Self 的代码
+要求只能用整数，不要有其他很复杂的语法，不能有类型推断
+*/
+
+struct Counter {
+    count: i32,
+}
+impl Counter {
+    fn new() -> Self {
+        Self { count: 0 }
+    }
+
+    fn increment(&mut self) {
+        self.count += 1;
+    }
+
+    fn get_count(&self) -> i32 {
+        self.count
+    }
+}
+fn main() {
+    let mut counter : Counter = Counter::new();
+    counter.increment();
+    counter.increment();
+    printInt(counter.get_count());
+}

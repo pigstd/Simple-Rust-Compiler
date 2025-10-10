@@ -20,13 +20,13 @@ CROSS = "✗"
 
 # Semantic Testcases Tester
 # Usage: ./semantic_testcases_tester (-t <folder_path>) (-m <myfolder_path>) (-n <max_test_num>) (-p <prefix>) (-o (<outputfile>))
-# Example: ./semantic_testcases_tester -t ./testcases/semantic_check (-n 10) (-p array) (-o semantic-1-result.txt)
+# Example: ./semantic_testcases_tester -t semantic-1 (-n 10) (-p array) (-o semantic-1-result.txt)
 # -t 测试 testcases 下的 folder_path 文件夹
 # -m 测试 test 下的 myfolder_path 文件夹
 # -n 测试前 max_test_num 个测试用例，如果不指定 max_test_num 则测试所有测试用例 
 # -p : 如果指定了 prefix，则只测试以 prefix 开头的测试用例
 # -o : 如果指定了 outputfile，则将输出写入该文件，否则输出到终端
-# 如果 -o 没有参数，那么就是输出到 <t>-result
+# 如果 -o 没有参数，那么就是输出到 <t>-result.txt
 # 找到 folder_path 下的每个文件夹，每个文件夹里面应该有一个 .rx 文件和一个 .json 文件 
 # 对每个文件夹，调用 checker_path 来检查 .rx 文件，捕获 stdout/stderr
 # 如果输出和 .json 文件内容中 compileexitcode 这一项相同，则测试通过，否则测试不通过 
@@ -93,7 +93,7 @@ def main():
     max_test_num = args.max_test_num
     outputfile = args.outputfile
     if outputfile == "":
-        outputfile = f"{args.testcases_folder}-result"
+        outputfile = f"{args.testcases_folder}-result.txt"
 
     # 统一输出流与颜色开关
     out_stream = sys.stdout
