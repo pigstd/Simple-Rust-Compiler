@@ -100,7 +100,7 @@ struct ReturnExpr; // return 表达式 return expr;
 struct BreakExpr; // break 表达式 break;
 struct ContinueExpr; // continue 表达式 continue;
 struct CastExpr; // 类型转换表达式 expr as Type
-struct PathExpr; // 路径表达式 std::io::Result
+struct PathExpr; // 路径表达式 Point::new
 struct SelfExpr; // self 表达式 只有 self 本身
 struct UnitExpr; // 单元表达式 ()
 struct ArrayExpr; // 数组表达式 [expr1, expr2, ...]
@@ -238,10 +238,10 @@ struct FieldExpr : public Expr_Node {
 };
 
 struct StructExpr : public Expr_Node {
-    string struct_name;
+    Type_ptr struct_name; // 结构体名，可以是 PathType 也可以是 SelfType
     vector<pair<string, Expr_ptr>> fields;
-    StructExpr(const string &name, vector<pair<string, Expr_ptr>> flds)
-        : struct_name(name), fields(std::move(flds)) {}
+    StructExpr(Type_ptr name, vector<pair<string, Expr_ptr>> flds)
+        : struct_name(std::move(name)), fields(std::move(flds)) {}
     void accept(AST_visitor &v) override;
 };
 
@@ -309,10 +309,11 @@ struct CastExpr : public Expr_Node {
     void accept(AST_visitor &v) override;
 };
 // base::name
-struct PathExpr : public Expr_Node {
-    Expr_ptr base; // 可以是另一个 PathExpr
+struct PathExpr : public Expr_Node { 
+    // 在这里，base 一定是一个类型，可以是 Self 也可以是其他类型
+    Type_ptr base;
     string name;
-    PathExpr(Expr_ptr base_, const string &name_) : base(std::move(base_)), name(name_) {}
+    PathExpr(Type_ptr base_, const string &name_) : base(std::move(base_)), name(name_) {}
     void accept(AST_visitor &v) override;
 };
 struct SelfExpr : public Expr_Node {

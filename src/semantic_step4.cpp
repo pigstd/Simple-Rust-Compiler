@@ -587,23 +587,27 @@ void ExprTypeAndLetStmtVisitor::visit(StructExpr &node) {
         throw string("CE, struct expression is not function");
     }
     AST_Walker::visit(node);
-    auto decl = find_type_decl(node_scope_map[node.NodeId], node.struct_name);
-    if (decl == nullptr || decl->kind != TypeDeclKind::Struct) {
-        throw string("CE, cannot find struct declaration: ") + node.struct_name;
+    auto type = type_map[node.struct_name->NodeId];
+    if (type == nullptr) {
+        throw string("Error, cannot find struct type, NodeId = ") + std::to_string(node.struct_name->NodeId);
     }
-    auto struct_decl = std::dynamic_pointer_cast<StructDecl>(decl);
+    auto struct_type = std::dynamic_pointer_cast<StructRealType>(type);
+    if (struct_type == nullptr) {
+        throw string("CE, struct expression requires a struct type");
+    }
+    auto struct_decl = struct_type->decl.lock();
     assert(struct_decl != nullptr);
     if (struct_decl->fields.size() != node.fields.size()) {
         throw string("CE, struct expression field number mismatch");
     }
     for (auto &[fname, fexpr] : node.fields) {
         if (struct_decl->fields.find(fname) == struct_decl->fields.end()) {
-            throw string("CE, struct ") + node.struct_name + " has no field named " + fname;
+            throw string("CE, struct ") + struct_type->name + " has no field named " + fname;
         }
-        type_merge(struct_decl->fields[fname], node_type_and_place_kind_map[fexpr->NodeId].first);
+        type_merge(struct_decl->fields[fname], node_type_and_place_kind_map[fexpr->NodeId].first, true);
     }
     node_type_and_place_kind_map[node.NodeId] =
-        {std::make_shared<StructRealType>(node.struct_name, ReferenceType::NO_REF, struct_decl), PlaceKind::NotPlace};
+        {std::make_shared<StructRealType>(struct_type->name, ReferenceType::NO_REF, struct_decl), PlaceKind::NotPlace};
 }
 void ExprTypeAndLetStmtVisitor::visit(IndexExpr &node) {
     if (require_function) {
@@ -770,78 +774,37 @@ void ExprTypeAndLetStmtVisitor::visit(CastExpr &node) {
 }
 void ExprTypeAndLetStmtVisitor::visit(PathExpr &node) {
     // 有两种可能
-    // 结构体的关联函数和结构体或者枚举的字段
-    // 因为比较简单，所以路径表达式只可能套一层，所以 node.path 虽然也可以是一个表达式，但是规定只能是一个 IdentifierExpr
-    // 这个时候就不递归下去了
-    string base_name;
-    if (auto ident_expr = std::dynamic_pointer_cast<IdentifierExpr>(node.base)) {
-        base_name = ident_expr->name;
-    } else {
-        throw string("CE, path expression base must be an identifier");
-    }
-    auto type_decl = find_type_decl(node_scope_map[node.NodeId], base_name);
+    // 结构体的关联函数
+    // 或者枚举的字段和结构体的 const 字段
+    auto base_type = type_map[node.base->NodeId];
     if (require_function) {
-        RealType_ptr base_type;
-        if (type_decl == nullptr) {
-            // 说明是默认类型
-            if (base_name == "i32") {
-                base_type = std::make_shared<I32RealType>(ReferenceType::NO_REF);
-            } else if (base_name == "u32") {
-                base_type = std::make_shared<U32RealType>(ReferenceType::NO_REF);
-            } else if (base_name == "isize") {
-                base_type = std::make_shared<IsizeRealType>(ReferenceType::NO_REF);
-            } else if (base_name == "usize") {
-                base_type = std::make_shared<UsizeRealType>(ReferenceType::NO_REF);
-            } else if (base_name == "bool") {
-                base_type = std::make_shared<BoolRealType>(ReferenceType::NO_REF);
-            } else if (base_name == "char") {
-                base_type = std::make_shared<CharRealType>(ReferenceType::NO_REF);
-            } else if (base_name == "str") {
-                base_type = std::make_shared<StrRealType>(ReferenceType::NO_REF);
-            } else if (base_name == "String") {
-                base_type = std::make_shared<StrRealType>(ReferenceType::NO_REF);
-            } else if (base_name == "()") {
-                base_type = std::make_shared<UnitRealType>(ReferenceType::NO_REF);
-            } else {
-                throw string("CE, cannot find type declaration: ") + base_name;
-            }
-        } else if (type_decl->kind == TypeDeclKind::Enum) {
-            throw string("CE, enum type cannot have associated functions: ") + base_name;
-        } else {
-            auto struct_decl = std::dynamic_pointer_cast<StructDecl>(type_decl);
-            assert(struct_decl != nullptr);
-            base_type = std::make_shared<StructRealType>(base_name, ReferenceType::NO_REF, struct_decl);
-        }
         require_function = false;
         node_type_and_place_kind_map[node.NodeId] =
             {get_associated_func(base_type, node.name), PlaceKind::NotPlace};
     } else {
-        if (type_decl == nullptr) {
-            throw string("CE, cannot find type declaration: ") + base_name;
-        }
-        if (type_decl->kind == TypeDeclKind::Struct) {
-            auto struct_decl = std::dynamic_pointer_cast<StructDecl>(type_decl);
+        if (base_type->kind == RealTypeKind::STRUCT) {
+            auto struct_type = std::dynamic_pointer_cast<StructRealType>(base_type);
+            auto struct_decl = struct_type->decl.lock();
             assert(struct_decl != nullptr);
-            RealType_ptr field_type = nullptr;
-            for (auto &[fname, ftype] : struct_decl->associated_const) {
-                if (fname == node.name) {
-                    field_type = ftype->const_type;
-                    break;
-                }
+            if (struct_decl->associated_const.find(node.name) == struct_decl->associated_const.end()) {
+                throw string("CE, struct has no associated constant named ") + node.name;
+            } else {
+                auto const_type = struct_decl->associated_const[node.name];
+                node_type_and_place_kind_map[node.NodeId] =
+                    {const_type->const_type, PlaceKind::NotPlace};
             }
-            if (field_type == nullptr) {
-                throw string("CE, struct has no field named ") + node.name;
-            }
-            node_type_and_place_kind_map[node.NodeId] =
-                {field_type, PlaceKind::ReadOnlyPlace};
-        } else {
-            auto enum_decl = std::dynamic_pointer_cast<EnumDecl>(type_decl);
+        } else if (base_type->kind == RealTypeKind::ENUM) {
+            auto enum_type = std::dynamic_pointer_cast<EnumRealType>(base_type);
+            auto enum_decl = enum_type->decl.lock();
             assert(enum_decl != nullptr);
             if (enum_decl->variants.find(node.name) == enum_decl->variants.end()) {
                 throw string("CE, enum has no variant named ") + node.name;
+            } else {
+                node_type_and_place_kind_map[node.NodeId] =
+                    {enum_type, PlaceKind::NotPlace};
             }
-            node_type_and_place_kind_map[node.NodeId] =
-                {std::make_shared<EnumRealType>(node.name, ReferenceType::NO_REF, enum_decl), PlaceKind::NotPlace};
+        } else {
+            throw string("CE, path expression requires a struct or enum type base");
         }
     }
 }

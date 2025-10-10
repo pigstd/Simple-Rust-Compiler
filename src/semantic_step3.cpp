@@ -465,7 +465,11 @@ void OtherTypeAndRepeatArrayVisitor::visit(BinaryExpr &node) { AST_Walker::visit
 void OtherTypeAndRepeatArrayVisitor::visit(UnaryExpr &node) { AST_Walker::visit(node); }
 void OtherTypeAndRepeatArrayVisitor::visit(CallExpr &node) { AST_Walker::visit(node); }
 void OtherTypeAndRepeatArrayVisitor::visit(FieldExpr &node) { AST_Walker::visit(node); }
-void OtherTypeAndRepeatArrayVisitor::visit(StructExpr &node) { AST_Walker::visit(node); }
+void OtherTypeAndRepeatArrayVisitor::visit(StructExpr &node) {
+    AST_Walker::visit(node);    
+    // 解析 node.struct_name
+    find_real_type(node_scope_map[node.struct_name->NodeId], node.struct_name, type_map, const_expr_queue);
+}
 void OtherTypeAndRepeatArrayVisitor::visit(IndexExpr &node) { AST_Walker::visit(node); }
 void OtherTypeAndRepeatArrayVisitor::visit(BlockExpr &node) { AST_Walker::visit(node); }
 void OtherTypeAndRepeatArrayVisitor::visit(IfExpr &node) { AST_Walker::visit(node); }
@@ -479,7 +483,11 @@ void OtherTypeAndRepeatArrayVisitor::visit(CastExpr &node) {
     AST_Walker::visit(node);
     find_real_type(node_scope_map[node.target_type->NodeId], node.target_type, type_map, const_expr_queue);
 }
-void OtherTypeAndRepeatArrayVisitor::visit(PathExpr &node) { AST_Walker::visit(node); }
+void OtherTypeAndRepeatArrayVisitor::visit(PathExpr &node) {
+    AST_Walker::visit(node);
+    // 解析 node.base
+    find_real_type(node_scope_map[node.base->NodeId], node.base, type_map, const_expr_queue);
+}
 void OtherTypeAndRepeatArrayVisitor::visit(SelfExpr &node) { AST_Walker::visit(node); }
 void OtherTypeAndRepeatArrayVisitor::visit(UnitExpr &node) { AST_Walker::visit(node); }
 void OtherTypeAndRepeatArrayVisitor::visit(ArrayExpr &node) { AST_Walker::visit(node); }

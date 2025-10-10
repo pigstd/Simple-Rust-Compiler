@@ -24,6 +24,7 @@ void AST_Walker::visit(CallExpr &node) {
 }
 void AST_Walker::visit(FieldExpr &node) { node.base->accept(*this); }
 void AST_Walker::visit(StructExpr &node) {
+    node.struct_name->accept(*this);
     for (auto &[name, expr] : node.fields) {
         expr->accept(*this);
     }
@@ -171,8 +172,10 @@ void AST_Printer::visit(FieldExpr &node) {
     depth--;
 }
 void AST_Printer::visit(StructExpr &node) {
-    cout << tab() << "StructExpr, struct name =  " << node.struct_name << " , NodeId = " << node.NodeId << endl;
+    cout << tab() << "StructExpr, NodeId = " << node.NodeId << endl;
     depth++;
+    cout << tab() << "Struct Name : " << endl;
+    node.struct_name->accept(*this);
     cout << tab() << "Fields : " << endl;
     for (auto &[name, value] : node.fields) {
         cout << tab() << "name = " << name << ", value : " << endl;

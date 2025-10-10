@@ -105,8 +105,9 @@ struct Array_ConstValue : public ConstValue {
     Array_ConstValue(const vector<ConstValue_ptr> &elements_) : ConstValue(ConstValueKind::ARRAY), elements(elements_) {}
 };
 
-// 遍历 AST 树,
-// 遇到 let 语句和 As 语句，将 RealType 解析出来，并且存到 type_map 中，这样第四步直接查 type_map 即可 
+// 遍历 AST 树，将其他类型的 type 解析出来
+// 遇到 let 语句， As 语句，PathExpr 语句，StructExpr 语句
+// 将 RealType 解析出来，并且存到 type_map 中，这样第四步直接查 type_map 即可 
 // 遇到 type 和 RepeatArray 中的常量表达式，放入 const_expr_queue
 struct OtherTypeAndRepeatArrayVisitor : public AST_Walker {
     map<size_t, Scope_ptr> &node_scope_map;

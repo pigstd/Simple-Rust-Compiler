@@ -14,14 +14,14 @@ Semantic_Checker::Semantic_Checker(std::vector<Item_ptr> &items_) :
 
 void Semantic_Checker::checker() {
     step1_build_scopes_and_collect_symbols();
-    // std::cerr << "step 1 finish\n";
+
     step2_resolve_types_and_check();
-    // std::cerr << "step 2 finish\n";
+
     add_builtin_methods_and_associated_funcs();
+
     step3_constant_evaluation_and_control_flow_analysis();
-    // std::cerr << "step 3 finish\n";
+    
     step4_expr_type_and_let_stmt_analysis();
-    // std::cerr << "step 4 finish\n";
 }
 
 void Semantic_Checker::step1_build_scopes_and_collect_symbols() {

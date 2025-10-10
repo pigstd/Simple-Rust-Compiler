@@ -131,11 +131,15 @@ RealType_ptr find_real_type(Scope_ptr current_scope, Type_ptr type_ast, map<size
     } else {
         assert(dynamic_cast<SelfType*>(type_ast.get()) != nullptr);
         // SelfType，一定在 Impl 里面
-        if (current_scope->kind != ScopeKind::Impl) {
-            throw string("CE, Self type used outside of impl block");
+        auto impl_scope = current_scope;
+        while(impl_scope != nullptr && impl_scope->kind != ScopeKind::Impl) {
+            impl_scope = impl_scope->parent.lock();
         }
-        assert(current_scope->self_struct != nullptr);
-        return current_scope->self_struct;
+        if (impl_scope == nullptr) {
+            throw string("CE, self type used outside of impl");
+        }
+        assert(impl_scope->self_struct != nullptr);
+        result_type = impl_scope->self_struct;
     }
     return type_map[type_ast->NodeId] = result_type;
 }

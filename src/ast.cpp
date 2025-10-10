@@ -473,7 +473,68 @@ Expr_ptr Parser::nud(Token token) {
         }
     } else if (token.type == Token_type::IDENTIFIER) {
         lexer.consume_expect_token(Token_type::IDENTIFIER);
-        return std::make_shared<IdentifierExpr>(token.value);
+        /*
+        Identifier token 如果后面跟的是 :: 或者 {，说明是路径表达式或者 struct 初始化表达式
+        这个时候，应该被认为是 PathType，在 nud 里面处理，而不在 led 里面处理
+        */
+        if (lexer.peek_token().type == Token_type::COLON_COLON) {
+            // 路径表达式
+            lexer.consume_expect_token(Token_type::COLON_COLON);
+            string path_segment = lexer.consume_expect_token(Token_type::IDENTIFIER).value;
+            PathType_ptr base_type = std::make_shared<PathType>(token.value, ReferenceType::NO_REF);
+            return std::make_shared<PathExpr>(std::move(base_type), path_segment);
+        } else if (lexer.peek_token().type == Token_type::LEFT_BRACE) {
+            // struct 初始化
+            // example: StructName { field1: value1, field2: value2, ... }
+            string struct_name = token.value;
+            lexer.consume_expect_token(Token_type::LEFT_BRACE);
+            vector<pair<string, Expr_ptr>> fields;
+            while(lexer.peek_token().type != Token_type::RIGHT_BRACE) {
+                string field_name = lexer.consume_expect_token(Token_type::IDENTIFIER).value;
+                lexer.consume_expect_token(Token_type::COLON);
+                Expr_ptr field_value = parse_expression();
+                fields.emplace_back(field_name, std::move(field_value));
+                if (lexer.peek_token().type == Token_type::COMMA) {
+                    lexer.consume_token(); // 消费掉逗号
+                } else {
+                    break; // 没有逗号说明字段列表结束
+                }
+            }
+            lexer.consume_expect_token(Token_type::RIGHT_BRACE);
+            PathType_ptr struct_type = std::make_shared<PathType>(struct_name, ReferenceType::NO_REF);
+            return std::make_shared<StructExpr>(std::move(struct_type), std::move(fields));
+        } else {
+            return std::make_shared<IdentifierExpr>(token.value);
+        }
+    } else if (token.type == Token_type::BIG_SELF) {
+        // Self 出现在表达式里面一定得是 Self:: 或者 Self {}
+        lexer.consume_expect_token(Token_type::BIG_SELF);
+        if (lexer.peek_token().type == Token_type::COLON_COLON) {
+            // 路径表达式
+            lexer.consume_expect_token(Token_type::COLON_COLON);
+            string path_segment = lexer.consume_expect_token(Token_type::IDENTIFIER).value;
+            SelfType_ptr base_type = std::make_shared<SelfType>(ReferenceType::NO_REF);
+            return std::make_shared<PathExpr>(std::move(base_type), path_segment);
+        } else if (lexer.peek_token().type == Token_type::LEFT_BRACE) {
+            lexer.consume_expect_token(Token_type::LEFT_BRACE);
+            vector<pair<string, Expr_ptr>> fields;
+            while(lexer.peek_token().type != Token_type::RIGHT_BRACE) {
+                string field_name = lexer.consume_expect_token(Token_type::IDENTIFIER).value;
+                lexer.consume_expect_token(Token_type::COLON);
+                Expr_ptr field_value = parse_expression();
+                fields.emplace_back(field_name, std::move(field_value));
+                if (lexer.peek_token().type == Token_type::COMMA) {
+                    lexer.consume_token(); // 消费掉逗号
+                } else {
+                    break; // 没有逗号说明字段列表结束
+                }
+            }
+            lexer.consume_expect_token(Token_type::RIGHT_BRACE);
+            SelfType_ptr struct_type = std::make_shared<SelfType>(ReferenceType::NO_REF);
+            return std::make_shared<StructExpr>(std::move(struct_type), std::move(fields));
+        } else {
+            throw string("CE in parser nud !!! unexpected token after Self: ") + lexer.peek_token().value;
+        }
     } else if (token.type == Token_type::SELF) {
         lexer.consume_expect_token(Token_type::SELF);
         return std::make_shared<SelfExpr>();
@@ -649,41 +710,10 @@ Expr_ptr Parser::led(Token token, Expr_ptr left) {
         Expr_ptr index = parse_expression();
         lexer.consume_expect_token(Token_type::RIGHT_BRACKET);
         return std::make_shared<IndexExpr>(std::move(left), std::move(index));
-    } else if (token.type == Token_type::LEFT_BRACE) {
-        // struct 初始化
-        // example: StructName { field1: value1, field2: value2, ... }
-        // left 一定是 identifier expr
-        string struct_name;
-        if (auto id_expr = dynamic_cast<IdentifierExpr*>(left.get())) {
-            struct_name = id_expr->name;
-        }
-        else {
-            throw "CE, struct name must be a identifier!";
-        }
-        // { 已经被 consume 掉了
-        vector<pair<string, Expr_ptr>> fields;
-        while (lexer.peek_token().type != Token_type::RIGHT_BRACE) {
-            string field_name = lexer.consume_expect_token(Token_type::IDENTIFIER).value;
-            lexer.consume_expect_token(Token_type::COLON);
-            Expr_ptr field_value = parse_expression();
-            fields.emplace_back(field_name, std::move(field_value));
-            if (lexer.peek_token().type == Token_type::COMMA) {
-                lexer.consume_expect_token(Token_type::COMMA);
-            } else {
-                break;
-            }
-        }
-        lexer.consume_expect_token(Token_type::RIGHT_BRACE);
-        return std::make_shared<StructExpr>(struct_name, std::move(fields));
-
     } else if (token.type == Token_type::AS) {
         // 类型转换
         Type_ptr target_type = parse_type();
         return std::make_shared<CastExpr>(std::move(left), std::move(target_type));
-    } else if (token.type == Token_type::COLON_COLON) {
-        // 路径表达式
-        string path_segment = lexer.consume_expect_token(Token_type::IDENTIFIER).value;
-        return std::make_shared<PathExpr>(std::move(left), path_segment);
     } else {
         throw string("CE in parser led !!! unexpected token in expression: ") + token.value;
     }
