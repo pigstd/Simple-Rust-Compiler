@@ -12,6 +12,9 @@ jobs:
       - name: Install dependencies
         run: sudo apt-get update && sudo apt-get install -y cmake g++
 
+      - name: Create build dir
+        run: mkdir -p build
+
       - name: Configure and build
         working-directory: build
         run: |
