@@ -447,7 +447,8 @@ void ExprTypeAndLetStmtVisitor::visit(UnaryExpr &node) {
         if (right_type->is_ref != ReferenceType::NO_REF) {
             throw string("CE, unary operator ! cannot have reference type operand");
         }
-        if (right_type->kind == RealTypeKind::BOOL) {
+        // ! 也可以用于 整数
+        if (right_type->kind == RealTypeKind::BOOL || type_is_number(right_type)) {
             result_type = right_type;
             place_kind = PlaceKind::NotPlace;
         } else {

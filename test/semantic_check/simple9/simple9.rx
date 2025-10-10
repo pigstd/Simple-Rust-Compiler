@@ -1,0 +1,20 @@
+/*
+Test Package: simple-3
+Test Target: misc
+Author: Zemu Zhu
+Time: 2025-10-10
+Verdict: Success
+Comment: Test priority of ! and *
+*/
+
+fn main() {
+    let mut b : bool = true;
+    let bp : &mut bool = &mut b;
+    if (!*bp) {
+        println("0");
+    }
+    else {
+        println("1");
+    }
+    exit(0);
+}

@@ -89,11 +89,30 @@ ConstValue_ptr ConstItemVisitor::calc_const_unary_expr(Unary_Operator OP, ConstV
             throw string("CE, unary - operator requires integer type");
         }
     } else if (OP == Unary_Operator::NOT) {
-        if (right->kind != ConstValueKind::BOOL) {
-            throw string("CE, unary ! operator requires BOOL type");
+        // ! 可以给 int 用，效果是 c++ 的 ~
+        if (right->kind == ConstValueKind::BOOL) {
+            auto bool_value = std::dynamic_pointer_cast<Bool_ConstValue>(right);
+            return std::make_shared<Bool_ConstValue>(!bool_value->value);
+        } else if (right->kind == ConstValueKind::ANYINT) {
+            auto anyint_value = std::dynamic_pointer_cast<AnyInt_ConstValue>(right);
+            // 直接全部取反
+            // 不清楚会不会有问题，有问题再说
+            return std::make_shared<AnyInt_ConstValue>(~anyint_value->value);
+        } else if (right->kind == ConstValueKind::I32) {
+            auto i32_value = std::dynamic_pointer_cast<I32_ConstValue>(right);
+            return std::make_shared<I32_ConstValue>(~i32_value->value);
+        } else if (right->kind == ConstValueKind::U32) {
+            auto u32_value = std::dynamic_pointer_cast<U32_ConstValue>(right);
+            return std::make_shared<U32_ConstValue>(~u32_value->value);
+        } else if (right->kind == ConstValueKind::ISIZE) {
+            auto isize_value = std::dynamic_pointer_cast<Isize_ConstValue>(right);
+            return std::make_shared<Isize_ConstValue>(~isize_value->value);
+        } else if (right->kind == ConstValueKind::USIZE) {
+            auto usize_value = std::dynamic_pointer_cast<Usize_ConstValue>(right);
+            return std::make_shared<Usize_ConstValue>(~usize_value->value);
+        } else {
+            throw string("CE, unary ! operator requires bool or integer type");
         }
-        auto bool_value = std::dynamic_pointer_cast<Bool_ConstValue>(right);
-        return std::make_shared<Bool_ConstValue>(!bool_value->value);
     } else {
         throw string("CE, unexpected unary operator, type: ") + unary_operator_to_string(OP);
     }

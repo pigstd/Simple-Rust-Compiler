@@ -1,0 +1,15 @@
+/*
+Test Package: simple-3
+Test Target: misc
+Author: Zemu Zhu
+Time: 2025-10-10
+Verdict: Success
+Comment: Test ! in front of integer
+*/
+
+fn main() {
+    let a : i32 = 10;
+    let b : i32 = !a;
+    printInt(b);
+    exit(0);
+}
