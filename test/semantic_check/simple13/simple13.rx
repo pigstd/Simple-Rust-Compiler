@@ -1,0 +1,16 @@
+/*
+Test Package: simple
+Test Target: misc
+Author: Zemu Zhu
+Time: 2025-10-10
+Verdict: Success
+Comment: Test 0x in integer literal
+*/
+
+fn main() {
+    let a : i32 = 0x1a;
+    let b : i32 = 0xff;
+    printInt(a);
+    printInt(b);
+    exit(0);
+}

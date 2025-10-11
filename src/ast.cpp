@@ -452,31 +452,30 @@ Expr_ptr Parser::nud(Token token) {
     } else if (token.type == Token_type::LEFT_BRACKET) {
         // [expr1, expr2, ...] or [expr; n]
         lexer.consume_expect_token(Token_type::LEFT_BRACKET);
-        Expr_ptr first_expr = parse_expression();
         if (lexer.peek_token().type == Token_type::RIGHT_BRACKET) {
             // []
             lexer.consume_expect_token(Token_type::RIGHT_BRACKET);
             return std::make_shared<ArrayExpr>(std::vector<Expr_ptr>{});
+        }
+        Expr_ptr first_expr = parse_expression();
+        if (lexer.peek_token().type == Token_type::SEMICOLON) {
+            // repeat array [expr; n]
+            lexer.consume_expect_token(Token_type::SEMICOLON);
+            Expr_ptr size_expr = parse_expression();
+            lexer.consume_expect_token(Token_type::RIGHT_BRACKET);
+            return std::make_shared<RepeatArrayExpr>(std::move(first_expr), std::move(size_expr));
         } else {
-            if (lexer.peek_token().type == Token_type::SEMICOLON) {
-                // repeat array [expr; n]
-                lexer.consume_expect_token(Token_type::SEMICOLON);
-                Expr_ptr size_expr = parse_expression();
-                lexer.consume_expect_token(Token_type::RIGHT_BRACKET);
-                return std::make_shared<RepeatArrayExpr>(std::move(first_expr), std::move(size_expr));
-            } else {
-                // normal array [expr1, expr2, ...(,)]
-                std::vector<Expr_ptr> elements; elements.push_back(std::move(first_expr));
-                while (lexer.peek_token().type == Token_type::COMMA) {
-                    lexer.consume_expect_token(Token_type::COMMA);
-                    if (lexer.peek_token().type == Token_type::RIGHT_BRACKET) {
-                        break; // 允许最后一个元素后面有逗号
-                    }
-                    elements.push_back(parse_expression());
+            // normal array [expr1, expr2, ...(,)]
+            std::vector<Expr_ptr> elements; elements.push_back(std::move(first_expr));
+            while (lexer.peek_token().type == Token_type::COMMA) {
+                lexer.consume_expect_token(Token_type::COMMA);
+                if (lexer.peek_token().type == Token_type::RIGHT_BRACKET) {
+                    break; // 允许最后一个元素后面有逗号
                 }
-                lexer.consume_expect_token(Token_type::RIGHT_BRACKET);
-                return std::make_shared<ArrayExpr>(std::move(elements));
+                elements.push_back(parse_expression());
             }
+            lexer.consume_expect_token(Token_type::RIGHT_BRACKET);
+            return std::make_shared<ArrayExpr>(std::move(elements));
         }
     } else if (token.type == Token_type::IDENTIFIER) {
         lexer.consume_expect_token(Token_type::IDENTIFIER);
