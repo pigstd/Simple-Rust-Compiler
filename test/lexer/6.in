@@ -1,0 +1,24 @@
+/*
+Test Package: lexer-06
+Test Target: string
+Author: Zemu Zhu
+Time: 2025-10-10
+Verdict: Failed
+Comment: test raw string
+*/
+
+/*
+Test Package: simple-3
+Test Target: misc
+Author: Zemu Zhu
+Time: 2025-10-10
+Verdict: Success
+Comment: Test raw string in many lines
+*/
+
+fn main() {
+    let s: &str = r#"Hello,
+World!"#;
+    println(s);
+    exit(0);
+}

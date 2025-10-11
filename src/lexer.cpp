@@ -202,132 +202,127 @@ void Lexer::add_number(string &now_str) {
     now_str = "";
 }
 
+// remark: 我没有考虑 cstring，但是目前数据没有
 void Lexer::read_and_get_tokens() {
-    string line;
+    string line, all_code;
     // 是否在 /* ... */ 多行注释中
     bool is_in_block_comment = false;
+    // 是否在 // 单行注释中
+    bool is_in_line_comment = false;
+    bool is_in_common_string = false; // 是否在 "" 中
+    bool is_in_raw_string = false;    // 是否在 r"" 或者 r#""# 中
+    size_t raw_string_level = 0;         // raw string 的 # 数量
+    bool is_in_char = false; // 是否在 '' 中
+    bool is_in_number = false; // 是否在一个数字中
+    bool is_in_identifier = false; // 是否在一个标识符中
     while (getline(std::cin, line)) {
-        line = line + "  ";
-        size_t line_len = line.size();
-        // 单行注释可以直接 break
-        bool is_in_common_string = false; // 是否在 "" 中
-        bool is_in_raw_string = false;    // 是否在 r"" 或者 r#""# 中
-        size_t raw_string_level = 0;         // raw string 的 # 数量
-        bool is_in_char = false; // 是否在 '' 中
-        bool is_in_number = false; // 是否在一个数字中
-        bool is_in_identifier = false; // 是否在一个标识符中
-        string now_str = "";
-        for (size_t i = 0; i + 2 < line_len; i++) {
-            char now_ch = line[i];
-            char next_ch = line[i + 1];
-            char next_next_ch = line[i + 2];
-            // 处理多行注释 : /* ... */
-            if (is_in_block_comment) {
-                if (now_ch == '*' && next_ch == '/') {
-                    is_in_block_comment = false;
-                    i++;
-                }
-                continue;
+        all_code += line + "\n";
+    }
+    all_code += "   ";
+    size_t code_len = all_code.size();
+    string now_str = "";
+    for (size_t i = 0; i + 2 < code_len; i++) {
+        char now_ch = all_code[i];
+        char next_ch = all_code[i + 1];
+        char next_next_ch = all_code[i + 2];
+        // 处理多行注释 : /* ... */
+        if (is_in_block_comment) {
+            if (now_ch == '*' && next_ch == '/') {
+                is_in_block_comment = false;
+                i++;
             }
-            if (is_in_char) {
-                if (now_ch == '\'') {throw string("CE, find '' "); }
-                else if (now_ch == '\\') {
-                    if (next_next_ch != '\'') {
-                        throw string("CE, find no '");
-                    }
-                    tokens.push_back(Token(Token_type::CHAR, get_escape_character(next_ch)));
-                    i += 2;
-                } else {
-                    if (next_ch != '\'') {
-                        throw string("CE, find no '");
-                    }
-                    tokens.push_back(Token(Token_type::CHAR, string(1, now_ch)));
-                    i += 1;
-                }
-                is_in_char = false;
-                continue;
+            continue;
+        }
+        // 处理单行注释 : // ...
+        if (is_in_line_comment) {
+            if (now_ch == '\n') {
+                is_in_line_comment = false;
             }
-            if (is_in_common_string) {
-                if (now_ch == '\"') {
-                    is_in_common_string = false;
+            continue;
+        }
+        if (is_in_char) {
+            if (now_ch == '\'') {throw string("CE, find '' "); }
+            else if (now_ch == '\\') {
+                if (next_next_ch != '\'') {
+                    throw string("CE, find no '");
+                }
+                tokens.push_back(Token(Token_type::CHAR, get_escape_character(next_ch)));
+                i += 2;
+            } else {
+                if (next_ch != '\'') {
+                    throw string("CE, find no '");
+                }
+                tokens.push_back(Token(Token_type::CHAR, string(1, now_ch)));
+                i += 1;
+            }
+            is_in_char = false;
+            continue;
+        }
+        if (is_in_common_string) {
+            if (now_ch == '\"') {
+                is_in_common_string = false;
+                tokens.push_back(Token(Token_type::STRING, now_str));
+                now_str = "";
+            } else if (now_ch == '\\') {
+                now_str += get_escape_character(next_ch);
+                i++;
+            } else {
+                now_str += now_ch;
+            }
+            continue;
+        }
+        if (is_in_raw_string) {
+            if (now_ch == '\"') {
+                bool can_end = true;
+                for (size_t j = 1; j <= raw_string_level; j++) {
+                    if (i + j >= code_len || all_code[i + j] != '#') {
+                        can_end = false;
+                        break;
+                    }
+                }
+                if (can_end) {
+                    is_in_raw_string = false;
                     tokens.push_back(Token(Token_type::STRING, now_str));
                     now_str = "";
-                } else if (now_ch == '\\') {
-                    now_str += get_escape_character(next_ch);
+                    i += raw_string_level;
+                } else {
+                    now_str += now_ch;
+                }
+            } else {
+                now_str += now_ch;
+            }
+            continue;
+        }
+        if (now_ch == '/' && next_ch == '*') {
+            is_in_block_comment = true;
+            i++;
+            continue;
+        }
+        if (now_ch == '/' && next_ch == '/') {
+            is_in_line_comment = true;
+            i++;
+            continue;
+        }
+        if (is_not_symbol(now_ch)) {
+            // 需要特殊考虑：raw string 的情况
+            if (now_ch == 'r' && (next_ch == '\"' || next_ch == '#')) {
+                is_in_raw_string = true;
+                if (next_ch == '#') {
+                    raw_string_level = 1;
+                    size_t j = i + 2;
+                    while (j < code_len && all_code[j] == '#') {
+                        raw_string_level++;
+                        j++;
+                    }
+                    if (j < code_len && all_code[j] == '\"') {
+                        i = j;
+                    } else {
+                        throw string("CE, no starting of raw string");
+                    }
+                } else {
                     i++;
-                } else {
-                    now_str += now_ch;
+                    raw_string_level = 0;
                 }
-                continue;
-            }
-            if (is_in_raw_string) {
-                if (now_ch == '\"') {
-                    bool can_end = true;
-                    for (size_t j = 1; j <= raw_string_level; j++) {
-                        if (i + j >= line_len || line[i + j] != '#') {
-                            can_end = false;
-                            break;
-                        }
-                    }
-                    if (can_end) {
-                        is_in_raw_string = false;
-                        tokens.push_back(Token(Token_type::STRING, now_str));
-                        now_str = "";
-                        i += raw_string_level;
-                    } else {
-                        now_str += now_ch;
-                    }
-                } else {
-                    now_str += now_ch;
-                }
-                continue;
-            }
-            if (now_ch == '/' && next_ch == '*') {
-                is_in_block_comment = true;
-                i++;
-                continue;
-            }
-            if (now_ch == '/' && next_ch == '/') {
-                break;
-            }
-            if (is_not_symbol(now_ch)) {
-                // 需要特殊考虑：raw string 的情况
-                if (now_ch == 'r' && (next_ch == '\"' || next_ch == '#')) {
-                    is_in_raw_string = true;
-                    if (next_ch == '#') {
-                        raw_string_level = 1;
-                        size_t j = i + 2;
-                        while (j < line_len && line[j] == '#') {
-                            raw_string_level++;
-                            j++;
-                        }
-                        if (j < line_len && line[j] == '\"') {
-                            i = j;
-                        } else {
-                            throw string("CE, no starting of raw string");
-                        }
-                    } else {
-                        i++;
-                        raw_string_level = 0;
-                    }
-                    if (is_in_number) {
-                        add_number(now_str);
-                        is_in_number = false;
-                    }
-                    if (is_in_identifier) {
-                        add_identifier(now_str);
-                        is_in_identifier = false;
-                    }
-                    continue;
-                }
-                if (is_in_number || is_in_identifier) {now_str += now_ch;}
-                else {
-                    now_str = string(1, now_ch);
-                    if (now_ch <= '9' && now_ch >= '0') {is_in_number = true;}
-                    else {is_in_identifier = true;}
-                }
-            }
-            else {
                 if (is_in_number) {
                     add_number(now_str);
                     is_in_number = false;
@@ -336,44 +331,61 @@ void Lexer::read_and_get_tokens() {
                     add_identifier(now_str);
                     is_in_identifier = false;
                 }
-                // 空白字符直接 continue
-                if (now_ch == ' ' || now_ch == '\t' || now_ch == '\r' || now_ch == '\n') {
-                    continue;
-                }
-                // 分成长度为 3 2 1 的符号来处理
-                string three_str = string(1, now_ch) + string(1, next_ch) + string(1, next_next_ch);
-                string two_str = string(1, now_ch) + string(1, next_ch);
-                string one_str = string(1, now_ch);
-                if (symbol_map.find(three_str) != symbol_map.end()) {
-                    tokens.push_back(Token(symbol_map[three_str], three_str));
-                    i += 2;
-                } else if (symbol_map.find(two_str) != symbol_map.end()) {
-                    tokens.push_back(Token(symbol_map[two_str], two_str));
-                    i += 1;
-                } else if (symbol_map.find(one_str) != symbol_map.end()) {
-                    tokens.push_back(Token(symbol_map[one_str], one_str));
-                } else {
-                    // 考虑 " " 和 ' ' 的情况，这个时候是作为 string / char
-                    if (now_ch == '\"') {
-                        is_in_common_string = true;
-                        continue;
-                    }
-                    if (now_ch == '\'') {
-                        is_in_char = true;
-                        continue;
-                    }
-                    throw string("CE, no such symbol");
-                }
+                continue;
+            }
+            if (is_in_number || is_in_identifier) {now_str += now_ch;}
+            else {
+                now_str = string(1, now_ch);
+                if (now_ch <= '9' && now_ch >= '0') {is_in_number = true;}
+                else {is_in_identifier = true;}
             }
         }
-        if (is_in_char || is_in_common_string || is_in_raw_string) {
-            throw string("CE, find no end char or string");
+        else {
+            if (is_in_number) {
+                add_number(now_str);
+                is_in_number = false;
+            }
+            if (is_in_identifier) {
+                add_identifier(now_str);
+                is_in_identifier = false;
+            }
+            // 空白字符直接 continue
+            if (now_ch == ' ' || now_ch == '\t' || now_ch == '\r' || now_ch == '\n') {
+                continue;
+            }
+            // 分成长度为 3 2 1 的符号来处理
+            string three_str = string(1, now_ch) + string(1, next_ch) + string(1, next_next_ch);
+            string two_str = string(1, now_ch) + string(1, next_ch);
+            string one_str = string(1, now_ch);
+            if (symbol_map.find(three_str) != symbol_map.end()) {
+                tokens.push_back(Token(symbol_map[three_str], three_str));
+                i += 2;
+            } else if (symbol_map.find(two_str) != symbol_map.end()) {
+                tokens.push_back(Token(symbol_map[two_str], two_str));
+                i += 1;
+            } else if (symbol_map.find(one_str) != symbol_map.end()) {
+                tokens.push_back(Token(symbol_map[one_str], one_str));
+            } else {
+                // 考虑 " " 和 ' ' 的情况，这个时候是作为 string / char
+                if (now_ch == '\"') {
+                    is_in_common_string = true;
+                    continue;
+                }
+                if (now_ch == '\'') {
+                    is_in_char = true;
+                    continue;
+                }
+                throw string("CE, no such symbol");
+            }
         }
-        if (is_in_number) {
-            add_number(now_str);
-        } else if (is_in_identifier) {
-            add_identifier(now_str);
-        }
+    }
+    if (is_in_char || is_in_common_string || is_in_raw_string) {
+        throw string("CE, find no end char or string");
+    }
+    if (is_in_number) {
+        add_number(now_str);
+    } else if (is_in_identifier) {
+        add_identifier(now_str);
     }
     if (is_in_block_comment) {
         throw string("CE, find no end of block comment");
