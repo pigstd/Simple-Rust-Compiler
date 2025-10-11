@@ -29,18 +29,18 @@ jobs:
         run: |
           chmod +x semantic_testcases_tester
           ./semantic_testcases_tester -t semantic-1
-        continue-on-error: true
+        # continue-on-error: true
 
       - name: Test Semantic-2
         working-directory: scripts
         run: |
           chmod +x semantic_testcases_tester
           ./semantic_testcases_tester -t semantic-2
-        continue-on-error: true
+        # continue-on-error: true
       
       - name: Test my Semantic test
         working-directory: scripts
         run: |
           chmod +x semantic_testcases_tester
           ./semantic_testcases_tester -m semantic_check
-        continue-on-error: true
+        # continue-on-error: true
