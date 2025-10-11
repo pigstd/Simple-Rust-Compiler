@@ -665,17 +665,20 @@ void ExprTypeAndLetStmtVisitor::visit(BlockExpr &node) {
     if (now_scope->is_main_scope && !now_scope->has_exit) {
         throw string("CE, main function must have an exit call");
     }
+    RealType_ptr result_type;
     if (!has_state(node_outcome_state_map[node.NodeId], OutcomeType::NEXT)) {
-        node_type_and_place_kind_map[node.NodeId] =
-            {std::make_shared<NeverRealType>(ReferenceType::NO_REF), PlaceKind::NotPlace};
+        result_type = std::make_shared<NeverRealType>(ReferenceType::NO_REF);
     } else if (node.tail_statement != nullptr) {
         auto [tail_type, tail_place] = node_type_and_place_kind_map[node.tail_statement->NodeId];
-        node_type_and_place_kind_map[node.NodeId] =
-            {tail_type, PlaceKind::NotPlace};
+        result_type = tail_type;
     } else {
-        node_type_and_place_kind_map[node.NodeId] =
-            {std::make_shared<UnitRealType>(ReferenceType::NO_REF), PlaceKind::NotPlace};
+        result_type = std::make_shared<UnitRealType>(ReferenceType::NO_REF);
     }
+    if (node.must_return_unit && result_type->kind != RealTypeKind::UNIT && result_type->kind != RealTypeKind::NEVER) {
+        throw string("CE, block expression must return unit type");
+    }
+    node_type_and_place_kind_map[node.NodeId] =
+        {result_type, PlaceKind::NotPlace};
 }
 void ExprTypeAndLetStmtVisitor::visit(IfExpr &node) {
     if (require_function) {

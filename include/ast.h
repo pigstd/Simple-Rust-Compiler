@@ -256,7 +256,8 @@ struct IndexExpr : public Expr_Node {
 struct BlockExpr : public Expr_Node {
     vector<Stmt_ptr> statements;
     Stmt_ptr tail_statement; // 可选的尾随表达式，若最后有 ; 那么就是 nullptr
-    BlockExpr(vector<Stmt_ptr> stmts_, Stmt_ptr tail_ = nullptr) : statements(std::move(stmts_)), tail_statement(std::move(tail_)) {}
+    bool must_return_unit; // {} 开头，最后面没有分号，那么一定返回 ()
+    BlockExpr(vector<Stmt_ptr> stmts_, Stmt_ptr tail_ = nullptr) : statements(std::move(stmts_)), tail_statement(std::move(tail_)), must_return_unit(false) {}
     void accept(AST_visitor &v) override;
 };
 

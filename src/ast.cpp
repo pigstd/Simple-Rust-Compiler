@@ -2,6 +2,7 @@
 #include "lexer.h"
 #include "visitor.h"
 // #include <iostream>
+#include <cassert>
 #include <memory>
 #include <tuple>
 
@@ -244,8 +245,9 @@ ItemStmt_ptr Parser::parse_item_statement() {
 
 Stmt_ptr Parser::parse_statement() {
     // 这里只需要考虑 let, expression, item
-    // 关于 if while loop:
+    // 特殊情况： if while loop block 可以单独作为语句，也可以作为表达式
     // 若是 if while loop 开头，这个时候作为语句，可以不以分号结尾（即，这个 statement 就只有这个语句，不能 if 开头然后做运算）
+    // block 同上，所以如果是 { 开头，那么也是作为语句，可以不以分号结尾
     // 如果是进入了 parse_expr_statement，那么 if 后面可以做运算（也可以没有分号，这个时候是尾随表达式）
     // 所以 statement 里面要先把 if while loop 解析掉
     Token token = lexer.peek_token();
@@ -259,11 +261,14 @@ Stmt_ptr Parser::parse_statement() {
         return parse_item_statement();
     } else if (token.type == Token_type::IF ||
                token.type == Token_type::WHILE ||
-               token.type == Token_type::LOOP) {
+               token.type == Token_type::LOOP ||
+               token.type == Token_type::LEFT_BRACE) {
         Expr_ptr expr = nullptr;
         if (token.type == Token_type::IF) { expr = parse_if_expression(); }
         else if (token.type == Token_type::WHILE) { expr = parse_while_expression(); }
         else if (token.type == Token_type::LOOP) { expr = parse_loop_expression(); }
+        else if (token.type == Token_type::LEFT_BRACE) { expr = parse_block_expression(); }
+        else { assert(0); }
         bool is_semi = false;
         if (lexer.peek_token().type == Token_type::SEMICOLON) {
             lexer.consume_expect_token(Token_type::SEMICOLON);
@@ -310,6 +315,8 @@ BlockExpr_ptr Parser::parse_block_expression() {
                 } else if ([[maybe_unused]]auto while_expr = dynamic_cast<WhileExpr*>(tail_expr.get())) {
                     // do nothing
                     // while 一定返回 ()
+                } else if (auto block_expr = dynamic_cast<BlockExpr*>(tail_expr.get())) {
+                    block_expr->must_return_unit = true;
                 } else {
                     throw string("CE, unexpected statement after expression without semicolon");
                 }
