@@ -1,10 +1,10 @@
-#include "semantic_step4.h"
-#include "ast.h"
-#include "semantic_step1.h"
-#include "semantic_step2.h"
-#include "semantic_step3.h"
-#include "visitor.h"
-#include "tools.h"
+#include "semantic/semantic_step4.h"
+#include "ast/ast.h"
+#include "semantic/semantic_step1.h"
+#include "semantic/semantic_step2.h"
+#include "semantic/semantic_step3.h"
+#include "ast/visitor.h"
+#include "tools/tools.h"
 #include <cassert>
 #include <cstddef>
 // #include <iostream>

@@ -7,7 +7,7 @@
 
 */
 
-#include "lexer.h"
+#include "lexer/lexer.h"
 #include <cfloat>
 #include <cstddef>
 #include <memory>

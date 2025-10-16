@@ -1,7 +1,7 @@
 #ifndef SEMANTIC_STEP2_H
 #define SEMANTIC_STEP2_H
-#include "ast.h"
-#include "semantic_step1.h"
+#include "ast/ast.h"
+#include "semantic/semantic_step1.h"
 #include <cstddef>
 #include <memory>
 using std::shared_ptr;

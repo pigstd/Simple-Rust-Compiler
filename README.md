@@ -7,3 +7,29 @@ Reference :
 - [编译器整体安排](https://notes.sjtu.edu.cn/s/QAokddEjp)
 - [测试集](http://rcomp-cases.wxzheng.pro/)
 - [semantic check tutorial](https://notes.sjtu.edu.cn/s/Rkii5SClH)
+
+## Project Structure
+
+```
+.
+├── include
+│   ├── ast
+│   ├── lexer
+│   ├── parser
+│   ├── semantic
+│   └── tools
+├── src
+│   ├── ast
+│   ├── lexer
+│   ├── parser
+│   ├── semantic
+│   └── tools
+├── test
+│   ├── const_eval
+│   ├── lexer
+│   ├── parser
+│   └── semantic_check
+├── main.cpp
+├── CMakeLists.txt
+└── scripts
+```

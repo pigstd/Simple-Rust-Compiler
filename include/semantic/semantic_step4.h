@@ -2,11 +2,11 @@
 #define SEMANTIC_STEP4_H
 
 
-#include "ast.h"
-#include "semantic_step1.h"
-#include "semantic_step3.h"
-#include "visitor.h"
-#include "semantic_step2.h"
+#include "ast/ast.h"
+#include "ast/visitor.h"
+#include "semantic/semantic_step1.h"
+#include "semantic/semantic_step3.h"
+#include "semantic/semantic_step2.h"
 #include <cstddef>
 
 /*

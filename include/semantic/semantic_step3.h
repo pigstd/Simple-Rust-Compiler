@@ -9,10 +9,10 @@
 控制流分析
 */
 
-#include "lexer.h"
-#include "ast.h"
-#include "semantic_step1.h"
-#include "visitor.h"
+#include "lexer/lexer.h"
+#include "ast/ast.h"
+#include "ast/visitor.h"
+#include "semantic/semantic_step1.h"
 #include <bitset>
 #include <cstddef>
 #include <string>

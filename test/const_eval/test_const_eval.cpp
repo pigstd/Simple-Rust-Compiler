@@ -1,6 +1,6 @@
 // 测试 semantic_step3 部分的 const eval 是否正确
-#include "ast.h"
-#include "semantic_step3.h"
+#include "ast/ast.h"
+#include "semantic/semantic_step3.h"
 #include <cassert>
 #include <cstddef>
 #include <iostream>

@@ -1,6 +1,6 @@
-#include "lexer.h"
-#include "parser.h"
-#include "semantic_checker.h"
+#include "lexer/lexer.h"
+#include "parser/parser.h"
+#include "semantic/semantic_checker.h"
 #include <iostream>
 
 

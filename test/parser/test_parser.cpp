@@ -1,6 +1,6 @@
-#include "ast.h"
-#include "visitor.h"
-#include "parser.h"
+#include "ast/ast.h"
+#include "ast/visitor.h"
+#include "parser/parser.h"
 #include <iostream>
 
 /*

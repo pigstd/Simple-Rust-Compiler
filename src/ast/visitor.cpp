@@ -1,5 +1,5 @@
-#include "visitor.h"
-#include "ast.h"
+#include "ast/visitor.h"
+#include "ast/ast.h"
 #include <iostream>
 #include <ostream>
 
@@ -432,4 +432,141 @@ void AST_Printer::visit(IdentifierPattern &node) {
     depth++;
     AST_Walker::visit(node);
     depth--;
+}
+
+void ASTIdGenerator::visit(LiteralExpr &node) {
+    node.NodeId = current_id++;
+    AST_Walker::visit(node);
+}
+void ASTIdGenerator::visit(IdentifierExpr &node) {
+    node.NodeId = current_id++;
+    AST_Walker::visit(node);
+}
+void ASTIdGenerator::visit(BinaryExpr &node) {
+    node.NodeId = current_id++;
+    AST_Walker::visit(node);
+}
+void ASTIdGenerator::visit(UnaryExpr &node) {
+    node.NodeId = current_id++;
+    AST_Walker::visit(node);
+}
+void ASTIdGenerator::visit(CallExpr &node) {
+    node.NodeId = current_id++;
+    AST_Walker::visit(node);
+}
+void ASTIdGenerator::visit(FieldExpr &node) {
+    node.NodeId = current_id++;
+    AST_Walker::visit(node);
+}
+void ASTIdGenerator::visit(StructExpr &node) {
+    node.NodeId = current_id++;
+    AST_Walker::visit(node);
+}
+void ASTIdGenerator::visit(IndexExpr &node) {
+    node.NodeId = current_id++;
+    AST_Walker::visit(node);
+}
+void ASTIdGenerator::visit(BlockExpr &node) {
+    node.NodeId = current_id++;
+    AST_Walker::visit(node);
+}
+void ASTIdGenerator::visit(IfExpr &node) {
+    node.NodeId = current_id++;
+    AST_Walker::visit(node);
+}
+void ASTIdGenerator::visit(WhileExpr &node) {
+    node.NodeId = current_id++;
+    AST_Walker::visit(node);
+}
+void ASTIdGenerator::visit(LoopExpr &node) {
+    node.NodeId = current_id++;
+    AST_Walker::visit(node);
+}
+void ASTIdGenerator::visit(ReturnExpr &node) {
+    node.NodeId = current_id++;
+    AST_Walker::visit(node);
+}
+void ASTIdGenerator::visit(ContinueExpr &node) {
+    node.NodeId = current_id++;
+    AST_Walker::visit(node);
+}
+void ASTIdGenerator::visit(BreakExpr &node) {
+    node.NodeId = current_id++;
+    AST_Walker::visit(node);
+}
+void ASTIdGenerator::visit(CastExpr &node) {
+    node.NodeId = current_id++;
+    AST_Walker::visit(node);
+}
+void ASTIdGenerator::visit(PathExpr &node) {
+    node.NodeId = current_id++;
+    AST_Walker::visit(node);
+}
+void ASTIdGenerator::visit(SelfExpr &node) {
+    node.NodeId = current_id++;
+    AST_Walker::visit(node);
+}
+void ASTIdGenerator::visit(UnitExpr &node) {
+    node.NodeId = current_id++;
+    AST_Walker::visit(node);
+}
+void ASTIdGenerator::visit(ArrayExpr &node) {
+    node.NodeId = current_id++;
+    AST_Walker::visit(node);
+}
+void ASTIdGenerator::visit(RepeatArrayExpr &node) {
+    node.NodeId = current_id++;
+    AST_Walker::visit(node);
+}
+void ASTIdGenerator::visit(FnItem &node) {
+    node.NodeId = current_id++;
+    AST_Walker::visit(node);
+}
+void ASTIdGenerator::visit(StructItem &node) {
+    node.NodeId = current_id++;
+    AST_Walker::visit(node);
+}
+void ASTIdGenerator::visit(EnumItem &node) {
+    node.NodeId = current_id++;
+    AST_Walker::visit(node);
+}
+void ASTIdGenerator::visit(ImplItem &node) {
+    node.NodeId = current_id++;
+    AST_Walker::visit(node);
+}
+void ASTIdGenerator::visit(ConstItem &node) {
+    node.NodeId = current_id++;
+    AST_Walker::visit(node);
+}
+void ASTIdGenerator::visit(LetStmt &node) {
+    node.NodeId = current_id++;
+    AST_Walker::visit(node);
+}
+void ASTIdGenerator::visit(ExprStmt &node) {
+    node.NodeId = current_id++;
+    AST_Walker::visit(node);
+}
+void ASTIdGenerator::visit(ItemStmt &node) {
+    node.NodeId = current_id++;
+    AST_Walker::visit(node);
+}
+void ASTIdGenerator::visit(PathType &node) {
+    node.NodeId = current_id++;
+    AST_Walker::visit(node);
+}
+void ASTIdGenerator::visit(ArrayType &node) {
+    node.NodeId = current_id++;
+    AST_Walker::visit(node);
+}
+void ASTIdGenerator::visit(UnitType &node) {
+    node.NodeId = current_id++;
+    AST_Walker::visit(node);
+}
+void ASTIdGenerator::visit(SelfType &node) {
+    node.NodeId = current_id++;
+    AST_Walker::visit(node);
+}
+void ASTIdGenerator::visit(IdentifierPattern &node) {
+    node.NodeId = current_id++;
+    AST_Walker::visit(node);
 }

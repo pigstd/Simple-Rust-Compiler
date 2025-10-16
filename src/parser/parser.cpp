@@ -1,10 +1,16 @@
-#include "parser.h"
+#include "parser/parser.h"
+#include "ast/visitor.h"
 #include <cassert>
 
 vector<Item_ptr> Parser::parse() {
     vector<Item_ptr> items;
     while (lexer.has_more_tokens()) {
         items.push_back(parse_item());
+    }
+    // 给每个 AST 节点生成唯一 id
+    ASTIdGenerator id_generator;
+    for (auto &item : items) {
+        item->accept(id_generator);
     }
     return items;
 }

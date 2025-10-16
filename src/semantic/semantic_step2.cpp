@@ -1,6 +1,6 @@
-#include "semantic_step2.h"
-#include "ast.h"
-#include "semantic_step1.h"
+#include "semantic/semantic_step2.h"
+#include "ast/ast.h"
+#include "semantic/semantic_step1.h"
 #include <cassert>
 #include <cstddef>
 // #include <iostream>

@@ -6,8 +6,8 @@
 step1 : 建作用域树 + 符号初收集
 */
 
-#include "ast.h"
-#include "visitor.h"
+#include "ast/ast.h"
+#include "ast/visitor.h"
 #include <cstddef>
 #include <map>
 #include <memory>
@@ -156,46 +156,6 @@ struct LetDecl : public ValueDecl {
     RealType_ptr let_type;
     Mutibility is_mut;
     LetDecl(RealType_ptr let_type_, Mutibility is_mut_) : ValueDecl(ValueDeclKind::LetStmt), let_type(let_type_), is_mut(is_mut_) {}
-};
-
-struct ASTIdGenerator : public AST_Walker {
-    size_t current_id = 0;
-    ASTIdGenerator() : current_id(0) {}
-    virtual ~ASTIdGenerator() = default;
-    virtual void visit(LiteralExpr &node) override;
-    virtual void visit(IdentifierExpr &node) override;
-    virtual void visit(BinaryExpr &node) override;
-    virtual void visit(UnaryExpr &node) override;
-    virtual void visit(CallExpr &node) override;
-    virtual void visit(FieldExpr &node) override;
-    virtual void visit(StructExpr &node) override;
-    virtual void visit(IndexExpr &node) override;
-    virtual void visit(BlockExpr &node) override;
-    virtual void visit(IfExpr &node) override;
-    virtual void visit(WhileExpr &node) override;
-    virtual void visit(LoopExpr &node) override;
-    virtual void visit(ReturnExpr &node) override;
-    virtual void visit(BreakExpr &node) override;
-    virtual void visit(ContinueExpr &node) override;
-    virtual void visit(CastExpr &node) override;
-    virtual void visit(PathExpr &node) override;
-    virtual void visit(SelfExpr &node) override;
-    virtual void visit(UnitExpr &node) override;
-    virtual void visit(ArrayExpr &node) override;
-    virtual void visit(RepeatArrayExpr &node) override;
-    virtual void visit(FnItem &node) override;
-    virtual void visit(StructItem &node) override;
-    virtual void visit(EnumItem &node) override;
-    virtual void visit(ImplItem &node) override;
-    virtual void visit(ConstItem &node) override;
-    virtual void visit(LetStmt &node) override;
-    virtual void visit(ExprStmt &node) override;
-    virtual void visit(ItemStmt &node) override;
-    virtual void visit(PathType &node) override;
-    virtual void visit(ArrayType &node) override;
-    virtual void visit(UnitType &node) override;
-    virtual void visit(SelfType &node) override;
-    virtual void visit(IdentifierPattern &node) override;
 };
 
 struct ScopeBuilder_Visitor : public AST_Walker {

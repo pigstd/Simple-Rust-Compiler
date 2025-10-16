@@ -1,6 +1,6 @@
-#include "ast.h"
-#include "lexer.h"
-#include "visitor.h"
+#include "ast/ast.h"
+#include "lexer/lexer.h"
+#include "ast/visitor.h"
 // #include <iostream>
 #include <cassert>
 

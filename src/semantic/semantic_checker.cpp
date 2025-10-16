@@ -1,13 +1,13 @@
-#include "ast.h"
-#include "semantic_step1.h"
-#include "semantic_step2.h"
-#include "semantic_step3.h"
-// #include "visitor.h"
+#include "ast/ast.h"
+#include "semantic/semantic_step1.h"
+#include "semantic/semantic_step2.h"
+#include "semantic/semantic_step3.h"
+// #include "ast/visitor.h"
 #include <cstddef>
 // #include <iostream>
 #include <memory>
 #include <vector>
-#include "semantic_checker.h"
+#include "semantic/semantic_checker.h"
 
 Semantic_Checker::Semantic_Checker(std::vector<Item_ptr> &items_) :
     root_scope(std::make_shared<Scope>(nullptr, ScopeKind::Root)), items(items_) {}
@@ -25,11 +25,6 @@ void Semantic_Checker::checker() {
 }
 
 void Semantic_Checker::step1_build_scopes_and_collect_symbols() {
-    // 给每个 AST 节点生成唯一 id
-    ASTIdGenerator id_generator;
-    for (auto &item : items) {
-        item->accept(id_generator);
-    }
     // show ast
     // AST_Printer ast_printer;
     // for (auto &item : items) {
