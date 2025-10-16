@@ -1,5 +1,6 @@
 #include "ast.h"
 #include "visitor.h"
+#include "parser.h"
 #include <iostream>
 
 /*

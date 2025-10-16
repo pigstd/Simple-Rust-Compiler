@@ -1,4 +1,5 @@
-#include "ast.h"
+#include "lexer.h"
+#include "parser.h"
 #include "semantic_checker.h"
 #include <iostream>
 
