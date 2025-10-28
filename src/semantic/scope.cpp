@@ -1,8 +1,5 @@
-#include "semantic/semantic_step1.h"
-#include "ast/ast.h"
-#include "ast/visitor.h"
-#include <cstddef>
 #include <memory>
+#include "semantic/scope.h"
 
 /*
 实现 semantic check 的第一步的相关代码

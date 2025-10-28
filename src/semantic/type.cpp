@@ -1,6 +1,7 @@
-#include "semantic/semantic_step2.h"
 #include "ast/ast.h"
-#include "semantic/semantic_step1.h"
+#include "semantic/decl.h"
+#include "semantic/scope.h"
+#include "semantic/type.h"
 #include <cassert>
 #include <cstddef>
 // #include <iostream>
@@ -272,3 +273,60 @@ void Scope_dfs_and_build_type(Scope_ptr scope, map<size_t, RealType_ptr> &type_m
         Scope_dfs_and_build_type(child_scope, type_map, const_expr_queue);
     }
 }
+
+
+void OtherTypeAndRepeatArrayVisitor::visit(LiteralExpr &node) { AST_Walker::visit(node); }
+void OtherTypeAndRepeatArrayVisitor::visit(IdentifierExpr &node) { AST_Walker::visit(node); }
+void OtherTypeAndRepeatArrayVisitor::visit(BinaryExpr &node) { AST_Walker::visit(node); }
+void OtherTypeAndRepeatArrayVisitor::visit(UnaryExpr &node) { AST_Walker::visit(node); }
+void OtherTypeAndRepeatArrayVisitor::visit(CallExpr &node) { AST_Walker::visit(node); }
+void OtherTypeAndRepeatArrayVisitor::visit(FieldExpr &node) { AST_Walker::visit(node); }
+void OtherTypeAndRepeatArrayVisitor::visit(StructExpr &node) {
+    AST_Walker::visit(node);    
+    // 解析 node.struct_name
+    find_real_type(node_scope_map[node.struct_name->NodeId], node.struct_name, type_map, const_expr_queue);
+}
+void OtherTypeAndRepeatArrayVisitor::visit(IndexExpr &node) { AST_Walker::visit(node); }
+void OtherTypeAndRepeatArrayVisitor::visit(BlockExpr &node) { AST_Walker::visit(node); }
+void OtherTypeAndRepeatArrayVisitor::visit(IfExpr &node) { AST_Walker::visit(node); }
+void OtherTypeAndRepeatArrayVisitor::visit(WhileExpr &node) { AST_Walker::visit(node); }
+void OtherTypeAndRepeatArrayVisitor::visit(LoopExpr &node) { AST_Walker::visit(node); }
+void OtherTypeAndRepeatArrayVisitor::visit(ReturnExpr &node) { AST_Walker::visit(node); }
+void OtherTypeAndRepeatArrayVisitor::visit(BreakExpr &node) { AST_Walker::visit(node); }
+void OtherTypeAndRepeatArrayVisitor::visit(ContinueExpr &node) { AST_Walker::visit(node); }
+void OtherTypeAndRepeatArrayVisitor::visit(CastExpr &node) {
+    // 将 as 后面的类型解析出来
+    AST_Walker::visit(node);
+    find_real_type(node_scope_map[node.target_type->NodeId], node.target_type, type_map, const_expr_queue);
+}
+void OtherTypeAndRepeatArrayVisitor::visit(PathExpr &node) {
+    AST_Walker::visit(node);
+    // 解析 node.base
+    find_real_type(node_scope_map[node.base->NodeId], node.base, type_map, const_expr_queue);
+}
+void OtherTypeAndRepeatArrayVisitor::visit(SelfExpr &node) { AST_Walker::visit(node); }
+void OtherTypeAndRepeatArrayVisitor::visit(UnitExpr &node) { AST_Walker::visit(node); }
+void OtherTypeAndRepeatArrayVisitor::visit(ArrayExpr &node) { AST_Walker::visit(node); }
+void OtherTypeAndRepeatArrayVisitor::visit(RepeatArrayExpr &node) {
+    const_expr_queue.push_back(node.size);
+    AST_Walker::visit(node);
+}
+void OtherTypeAndRepeatArrayVisitor::visit(FnItem &node) { AST_Walker::visit(node); }
+void OtherTypeAndRepeatArrayVisitor::visit(StructItem &node) { AST_Walker::visit(node); }
+void OtherTypeAndRepeatArrayVisitor::visit(EnumItem &node) { AST_Walker::visit(node); }
+void OtherTypeAndRepeatArrayVisitor::visit(ImplItem &node) { AST_Walker::visit(node); }
+void OtherTypeAndRepeatArrayVisitor::visit(ConstItem &node) { AST_Walker::visit(node); }
+void OtherTypeAndRepeatArrayVisitor::visit(LetStmt &node) {
+    if (node.type != nullptr) {
+        find_real_type(node_scope_map[node.NodeId], node.type, type_map, const_expr_queue);
+        // 这里不管返回值，因为 type_map 里面已经存了
+    }
+    AST_Walker::visit(node);
+}
+void OtherTypeAndRepeatArrayVisitor::visit(ExprStmt &node) { AST_Walker::visit(node); }
+void OtherTypeAndRepeatArrayVisitor::visit(ItemStmt &node) { AST_Walker::visit(node); }
+void OtherTypeAndRepeatArrayVisitor::visit(PathType &node) { AST_Walker::visit(node); }
+void OtherTypeAndRepeatArrayVisitor::visit(ArrayType &node) { AST_Walker::visit(node); }
+void OtherTypeAndRepeatArrayVisitor::visit(UnitType &node) { AST_Walker::visit(node); }
+void OtherTypeAndRepeatArrayVisitor::visit(SelfType &node) { AST_Walker::visit(node); }
+void OtherTypeAndRepeatArrayVisitor::visit(IdentifierPattern &node) { AST_Walker::visit(node); }

@@ -1,9 +1,12 @@
-#ifndef SEMANTIC_STEP2_H
-#define SEMANTIC_STEP2_H
+#ifndef TYPE_H
+#define TYPE_H
+
 #include "ast/ast.h"
-#include "semantic/semantic_step1.h"
+#include "ast/visitor.h"
+#include "semantic/decl.h"
 #include <cstddef>
 #include <memory>
+
 using std::shared_ptr;
 struct RealType;
 // 与 AST 的 Type 区分，用来记录表达式的真正的类型
@@ -152,18 +155,56 @@ struct FunctionRealType : public RealType {
     virtual string show_real_type_info() override;
 };
 
-
 // 根据 AST 的 Type 找到真正的类型 RealType，并且返回指针
 // 存放在 map 中，这样后面 let 语句遇到的时候使用这个，直接 find_real_type 即可
 RealType_ptr find_real_type(Scope_ptr current_scope, Type_ptr type_ast, map<size_t, RealType_ptr> &type_map, vector<Expr_ptr> &const_expr_queue);
 
-/*
-dfs Scope tree
-1. 解析所有的 struct 和 enum 的类型
-2. 解析 fn const 的类型
-3. 解析 impl 的 self_struct
-let 的类型之后解析
-*/
-void Scope_dfs_and_build_type(Scope_ptr scope, map<size_t, RealType_ptr> &type_map, vector<Expr_ptr> &const_expr_queue);
 
-#endif // SEMANTIC_STEP2_H
+// 遍历 AST 树，将其他类型的 type 解析出来
+// 遇到 let 语句， As 语句，PathExpr 语句，StructExpr 语句
+// 将 RealType 解析出来，并且存到 type_map 中，这样第四步直接查 type_map 即可 
+// 遇到 type 和 RepeatArray 中的常量表达式，放入 const_expr_queue
+struct OtherTypeAndRepeatArrayVisitor : public AST_Walker {
+    map<size_t, Scope_ptr> &node_scope_map;
+    map<size_t, RealType_ptr> &type_map;
+    vector<Expr_ptr> &const_expr_queue;
+    OtherTypeAndRepeatArrayVisitor(map<size_t, Scope_ptr> &node_scope_map_, map<size_t, RealType_ptr> &type_map_, vector<Expr_ptr> &const_expr_queue_)
+        : node_scope_map(node_scope_map_), type_map(type_map_), const_expr_queue(const_expr_queue_) {}
+    virtual ~OtherTypeAndRepeatArrayVisitor() = default;
+    virtual void visit(LiteralExpr &node) override;
+    virtual void visit(IdentifierExpr &node) override;
+    virtual void visit(BinaryExpr &node) override;
+    virtual void visit(UnaryExpr &node) override;
+    virtual void visit(CallExpr &node) override;
+    virtual void visit(FieldExpr &node) override;
+    virtual void visit(StructExpr &node) override;
+    virtual void visit(IndexExpr &node) override;
+    virtual void visit(BlockExpr &node) override;
+    virtual void visit(IfExpr &node) override;
+    virtual void visit(WhileExpr &node) override;
+    virtual void visit(LoopExpr &node) override;
+    virtual void visit(ReturnExpr &node) override;
+    virtual void visit(BreakExpr &node) override;
+    virtual void visit(ContinueExpr &node) override;
+    virtual void visit(CastExpr &node) override;
+    virtual void visit(PathExpr &node) override;
+    virtual void visit(SelfExpr &node) override;
+    virtual void visit(UnitExpr &node) override;
+    virtual void visit(ArrayExpr &node) override;
+    virtual void visit(RepeatArrayExpr &node) override;
+    virtual void visit(FnItem &node) override;
+    virtual void visit(StructItem &node) override;
+    virtual void visit(EnumItem &node) override;
+    virtual void visit(ImplItem &node) override;
+    virtual void visit(ConstItem &node) override;
+    virtual void visit(LetStmt &node) override;
+    virtual void visit(ExprStmt &node) override;
+    virtual void visit(ItemStmt &node) override;
+    virtual void visit(PathType &node) override;
+    virtual void visit(ArrayType &node) override;
+    virtual void visit(UnitType &node) override;
+    virtual void visit(SelfType &node) override;
+    virtual void visit(IdentifierPattern &node) override;
+};
+
+#endif // TYPE_H

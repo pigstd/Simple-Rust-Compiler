@@ -1,8 +1,8 @@
-#include "semantic/semantic_step4.h"
 #include "ast/ast.h"
-#include "semantic/semantic_step1.h"
-#include "semantic/semantic_step2.h"
-#include "semantic/semantic_step3.h"
+#include "semantic/decl.h"
+#include "semantic/scope.h"
+#include "semantic/type.h"
+#include "semantic/typecheck.h"
 #include "ast/visitor.h"
 #include "tools/tools.h"
 #include <cassert>

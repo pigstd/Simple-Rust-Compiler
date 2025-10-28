@@ -1,24 +1,10 @@
-#ifndef SEMANTIC_STEP3_H
-#define SEMANTIC_STEP3_H
-
-/*
-第三步我想干的事情：
-常量求值
-处理出所有 let 的 type（除了数组大小）
-常量表达式（数组大小，repeat array 的 size）
-控制流分析
-*/
+#ifndef CONSTEVAL_H
+#define CONSTEVAL_H
 
 #include "lexer/lexer.h"
 #include "ast/ast.h"
 #include "ast/visitor.h"
-#include "semantic/semantic_step1.h"
-#include <bitset>
-#include <cstddef>
-#include <string>
-#include <memory>
-using std::string;
-
+#include "semantic/decl.h"
 
 struct ConstValue;
 
@@ -103,53 +89,6 @@ struct Unit_ConstValue : public ConstValue {
 struct Array_ConstValue : public ConstValue {
     vector<ConstValue_ptr> elements;
     Array_ConstValue(const vector<ConstValue_ptr> &elements_) : ConstValue(ConstValueKind::ARRAY), elements(elements_) {}
-};
-
-// 遍历 AST 树，将其他类型的 type 解析出来
-// 遇到 let 语句， As 语句，PathExpr 语句，StructExpr 语句
-// 将 RealType 解析出来，并且存到 type_map 中，这样第四步直接查 type_map 即可 
-// 遇到 type 和 RepeatArray 中的常量表达式，放入 const_expr_queue
-struct OtherTypeAndRepeatArrayVisitor : public AST_Walker {
-    map<size_t, Scope_ptr> &node_scope_map;
-    map<size_t, RealType_ptr> &type_map;
-    vector<Expr_ptr> &const_expr_queue;
-    OtherTypeAndRepeatArrayVisitor(map<size_t, Scope_ptr> &node_scope_map_, map<size_t, RealType_ptr> &type_map_, vector<Expr_ptr> &const_expr_queue_)
-        : node_scope_map(node_scope_map_), type_map(type_map_), const_expr_queue(const_expr_queue_) {}
-    virtual ~OtherTypeAndRepeatArrayVisitor() = default;
-    virtual void visit(LiteralExpr &node) override;
-    virtual void visit(IdentifierExpr &node) override;
-    virtual void visit(BinaryExpr &node) override;
-    virtual void visit(UnaryExpr &node) override;
-    virtual void visit(CallExpr &node) override;
-    virtual void visit(FieldExpr &node) override;
-    virtual void visit(StructExpr &node) override;
-    virtual void visit(IndexExpr &node) override;
-    virtual void visit(BlockExpr &node) override;
-    virtual void visit(IfExpr &node) override;
-    virtual void visit(WhileExpr &node) override;
-    virtual void visit(LoopExpr &node) override;
-    virtual void visit(ReturnExpr &node) override;
-    virtual void visit(BreakExpr &node) override;
-    virtual void visit(ContinueExpr &node) override;
-    virtual void visit(CastExpr &node) override;
-    virtual void visit(PathExpr &node) override;
-    virtual void visit(SelfExpr &node) override;
-    virtual void visit(UnitExpr &node) override;
-    virtual void visit(ArrayExpr &node) override;
-    virtual void visit(RepeatArrayExpr &node) override;
-    virtual void visit(FnItem &node) override;
-    virtual void visit(StructItem &node) override;
-    virtual void visit(EnumItem &node) override;
-    virtual void visit(ImplItem &node) override;
-    virtual void visit(ConstItem &node) override;
-    virtual void visit(LetStmt &node) override;
-    virtual void visit(ExprStmt &node) override;
-    virtual void visit(ItemStmt &node) override;
-    virtual void visit(PathType &node) override;
-    virtual void visit(ArrayType &node) override;
-    virtual void visit(UnitType &node) override;
-    virtual void visit(SelfType &node) override;
-    virtual void visit(IdentifierPattern &node) override;
 };
 
 // 第一遍是遍历整个 ast 树，把所有 const item 的值求出来
@@ -238,85 +177,4 @@ struct ConstItemVisitor : public AST_Walker {
 // 先 visit 整个 ast 树求出 const item
 // 然后对于数组里面要用到的常量表达式，每个用这个 Visitor 去 visitor 那个节点的子树即可。
 
-// 找到 scope 里面的 const_decl
-// 找不到返回 nullptr
-ConstDecl_ptr find_const_decl(Scope_ptr NowScope, string name);
-
-// 找到 Type_decl
-TypeDecl_ptr find_type_decl(Scope_ptr NowScope, string name);
-
-// 控制流分析
-// 1. break continue 是否在循环里？
-// 2. return break continue 的控制流分析（是否 diverge）
-
-enum class OutcomeType {
-    NEXT,
-    RETURN,
-    BREAK,
-    CONTINUE,
-    DIVERGE,
-};
-// OutcomeState: 可能的返回的集合
-using OutcomeState = std::bitset<4>;
-
-// 返回这些 status 对应的 OutcomeState
-OutcomeState get_outcome_state(vector<OutcomeType> states);
-
-bool has_state(const OutcomeState &states, OutcomeType state);
-
-// 顺序执行的 OutcomeState
-OutcomeState sequence_outcome_state(const OutcomeState &first, const OutcomeState &second);
-// if else 的 OutcomeState
-OutcomeState ifelse_outcome_state(const OutcomeState &Condition, const OutcomeState &if_branch, const OutcomeState &else_branch);
-// while 的 OutcomeState
-OutcomeState while_outcome_state(const OutcomeState &Condition, const OutcomeState &body);
-// loop 的 OutcomeState
-OutcomeState loop_outcome_state(const OutcomeState &body);
-
-struct ControlFlowVisitor : public AST_Walker {
-    // 这个 visitor 用来做控制流分析
-    // 主要是分析 if while loop 的分支是否都返回
-    // 以及 return break continue 的 diverge 情况
-    size_t loop_depth;
-    map<size_t, OutcomeState> &node_outcome_state_map;
-    ControlFlowVisitor(map<size_t, OutcomeState> &node_outcome_state_map_) :
-        loop_depth(0), node_outcome_state_map(node_outcome_state_map_) {}
-    virtual ~ControlFlowVisitor() = default;
-    virtual void visit(LiteralExpr &node) override;
-    virtual void visit(IdentifierExpr &node) override;
-    virtual void visit(BinaryExpr &node) override;
-    virtual void visit(UnaryExpr &node) override;
-    virtual void visit(CallExpr &node) override;
-    virtual void visit(FieldExpr &node) override;
-    virtual void visit(StructExpr &node) override;
-    virtual void visit(IndexExpr &node) override;
-    virtual void visit(BlockExpr &node) override;
-    virtual void visit(IfExpr &node) override;
-    virtual void visit(WhileExpr &node) override;
-    virtual void visit(LoopExpr &node) override;
-    virtual void visit(ReturnExpr &node) override;
-    virtual void visit(BreakExpr &node) override;
-    virtual void visit(ContinueExpr &node) override;
-    virtual void visit(CastExpr &node) override;
-    virtual void visit(PathExpr &node) override;
-    virtual void visit(SelfExpr &node) override;
-    virtual void visit(UnitExpr &node) override;
-    virtual void visit(ArrayExpr &node) override;
-    virtual void visit(RepeatArrayExpr &node) override;
-    virtual void visit(FnItem &node) override;
-    virtual void visit(StructItem &node) override;
-    virtual void visit(EnumItem &node) override;
-    virtual void visit(ImplItem &node) override;
-    virtual void visit(ConstItem &node) override;
-    virtual void visit(LetStmt &node) override;
-    virtual void visit(ExprStmt &node) override;
-    virtual void visit(ItemStmt &node) override;
-    virtual void visit(PathType &node) override;
-    virtual void visit(ArrayType &node) override;
-    virtual void visit(UnitType &node) override;
-    virtual void visit(SelfType &node) override;
-    virtual void visit(IdentifierPattern &node) override;
-};
-
-
-#endif // SEMANTIC_STEP3_H
+#endif // CONSTEVAL_H

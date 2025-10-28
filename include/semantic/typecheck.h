@@ -1,21 +1,13 @@
-#ifndef SEMANTIC_STEP4_H
-#define SEMANTIC_STEP4_H
-
+#ifndef TYPECHECK_H
+#define TYPECHECK_H
 
 #include "ast/ast.h"
 #include "ast/visitor.h"
-#include "semantic/semantic_step1.h"
-#include "semantic/semantic_step3.h"
-#include "semantic/semantic_step2.h"
+#include "semantic/decl.h"
+#include "semantic/scope.h"
+#include "semantic/type.h"
+#include "semantic/controlflow.h"
 #include <cstddef>
-
-/*
-第四步我想干的事情：
-求出所有表达式的 RealType
-以及是否可读，是否可写的性质
-引入 let 语句
-这样就完成了全部的 semantic check
-*/
 
 /*
 type visitor:
@@ -24,8 +16,6 @@ type visitor:
 不用考虑：类型的 RealType，Repeat Array 的 size
 存入 map<AST_Node_ptr, RealType_ptr> node_type_map
 */
-
-using LetDecl_ptr = shared_ptr<LetDecl>;
 // 每个 Scope 应该对应一个 Local_Variable_map
 // 即 scope_local_variable_map
 // 这样在查找 identifier 的时候，先查 local 变量，再查 value_namespace
@@ -242,4 +232,4 @@ struct ExprTypeAndLetStmtVisitor : public AST_Walker {
 };
 
 
-#endif // SEMANTIC_STEP4_H
+#endif // TYPECHECK_H

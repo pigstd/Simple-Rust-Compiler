@@ -3,10 +3,10 @@
 
 
 #include "ast/ast.h"
-#include "semantic/semantic_step1.h"
-#include "semantic/semantic_step2.h"
-#include "semantic/semantic_step3.h"
-#include "semantic/semantic_step4.h"
+#include "semantic/decl.h"
+#include "semantic/type.h"
+#include "semantic/consteval.h"
+#include "semantic/typecheck.h"
 #include <cstddef>
 #include <tuple>
 
@@ -59,11 +59,30 @@ struct Semantic_Checker {
     // 总的 checker
     // 分为 4 步
     void checker();
+    // step1 : 建作用域树 + 符号初收集
     void step1_build_scopes_and_collect_symbols();
+    // step2:
+    // 1. 解析所有的 struct 和 enum 的类型
+    // 2. 解析 fn const 的类型
+    // 3. 解析 impl 的 self_struct
+    // let 的类型之后解析
     void step2_resolve_types_and_check();
+    // step3:
+    // 常量求值
+    // 处理出所有 let 的 type（除了数组大小）
+    // 常量表达式（数组大小，repeat array 的 size）
+    // 控制流分析
     void step3_constant_evaluation_and_control_flow_analysis();
+    // step4:
+    // 求出所有表达式的 RealType
+    // 以及是否可读，是否可写的性质
+    // 引入 let 语句
+    // 这样就完成了全部的 semantic check
     void step4_expr_type_and_let_stmt_analysis();
+    // 添加内置函数
     void add_builtin_methods_and_associated_funcs();
+    // 遍历 scope
+    void Scope_dfs_and_build_type(Scope_ptr scope);
 };
 // 用来记录 AST 节点对应的作用域
 

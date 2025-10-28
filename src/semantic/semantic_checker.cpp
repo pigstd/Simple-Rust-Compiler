@@ -1,13 +1,9 @@
-#include "ast/ast.h"
-#include "semantic/semantic_step1.h"
-#include "semantic/semantic_step2.h"
-#include "semantic/semantic_step3.h"
+#include "semantic/semantic_checker.h"
 // #include "ast/visitor.h"
 #include <cstddef>
 // #include <iostream>
 #include <memory>
 #include <vector>
-#include "semantic/semantic_checker.h"
 
 Semantic_Checker::Semantic_Checker(std::vector<Item_ptr> &items_) :
     root_scope(std::make_shared<Scope>(nullptr, ScopeKind::Root)), items(items_) {}
@@ -38,8 +34,138 @@ void Semantic_Checker::step1_build_scopes_and_collect_symbols() {
 }
 
 void Semantic_Checker::step2_resolve_types_and_check() {
-    Scope_dfs_and_build_type(root_scope, type_map, const_expr_queue);
+    Scope_dfs_and_build_type(root_scope);
 }
+
+void Semantic_Checker::Scope_dfs_and_build_type(Scope_ptr scope) {
+    // 如果是 impl，先找到 impl_struct 对应的 StructDecl
+    StructDecl_ptr impl_struct_decl = nullptr;
+    if (scope->kind == ScopeKind::Impl) {
+        /*
+        impl impl_struct {
+
+        }
+        将这里面的 fn 和 const 加入到 impl_struct 的 StructDecl 里面
+        */
+        // 先找到 impl_struct 对应的 StructDecl
+        Scope_ptr current_scope = scope;
+        while (current_scope != nullptr) {
+            if (current_scope->type_namespace.find(scope->impl_struct) != current_scope->type_namespace.end()) {
+                TypeDecl_ptr type_decl = current_scope->type_namespace[scope->impl_struct];
+                if (type_decl->kind == TypeDeclKind::Struct) {
+                    impl_struct_decl = std::dynamic_pointer_cast<StructDecl>(type_decl);
+                    break;
+                } else {
+                    throw string("CE, impl struct name ") + scope->impl_struct + " is not a struct";
+                }
+            } else {
+                current_scope = current_scope->parent.lock();
+            }
+        }
+        if (impl_struct_decl == nullptr) {
+            throw string("CE, impl struct name ") + scope->impl_struct + " not found";
+        }
+        scope->self_struct = std::make_shared<StructRealType>(scope->impl_struct, ReferenceType::NO_REF, impl_struct_decl);
+    }
+    
+    for (auto [name, type_decl] : scope->type_namespace) {
+        if (type_decl->kind == TypeDeclKind::Struct) {
+            // 解析 fields
+            auto struct_decl = std::dynamic_pointer_cast<StructDecl>(type_decl);
+            for (auto [field_name, field_type_ast] : struct_decl->ast_node->fields) {
+                if (struct_decl->fields.find(field_name) != struct_decl->fields.end()) {
+                    throw string("CE, field name ") + field_name + " redefined in struct " + struct_decl->ast_node->struct_name;
+                }
+                RealType_ptr field_type = find_real_type(scope, field_type_ast, type_map, const_expr_queue);
+                struct_decl->fields[field_name] = field_type;
+            }
+        }
+        else {
+            auto enum_decl = std::dynamic_pointer_cast<EnumDecl>(type_decl);
+            int variant_value = 0;
+            for (auto &variant : enum_decl->ast_node->variants) {
+                if (enum_decl->variants.find(variant) != enum_decl->variants.end()) {
+                    throw string("CE, variant name ") + variant + " redefined in enum " + enum_decl->ast_node->enum_name;
+                }
+                enum_decl->variants[variant] = variant_value;
+                variant_value++;
+            }
+        }
+    }
+    for (auto [name, value_decl] : scope->value_namespace) {
+        if (value_decl->kind == ValueDeclKind::Function) {
+            auto fn_decl = std::dynamic_pointer_cast<FnDecl>(value_decl);
+            // 解析 parameters
+            for (auto [param_pattern, param_type_ast] : fn_decl->ast_node->parameters) {
+                RealType_ptr param_type = find_real_type(scope, param_type_ast, type_map, const_expr_queue);
+                fn_decl->parameters.push_back({param_pattern, param_type});
+            }
+            // 解析 return type
+            if (fn_decl->ast_node->return_type != nullptr) {
+                RealType_ptr return_type = find_real_type(scope, fn_decl->ast_node->return_type, type_map, const_expr_queue);
+                fn_decl->return_type = return_type;
+            } else {
+                // 没有返回类型，默认为 ()
+                fn_decl->return_type = std::make_shared<UnitRealType>(ReferenceType::NO_REF);
+            }
+        } else if (value_decl->kind == ValueDeclKind::Constant) {
+            auto const_decl = std::dynamic_pointer_cast<ConstDecl>(value_decl);
+            // 解析 const type
+            RealType_ptr const_type = find_real_type(scope, const_decl->ast_node->const_type, type_map, const_expr_queue);
+            const_decl->const_type = const_type;
+        }
+    }
+    if (scope->kind == ScopeKind::Impl) {
+        for (auto [name, value_decl] : scope->value_namespace) {
+            if (impl_struct_decl->associated_const.find(name) != impl_struct_decl->associated_const.end() ||
+                impl_struct_decl->methods.find(name) != impl_struct_decl->methods.end() ||
+                impl_struct_decl->associated_func.find(name) != impl_struct_decl->associated_func.end()) {
+                // 一个 struct 里面的 fn 和 const 不能重名
+                throw string("CE, name ") + name + " redefined in impl for struct " + impl_struct_decl->ast_node->struct_name;
+            }
+            if (value_decl->kind == ValueDeclKind::Function) {
+                auto fn_decl = std::dynamic_pointer_cast<FnDecl>(value_decl);
+                if (fn_decl->receiver_type != fn_reciever_type::NO_RECEIVER) {
+                    // 方法
+                    impl_struct_decl->methods[name] = fn_decl;
+                    fn_decl->self_struct = impl_struct_decl;
+                } else {
+                    // 关联函数
+                    impl_struct_decl->associated_func[name] = fn_decl;
+                    fn_decl->self_struct = impl_struct_decl;
+                }
+                impl_struct_decl->methods[name] = fn_decl;
+            } else if (value_decl->kind == ValueDeclKind::Constant) {
+                auto const_decl = std::dynamic_pointer_cast<ConstDecl>(value_decl);
+                impl_struct_decl->associated_const[name] = const_decl;
+            }
+        }
+    } else {
+        // 不是 impl，如果 fn 里面 receiver_type 不是 NO_RECEIVER 就报错
+        // 如果 name = main 并且 scope.kind == Root，标记为 main 函数
+        bool find_main = false;
+        for (auto [name, value_decl] : scope->value_namespace) {
+            if (value_decl->kind == ValueDeclKind::Function) {
+                auto fn_decl = std::dynamic_pointer_cast<FnDecl>(value_decl);
+                if (fn_decl->receiver_type != fn_reciever_type::NO_RECEIVER) {
+                    throw string("CE, function ") + name + " has receiver but not in impl";
+                }
+                if (name == "main" && scope->kind == ScopeKind::Root) {
+                    fn_decl->is_main = true;
+                    find_main = true;
+                    fn_decl->function_scope.lock()->is_main_scope = true;
+                }
+            }
+        }
+        if (scope->kind == ScopeKind::Root && !find_main) {
+            throw string("CE, main function not found");
+        }
+    }
+    for (auto &child_scope : scope->children) {
+        Scope_dfs_and_build_type(child_scope);
+    }
+}
+
 
 void Semantic_Checker::step3_constant_evaluation_and_control_flow_analysis() {
     OtherTypeAndRepeatArrayVisitor let_stmt_visitor(
