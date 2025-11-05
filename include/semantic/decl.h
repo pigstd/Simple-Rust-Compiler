@@ -109,4 +109,8 @@ struct LetDecl : public ValueDecl {
     LetDecl(RealType_ptr let_type_, Mutibility is_mut_) : ValueDecl(ValueDeclKind::LetStmt), let_type(let_type_), is_mut(is_mut_) {}
 };
 
+// 找到 scope 里面的 const_decl
+// 找不到返回 nullptr
+ConstDecl_ptr find_const_decl(Scope_ptr NowScope, string name);
+
 #endif // DECL_H

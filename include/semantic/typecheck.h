@@ -146,8 +146,6 @@ struct ExprTypeAndLetStmtVisitor : public AST_Walker {
 
     // 找到该作用域下的 ValueDecl
     ValueDecl_ptr find_value_decl(Scope_ptr now_scope, const string &name);
-    // 找到该作用域下的 TypeDecl
-    TypeDecl_ptr find_type_decl(Scope_ptr now_scope, const string &name);    
     // 获取 (base_type, placekind) 的 method_name 方法，返回一个函数类型
     // e.g. point.len()
     // 如果没有找到则返回 nullptr

@@ -23,7 +23,7 @@
   * 控制流信息 `map<size_t, OutcomeState> &node_outcome_state_map`，用于推断 `loop`、`if` 的返回类型。
   * `builtin_method_funcs`、`builtin_associated_funcs`：存放编译器内建的方法/关联函数签名，按 `RealTypeKind` 和名称匹配。
 - 关键逻辑：
-  * `find_value_decl` / `find_type_decl` 先查局部 `LetDecl`，再查作用域的值/类型命名空间。
+  * `find_value_decl` 先查局部 `LetDecl`，再查作用域的值命名空间。
   * `get_method_func()`、`get_associated_func()` 根据基础类型、PlaceKind、函数名解析方法或关联函数，并在不存在时回退到内建表。
   * `check_let_stmt()` 校验 `let` 绑定的初始值类型是否可赋给目标类型，同时识别字面量溢出等错误。
   * `intro_let_stmt()` 将模式中绑定的变量插入当前作用域的局部变量表，供后续标识符解析。

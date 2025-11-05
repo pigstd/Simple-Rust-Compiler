@@ -12,15 +12,3 @@ ConstDecl_ptr find_const_decl(Scope_ptr NowScope, string name) {
     }
     return nullptr;
 }
-
-TypeDecl_ptr find_type_decl(Scope_ptr NowScope, string name) {
-    while (NowScope != nullptr) {
-        for (auto decl : NowScope->type_namespace) {
-            if (decl.first == name) {
-                return decl.second;
-            }
-        }
-        NowScope = NowScope->parent.lock();
-    }
-    return nullptr;
-}

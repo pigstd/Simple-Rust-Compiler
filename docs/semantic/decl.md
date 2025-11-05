@@ -23,5 +23,4 @@
 
 #### 辅助查找
 - `ConstDecl_ptr find_const_decl(Scope_ptr NowScope, string name)`：沿父作用域向上查找常量声明。
-- `TypeDecl_ptr find_type_decl(Scope_ptr NowScope, string name)`：查找类型声明（结构体/枚举）。
-这两个函数在常量求值、类型解析时频繁使用。
+这个函数在常量求值时使用。

@@ -18,7 +18,3 @@
   * `FnItem` 的函数体块不会再次创建匿名块作用域，借助 `block_is_in_function` 标志避免重复嵌套。
   * `ImplItem` 会创建 `ScopeKind::Impl` 子作用域，并将 `node.struct_name` 存入 `impl_struct`，供后续阶段解析 `Self`。
 - 遍历任意节点前均将 `node_scope_map[node.NodeId]` 设为当前作用域，为后续语义分析（查找常量、作用域定位等）提供索引。
-
-#### 查找函数
-- `find_const_decl(Scope_ptr NowScope, string name)`：沿父作用域链向上查找名为 `name` 的常量声明，若不存在返回 `nullptr`。
-- `find_type_decl(Scope_ptr NowScope, string name)`：类似地检索类型命名空间，常用于解析 `PathType`。

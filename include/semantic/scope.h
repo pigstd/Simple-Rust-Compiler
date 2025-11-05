@@ -98,11 +98,4 @@ struct ScopeBuilder_Visitor : public AST_Walker {
     virtual void visit(IdentifierPattern &node) override;
 };
 
-// 找到 scope 里面的 const_decl
-// 找不到返回 nullptr
-ConstDecl_ptr find_const_decl(Scope_ptr NowScope, string name);
-
-// 找到 Type_decl
-TypeDecl_ptr find_type_decl(Scope_ptr NowScope, string name);
-
 #endif // SCOPE_H

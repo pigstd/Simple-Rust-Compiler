@@ -980,16 +980,6 @@ ValueDecl_ptr ExprTypeAndLetStmtVisitor::find_value_decl(Scope_ptr now_scope, co
     return nullptr;
 }
 
-TypeDecl_ptr ExprTypeAndLetStmtVisitor::find_type_decl(Scope_ptr now_scope, const string &name) {
-    while (now_scope != nullptr) {
-        if (now_scope->type_namespace.find(name) != now_scope->type_namespace.end()) {
-            return now_scope->type_namespace[name];
-        }
-        now_scope = now_scope->parent.lock();
-    }
-    return nullptr;
-}
-
 // expr_place 好像没啥用
 // 我纳闷了，为啥我当时觉得有用呢？
 // 先打个 maybe_unused 再说
