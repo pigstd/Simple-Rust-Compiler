@@ -1,0 +1,29 @@
+; EXPECT: loop with counter and runtime call
+
+declare void @print({ ptr, i32 })
+
+@.str.loop = private constant [4 x i8] c"cnt\00"
+
+define void @main() {
+entry.0:
+    %i.addr = alloca i32
+    store i32 0, ptr %i.addr
+    br label %loop.cond
+
+loop.cond:
+    %i.val = load i32, ptr %i.addr
+    %cmp = icmp slt i32 %i.val, 5
+    br i1 %cmp, label %loop.body, label %loop.end
+
+loop.body:
+    %msg.ptr = getelementptr [4 x i8], ptr @.str.loop, i32 0, i32 0
+    %msg = insertvalue { ptr, i32 } undef, ptr %msg.ptr, 0
+    %msg.final = insertvalue { ptr, i32 } %msg, i32 3, 1
+    call void @print({ ptr, i32 } %msg.final)
+    %next = add i32 %i.val, 1
+    store i32 %next, ptr %i.addr
+    br label %loop.cond
+
+loop.end:
+    ret void
+}

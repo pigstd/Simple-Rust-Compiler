@@ -1,0 +1,16 @@
+; EXPECT: struct stack allocation and field manipulation
+
+%Point = type { i32, i32 }
+
+define i32 @use_point() {
+entry.0:
+    %p = alloca %Point
+    %x.ptr = getelementptr %Point, ptr %p, i32 0, i32 0
+    %y.ptr = getelementptr %Point, ptr %p, i32 0, i32 1
+    store i32 10, ptr %x.ptr
+    store i32 20, ptr %y.ptr
+    %x = load i32, ptr %x.ptr
+    %y = load i32, ptr %y.ptr
+    %sum = add i32 %x, %y
+    ret i32 %sum
+}

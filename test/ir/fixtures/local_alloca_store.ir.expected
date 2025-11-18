@@ -1,0 +1,9 @@
+; EXPECT: stack allocation, store, load and return
+
+define i32 @main() {
+entry.0:
+    %tmp.0 = alloca i32
+    store i32 5, ptr %tmp.0
+    %tmp.1 = load i32, ptr %tmp.0
+    ret i32 %tmp.1
+}

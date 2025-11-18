@@ -1,0 +1,8 @@
+; EXPECT: simple function returning constant 0
+target triple = "unknown-unknown-unknown"
+target datalayout = ""
+
+define i32 @main() {
+entry.0:
+  ret i32 0
+}

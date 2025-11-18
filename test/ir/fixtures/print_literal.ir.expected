@@ -1,0 +1,14 @@
+; EXPECT: print builtin called with &str literal
+@.str.0 = private constant [3 x i8] c"hi\00"
+
+declare void @print({ ptr, i32 })
+
+define void @main() {
+entry.0:
+  %tmp.0 = alloca { ptr, i32 }
+  %tmp.1 = getelementptr [3 x i8], ptr @.str.0, i32 0, i32 0
+  %tmp.2 = insertvalue { ptr, i32 } undef, ptr %tmp.1, 0
+  %tmp.3 = insertvalue { ptr, i32 } %tmp.2, i32 2, 1
+  call void @print({ ptr, i32 } %tmp.3)
+  ret void
+}

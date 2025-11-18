@@ -1,0 +1,18 @@
+; EXPECT: stack array, element store and load
+
+define i32 @sum_array() {
+entry.0:
+    %arr = alloca [3 x i32]
+    %elem0 = getelementptr [3 x i32], ptr %arr, i32 0, i32 0
+    %elem1 = getelementptr [3 x i32], ptr %arr, i32 0, i32 1
+    %elem2 = getelementptr [3 x i32], ptr %arr, i32 0, i32 2
+    store i32 1, ptr %elem0
+    store i32 2, ptr %elem1
+    store i32 3, ptr %elem2
+    %v0 = load i32, ptr %elem0
+    %v1 = load i32, ptr %elem1
+    %v2 = load i32, ptr %elem2
+    %tmp = add i32 %v0, %v1
+    %sum = add i32 %tmp, %v2
+    ret i32 %sum
+}
