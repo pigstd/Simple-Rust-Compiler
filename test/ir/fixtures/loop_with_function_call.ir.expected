@@ -1,0 +1,32 @@
+; EXPECT: loop nesting with inner function call and accumulator return
+target triple = "unknown-unknown-unknown"
+target datalayout = ""
+
+declare i32 @helper(i32)
+
+define i32 @loop_with_call(i32 %limit) {
+entry.0:
+    %i.addr = alloca i32
+    %acc.addr = alloca i32
+    store i32 0, ptr %i.addr
+    store i32 0, ptr %acc.addr
+    br label %loop.cond.0
+
+loop.cond.0:
+    %i.val = load i32, ptr %i.addr
+    %has_next = icmp slt i32 %i.val, %limit
+    br i1 %has_next, label %loop.body.0, label %loop.exit.0
+
+loop.body.0:
+    %call = call i32 @helper(i32 %i.val)
+    %acc = load i32, ptr %acc.addr
+    %new.acc = add i32 %acc, %call
+    store i32 %new.acc, ptr %acc.addr
+    %inc = add i32 %i.val, 1
+    store i32 %inc, ptr %i.addr
+    br label %loop.cond.0
+
+loop.exit.0:
+    %result = load i32, ptr %acc.addr
+    ret i32 %result
+}

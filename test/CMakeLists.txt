@@ -10,6 +10,8 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/test/build")
 # 列出 test/ 下的所有一级子目录
 file(GLOB TEST_SUBDIRS RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}" "*")
 
+option(ENABLE_IR_BUILDER_RUNTIME_TESTS "Enable IRBuilder fixture runner" OFF) # 打开后会编译/运行 ir_builder_fixture_runner，与 fixture 全量比对
+
 foreach(sub ${TEST_SUBDIRS})
   if(IS_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/${sub}")
 
@@ -21,6 +23,11 @@ foreach(sub ${TEST_SUBDIRS})
       get_filename_component(name_we "${src}" NAME_WE)
       set(tgt "${name_we}")
       set(src_abs "${CMAKE_CURRENT_SOURCE_DIR}/${sub}/${src}")
+
+      if(sub STREQUAL "ir" AND src STREQUAL "ir_builder_fixture_runner.cpp"
+         AND NOT ENABLE_IR_BUILDER_RUNTIME_TESTS)
+        continue()
+      endif()
 
       add_executable(${tgt} "${src_abs}")
 

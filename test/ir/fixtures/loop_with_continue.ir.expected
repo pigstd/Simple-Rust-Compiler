@@ -1,0 +1,37 @@
+; EXPECT: explicit continue block with multiple loop labels
+target triple = "unknown-unknown-unknown"
+target datalayout = ""
+
+define i32 @sum_even_under(i32 %limit) {
+entry.0:
+    %i.addr = alloca i32
+    %sum.addr = alloca i32
+    store i32 0, ptr %i.addr
+    store i32 0, ptr %sum.addr
+    br label %loop.cond.0
+
+loop.cond.0:
+    %i.val = load i32, ptr %i.addr
+    %has_next = icmp slt i32 %i.val, %limit
+    br i1 %has_next, label %loop.body.0, label %loop.exit.0
+
+loop.body.0:
+    %is_even_mask = and i32 %i.val, 1
+    %is_even = icmp eq i32 %is_even_mask, 0
+    br i1 %is_even, label %loop.accumulate.0, label %loop.continue.0
+
+loop.accumulate.0:
+    %current = load i32, ptr %sum.addr
+    %updated = add i32 %current, %i.val
+    store i32 %updated, ptr %sum.addr
+    br label %loop.continue.0
+
+loop.continue.0:
+    %next = add i32 %i.val, 1
+    store i32 %next, ptr %i.addr
+    br label %loop.cond.0
+
+loop.exit.0:
+    %result = load i32, ptr %sum.addr
+    ret i32 %result
+}

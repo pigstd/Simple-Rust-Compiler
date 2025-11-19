@@ -1,4 +1,6 @@
 ; EXPECT: stack allocation, store, load and return
+target triple = "unknown-unknown-unknown"
+target datalayout = ""
 
 define i32 @main() {
 entry.0:

@@ -1,4 +1,6 @@
 ; EXPECT: struct stack allocation and field manipulation
+target triple = "unknown-unknown-unknown"
+target datalayout = ""
 
 %Point = type { i32, i32 }
 

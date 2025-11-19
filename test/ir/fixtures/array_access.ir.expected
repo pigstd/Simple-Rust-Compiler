@@ -1,4 +1,6 @@
 ; EXPECT: stack array, element store and load
+target triple = "unknown-unknown-unknown"
+target datalayout = ""
 
 define i32 @sum_array() {
 entry.0:

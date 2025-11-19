@@ -1,4 +1,6 @@
 ; EXPECT: comparison driving conditional branch
+target triple = "unknown-unknown-unknown"
+target datalayout = ""
 
 define i32 @max(i32 %a, i32 %b) {
 entry.0:

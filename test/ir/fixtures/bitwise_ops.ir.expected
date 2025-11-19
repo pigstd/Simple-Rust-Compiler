@@ -1,0 +1,27 @@
+; EXPECT: coverage for bitwise, shift, and division instructions
+target triple = "unknown-unknown-unknown"
+target datalayout = ""
+
+define i32 @bitwise_ops(i32 %a, i32 %b) {
+entry.0:
+    %and = and i32 %a, %b
+    %or = or i32 %a, %b
+    %xor = xor i32 %a, %b
+    %shl = shl i32 %a, 2
+    %lshr = lshr i32 %a, 1
+    %ashr = ashr i32 %a, 1
+    %sdiv = sdiv i32 %a, %b
+    %udiv = udiv i32 %a, %b
+    %srem = srem i32 %a, %b
+    %urem = urem i32 %a, %b
+    %tmp0 = add i32 %and, %or
+    %tmp1 = add i32 %tmp0, %xor
+    %tmp2 = add i32 %tmp1, %shl
+    %tmp3 = add i32 %tmp2, %lshr
+    %tmp4 = add i32 %tmp3, %ashr
+    %tmp5 = add i32 %tmp4, %sdiv
+    %tmp6 = add i32 %tmp5, %udiv
+    %tmp7 = add i32 %tmp6, %srem
+    %sum = add i32 %tmp7, %urem
+    ret i32 %sum
+}

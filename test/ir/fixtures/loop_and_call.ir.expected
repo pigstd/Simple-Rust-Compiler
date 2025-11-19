@@ -1,29 +1,35 @@
 ; EXPECT: loop with counter and runtime call
-
-declare void @print({ ptr, i32 })
+target triple = "unknown-unknown-unknown"
+target datalayout = ""
 
 @.str.loop = private constant [4 x i8] c"cnt\00"
 
-define void @main() {
+declare void @print({ ptr, i32 })
+
+define i32 @main() {
 entry.0:
     %i.addr = alloca i32
+    %msg.alloca = alloca { ptr, i32 }
+    %ptr.field = getelementptr { ptr, i32 }, ptr %msg.alloca, i32 0, i32 0
+    %len.field = getelementptr { ptr, i32 }, ptr %msg.alloca, i32 0, i32 1
+    %msg.ptr = getelementptr [4 x i8], ptr @.str.loop, i32 0, i32 0
+    store ptr %msg.ptr, ptr %ptr.field
+    store i32 3, ptr %len.field
     store i32 0, ptr %i.addr
-    br label %loop.cond
+    br label %loop.cond.0
 
-loop.cond:
+loop.cond.0:
     %i.val = load i32, ptr %i.addr
     %cmp = icmp slt i32 %i.val, 5
-    br i1 %cmp, label %loop.body, label %loop.end
+    br i1 %cmp, label %loop.body.0, label %loop.end.0
 
-loop.body:
-    %msg.ptr = getelementptr [4 x i8], ptr @.str.loop, i32 0, i32 0
-    %msg = insertvalue { ptr, i32 } undef, ptr %msg.ptr, 0
-    %msg.final = insertvalue { ptr, i32 } %msg, i32 3, 1
-    call void @print({ ptr, i32 } %msg.final)
+loop.body.0:
+    %msg.value = load { ptr, i32 }, ptr %msg.alloca
+    call void @print({ ptr, i32 } %msg.value)
     %next = add i32 %i.val, 1
     store i32 %next, ptr %i.addr
-    br label %loop.cond
+    br label %loop.cond.0
 
-loop.end:
-    ret void
+loop.end.0:
+    ret i32 0
 }

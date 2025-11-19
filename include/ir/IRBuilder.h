@@ -7,7 +7,6 @@
 #include <string>
 #include <unordered_map>
 #include <utility>
-#include <variant>
 #include <vector>
 
 namespace ir {
@@ -21,7 +20,6 @@ class StructType;
 class FunctionType;
 
 class IRValue;
-class IRConstant;
 class ConstantValue;
 class RegisterValue;
 class GlobalValue;
@@ -31,7 +29,6 @@ class BasicBlock;
 class IRFunction;
 class IRModule;
 class IRSerializer;
-class IRGlobal;
 
 using IRType_ptr = std::shared_ptr<IRType>;
 using VoidType_ptr = std::shared_ptr<VoidType>;
@@ -42,7 +39,6 @@ using StructType_ptr = std::shared_ptr<StructType>;
 using FunctionType_ptr = std::shared_ptr<FunctionType>;
 
 using IRValue_ptr = std::shared_ptr<IRValue>;
-using IRConstant_ptr = std::shared_ptr<IRConstant>;
 using ConstantValue_ptr = std::shared_ptr<ConstantValue>;
 using RegisterValue_ptr = std::shared_ptr<RegisterValue>;
 using GlobalValue_ptr = std::shared_ptr<GlobalValue>;
@@ -51,8 +47,6 @@ using IRInstruction_ptr = std::shared_ptr<IRInstruction>;
 using BasicBlock_ptr = std::shared_ptr<BasicBlock>;
 using IRFunction_ptr = std::shared_ptr<IRFunction>;
 using IRModule_ptr = std::shared_ptr<IRModule>;
-using IRGlobal_ptr = std::shared_ptr<IRGlobal>;
-
 enum class ICmpPredicate {
     EQ,
     NE,
@@ -89,7 +83,7 @@ enum class Opcode {
     Ret,
 };
 
-using ConstantLiteral = std::variant<int32_t, bool>;
+using ConstantLiteral = int64_t;
 
 class IRType {
   public:
@@ -207,16 +201,6 @@ class IRValue : public std::enable_shared_from_this<IRValue> {
     IRType_ptr type_;
 };
 
-class IRConstant : public IRValue {
-  public:
-    // 构造常量值。
-    explicit IRConstant(IRType_ptr type);
-    ~IRConstant() override = default;
-
-    // 返回带类型前缀的表示。
-    virtual std::string typed_repr() const = 0;
-};
-
 class RegisterValue : public IRValue {
   public:
     // 构造寄存器值，带名字。
@@ -232,7 +216,7 @@ class RegisterValue : public IRValue {
     std::string name_;
 };
 
-class ConstantValue : public IRConstant {
+class ConstantValue : public IRValue {
   public:
     // 构造字面量常量。
     ConstantValue(IRType_ptr type, ConstantLiteral literal);
@@ -243,7 +227,7 @@ class ConstantValue : public IRConstant {
     // 输出裸值形式。
     std::string repr() const override;
     // 输出带类型的常量。
-    std::string typed_repr() const override;
+    std::string typed_repr() const;
 
   private:
     ConstantLiteral literal_;
@@ -252,18 +236,30 @@ class ConstantValue : public IRConstant {
 class GlobalValue : public IRValue {
   public:
     // 构造全局符号引用。
-    GlobalValue(std::string name, IRType_ptr type);
+    GlobalValue(std::string name, IRType_ptr type, std::string init_text,
+                bool is_const = true, std::string linkage = "private");
     ~GlobalValue() override = default;
 
     // 返回全局名字。
     const std::string &name() const;
+    // 返回初始值文本。
+    const std::string &init_text() const;
+    // 是否为常量。
+    bool is_const() const;
+    // 获取链接属性。
+    const std::string &linkage() const;
     // 输出 `@name` 形式。
     std::string repr() const override;
     // 输出 `ptr @name` 形式。
     std::string typed_repr() const;
+    // 输出全局定义文本。
+    std::string definition_string() const;
 
   private:
     std::string name_;
+    std::string init_text_;
+    bool is_const_;
+    std::string linkage_;
 };
 
 class IRInstruction : public std::enable_shared_from_this<IRInstruction> {
@@ -370,7 +366,7 @@ class IRFunction : public std::enable_shared_from_this<IRFunction> {
     const std::vector<BasicBlock_ptr> &blocks() const;
 
     // 添加形参并返回对应寄存器。
-    RegisterValue_ptr add_param(const std::string &name, IRType_ptr type);
+    IRValue_ptr add_param(const std::string &name, IRType_ptr type);
     // 获取参数列表。
     const std::vector<std::pair<std::string, IRType_ptr>> &params() const;
 
@@ -389,37 +385,6 @@ class IRFunction : public std::enable_shared_from_this<IRFunction> {
     bool is_declaration_;
 };
 
-class IRGlobal {
-  public:
-    // 构造全局变量/常量描述。
-    IRGlobal(std::string name, IRType_ptr type, IRConstant_ptr init,
-             bool is_const, std::string linkage);
-
-    // 获取全局名字。
-    const std::string &name() const;
-    // 获取全局类型。
-    IRType_ptr type() const;
-    // 获取初始值。
-    IRConstant_ptr initializer() const;
-    // 判断是否为常量。
-    bool is_const() const;
-    // 获取链接属性。
-    const std::string &linkage() const;
-    // 返回可供引用的 GlobalValue。
-    GlobalValue_ptr global_value() const;
-
-    // 序列化全局定义。
-    std::string to_string() const;
-
-  private:
-    std::string name_;
-    IRType_ptr type_;
-    IRConstant_ptr init_;
-    bool is_const_;
-    std::string linkage_;
-    GlobalValue_ptr value_;
-};
-
 class IRModule : public std::enable_shared_from_this<IRModule> {
   public:
     // 构造一个 IR 模块，指定 triple 和数据布局。
@@ -435,13 +400,15 @@ class IRModule : public std::enable_shared_from_this<IRModule> {
     void set_data_layout(std::string data_layout);
 
     // 添加结构体等类型定义的文本。
-    void add_type_definition(std::string definition);
+    void add_type_definition(std::string name, std::vector<std::string> fields);
     // 获取全部类型定义。
-    const std::vector<std::string> &type_definitions() const;
+    const std::vector<std::pair<std::string, std::vector<std::string>>> &
+    type_definitions() const;
 
     // 创建全局变量或常量。
     GlobalValue_ptr create_global(const std::string &name, IRType_ptr type,
-                                  IRConstant_ptr init, bool is_const = true,
+                                  const std::string &init_text,
+                                  bool is_const = true,
                                   const std::string &linkage = "private");
     // 声明函数（无函数体）。
     IRFunction_ptr declare_function(const std::string &name, IRType_ptr fn_type,
@@ -450,7 +417,7 @@ class IRModule : public std::enable_shared_from_this<IRModule> {
     IRFunction_ptr define_function(const std::string &name, IRType_ptr fn_type);
 
     // 返回所有全局。
-    const std::vector<IRGlobal_ptr> &globals() const;
+    const std::vector<GlobalValue_ptr> &globals() const;
     // 返回所有函数。
     const std::vector<IRFunction_ptr> &functions() const;
 
@@ -465,8 +432,9 @@ class IRModule : public std::enable_shared_from_this<IRModule> {
   private:
     std::string target_triple_;
     std::string data_layout_;
-    std::vector<std::string> type_definitions_;
-    std::vector<IRGlobal_ptr> globals_;
+    std::vector<std::pair<std::string, std::vector<std::string>>>
+        type_definitions_;
+    std::vector<GlobalValue_ptr> globals_;
     std::vector<IRFunction_ptr> functions_;
     bool builtins_injected_;
 };
@@ -498,112 +466,74 @@ class IRBuilder {
     // 获取当前插入块。
     BasicBlock_ptr insertion_block() const;
 
-    // 创建一个新的基本块。
     BasicBlock_ptr create_block(const std::string &label);
-    // 创建一个新的 SSA 临时寄存器。
-    RegisterValue_ptr create_temp(IRType_ptr type,
-                                  const std::string &hint = "");
-    // 在入口块创建一个临时 alloca。
-    RegisterValue_ptr create_temp_alloca(IRType_ptr type,
-                                         const std::string &hint = "");
+    IRValue_ptr create_temp(IRType_ptr type, const std::string &name_hint = "");
+    IRValue_ptr create_temp_alloca(IRType_ptr type,
+                                   const std::string &name_hint = "tmp");
 
-    // 显式创建 alloca 指令。
-    RegisterValue_ptr create_alloca(IRType_ptr type,
-                                    const std::string &name = "");
-    // 创建 load 指令。
-    RegisterValue_ptr create_load(IRValue_ptr address, IRType_ptr loaded_type,
-                                  const std::string &name = "");
-    // 创建 store 指令。
-    IRInstruction_ptr create_store(IRValue_ptr value, IRValue_ptr address);
-    // 创建 gep 指令。
-    RegisterValue_ptr create_gep(IRValue_ptr base_ptr, IRType_ptr element_type,
-                                 const std::vector<IRValue_ptr> &indices,
-                                 const std::string &name = "");
+    IRValue_ptr create_alloca(IRType_ptr type,
+                              const std::string &name_hint = "slot");
+    IRValue_ptr create_load(IRValue_ptr address,
+                            const std::string &name_hint = "");
+    void create_store(IRValue_ptr value, IRValue_ptr address);
+    IRValue_ptr create_gep(IRValue_ptr base_ptr, IRType_ptr element_type,
+                           const std::vector<IRValue_ptr> &indices,
+                           const std::string &name_hint = "");
 
-    // 创建加法指令。
-    RegisterValue_ptr create_add(IRValue_ptr lhs, IRValue_ptr rhs,
-                                 const std::string &name = "");
-    // 创建减法指令。
-    RegisterValue_ptr create_sub(IRValue_ptr lhs, IRValue_ptr rhs,
-                                 const std::string &name = "");
-    // 创建乘法指令。
-    RegisterValue_ptr create_mul(IRValue_ptr lhs, IRValue_ptr rhs,
-                                 const std::string &name = "");
-    // 创建有符号除法。
-    RegisterValue_ptr create_sdiv(IRValue_ptr lhs, IRValue_ptr rhs,
-                                  const std::string &name = "");
-    // 创建无符号除法。
-    RegisterValue_ptr create_udiv(IRValue_ptr lhs, IRValue_ptr rhs,
-                                  const std::string &name = "");
-    // 创建有符号取模。
-    RegisterValue_ptr create_srem(IRValue_ptr lhs, IRValue_ptr rhs,
-                                  const std::string &name = "");
-    // 创建无符号取模。
-    RegisterValue_ptr create_urem(IRValue_ptr lhs, IRValue_ptr rhs,
-                                  const std::string &name = "");
-    // 创建按位与。
-    RegisterValue_ptr create_and(IRValue_ptr lhs, IRValue_ptr rhs,
-                                 const std::string &name = "");
-    // 创建按位或。
-    RegisterValue_ptr create_or(IRValue_ptr lhs, IRValue_ptr rhs,
-                                const std::string &name = "");
-    // 创建按位异或。
-    RegisterValue_ptr create_xor(IRValue_ptr lhs, IRValue_ptr rhs,
-                                 const std::string &name = "");
-    // 创建左移。
-    RegisterValue_ptr create_shl(IRValue_ptr lhs, IRValue_ptr rhs,
-                                 const std::string &name = "");
-    // 创建逻辑右移。
-    RegisterValue_ptr create_lshr(IRValue_ptr lhs, IRValue_ptr rhs,
-                                  const std::string &name = "");
-    // 创建算术右移。
-    RegisterValue_ptr create_ashr(IRValue_ptr lhs, IRValue_ptr rhs,
-                                  const std::string &name = "");
+    IRValue_ptr create_add(IRValue_ptr lhs, IRValue_ptr rhs,
+                           const std::string &name_hint = "");
+    IRValue_ptr create_sub(IRValue_ptr lhs, IRValue_ptr rhs,
+                           const std::string &name_hint = "");
+    IRValue_ptr create_mul(IRValue_ptr lhs, IRValue_ptr rhs,
+                           const std::string &name_hint = "");
+    IRValue_ptr create_sdiv(IRValue_ptr lhs, IRValue_ptr rhs,
+                            const std::string &name_hint = "");
+    IRValue_ptr create_udiv(IRValue_ptr lhs, IRValue_ptr rhs,
+                            const std::string &name_hint = "");
+    IRValue_ptr create_srem(IRValue_ptr lhs, IRValue_ptr rhs,
+                            const std::string &name_hint = "");
+    IRValue_ptr create_urem(IRValue_ptr lhs, IRValue_ptr rhs,
+                            const std::string &name_hint = "");
+    IRValue_ptr create_and(IRValue_ptr lhs, IRValue_ptr rhs,
+                           const std::string &name_hint = "");
+    IRValue_ptr create_or(IRValue_ptr lhs, IRValue_ptr rhs,
+                          const std::string &name_hint = "");
+    IRValue_ptr create_xor(IRValue_ptr lhs, IRValue_ptr rhs,
+                           const std::string &name_hint = "");
+    IRValue_ptr create_shl(IRValue_ptr lhs, IRValue_ptr rhs,
+                           const std::string &name_hint = "");
+    IRValue_ptr create_lshr(IRValue_ptr lhs, IRValue_ptr rhs,
+                            const std::string &name_hint = "");
+    IRValue_ptr create_ashr(IRValue_ptr lhs, IRValue_ptr rhs,
+                            const std::string &name_hint = "");
 
-    // 创建等于比较。
-    RegisterValue_ptr create_icmp_eq(IRValue_ptr lhs, IRValue_ptr rhs,
-                                     const std::string &name = "");
-    // 创建不等比较。
-    RegisterValue_ptr create_icmp_ne(IRValue_ptr lhs, IRValue_ptr rhs,
-                                     const std::string &name = "");
-    // 创建有符号小于比较。
-    RegisterValue_ptr create_icmp_slt(IRValue_ptr lhs, IRValue_ptr rhs,
-                                      const std::string &name = "");
-    // 创建有符号小于等比较。
-    RegisterValue_ptr create_icmp_sle(IRValue_ptr lhs, IRValue_ptr rhs,
-                                      const std::string &name = "");
-    // 创建有符号大于比较。
-    RegisterValue_ptr create_icmp_sgt(IRValue_ptr lhs, IRValue_ptr rhs,
-                                      const std::string &name = "");
-    // 创建有符号大于等比较。
-    RegisterValue_ptr create_icmp_sge(IRValue_ptr lhs, IRValue_ptr rhs,
-                                      const std::string &name = "");
-    // 创建无符号小于比较。
-    RegisterValue_ptr create_icmp_ult(IRValue_ptr lhs, IRValue_ptr rhs,
-                                      const std::string &name = "");
-    // 创建无符号小于等比较。
-    RegisterValue_ptr create_icmp_ule(IRValue_ptr lhs, IRValue_ptr rhs,
-                                      const std::string &name = "");
-    // 创建无符号大于比较。
-    RegisterValue_ptr create_icmp_ugt(IRValue_ptr lhs, IRValue_ptr rhs,
-                                      const std::string &name = "");
-    // 创建无符号大于等比较。
-    RegisterValue_ptr create_icmp_uge(IRValue_ptr lhs, IRValue_ptr rhs,
-                                      const std::string &name = "");
-    // 创建逻辑取反。
-    RegisterValue_ptr create_not(IRValue_ptr value,
-                                 const std::string &name = "");
+    IRValue_ptr create_icmp_eq(IRValue_ptr lhs, IRValue_ptr rhs,
+                               const std::string &name_hint = "");
+    IRValue_ptr create_icmp_ne(IRValue_ptr lhs, IRValue_ptr rhs,
+                               const std::string &name_hint = "");
+    IRValue_ptr create_icmp_slt(IRValue_ptr lhs, IRValue_ptr rhs,
+                                const std::string &name_hint = "");
+    IRValue_ptr create_icmp_sle(IRValue_ptr lhs, IRValue_ptr rhs,
+                                const std::string &name_hint = "");
+    IRValue_ptr create_icmp_sgt(IRValue_ptr lhs, IRValue_ptr rhs,
+                                const std::string &name_hint = "");
+    IRValue_ptr create_icmp_sge(IRValue_ptr lhs, IRValue_ptr rhs,
+                                const std::string &name_hint = "");
+    IRValue_ptr create_icmp_ult(IRValue_ptr lhs, IRValue_ptr rhs,
+                                const std::string &name_hint = "");
+    IRValue_ptr create_icmp_ule(IRValue_ptr lhs, IRValue_ptr rhs,
+                                const std::string &name_hint = "");
+    IRValue_ptr create_icmp_ugt(IRValue_ptr lhs, IRValue_ptr rhs,
+                                const std::string &name_hint = "");
+    IRValue_ptr create_icmp_uge(IRValue_ptr lhs, IRValue_ptr rhs,
+                                const std::string &name_hint = "");
+    IRValue_ptr create_not(IRValue_ptr value,
+                           const std::string &name_hint = "");
 
-    // 创建无条件跳转。
-    IRInstruction_ptr create_br(BasicBlock_ptr target);
-    // 创建条件跳转。
-    IRInstruction_ptr create_cond_br(IRValue_ptr condition,
-                                     BasicBlock_ptr true_target,
-                                     BasicBlock_ptr false_target);
-    // 创建带返回值的 ret。
-    IRInstruction_ptr create_ret(IRValue_ptr value);
-    // 创建 ret void。
-    IRInstruction_ptr create_ret_void();
+    void create_br(BasicBlock_ptr target);
+    void create_cond_br(IRValue_ptr condition, BasicBlock_ptr true_target,
+                        BasicBlock_ptr false_target);
+    void create_ret(IRValue_ptr value = nullptr);
 
     // 创建函数调用指令。
     IRValue_ptr create_call(const std::string &callee,
@@ -617,12 +547,12 @@ class IRBuilder {
     // 在当前块插入指令。
     IRInstruction_ptr insert_instruction(IRInstruction_ptr inst);
     // 统一处理简单二元运算。
-    RegisterValue_ptr create_simple_arith(Opcode opcode, IRValue_ptr lhs,
-                                          IRValue_ptr rhs,
-                                          const std::string &name);
+    IRValue_ptr create_simple_arith(Opcode opcode, IRValue_ptr lhs,
+                                    IRValue_ptr rhs,
+                                    const std::string &name_hint);
     // 统一处理整数比较。
-    RegisterValue_ptr create_compare(ICmpPredicate predicate, IRValue_ptr lhs,
-                                     IRValue_ptr rhs, const std::string &name);
+    IRValue_ptr create_compare(ICmpPredicate predicate, IRValue_ptr lhs,
+                               IRValue_ptr rhs, const std::string &name_hint);
 
     IRModule &module_;
     IRFunction_ptr current_function_;
