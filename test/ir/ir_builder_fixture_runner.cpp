@@ -5,7 +5,6 @@
 #include <fstream>
 #include <functional>
 #include <iostream>
-#include <map>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -74,10 +73,25 @@ struct BuilderEnv {
     ir::ConstantValue_ptr bool_const(bool value) const {
         return std::make_shared<ir::ConstantValue>(i1_type, value ? 1 : 0);
     }
+
+    ir::StructType_ptr register_struct(const std::string &name,
+                                       std::vector<ir::IRType_ptr> fields) {
+        std::vector<std::string> field_texts;
+        field_texts.reserve(fields.size());
+        for (const auto &field : fields) {
+            field_texts.push_back(field->to_string());
+        }
+        module.add_type_definition(name, field_texts);
+        auto type = std::make_shared<ir::StructType>(name);
+        type->set_fields(std::move(fields));
+        return type;
+    }
 };
 
 std::string build_simple_return() {
     BuilderEnv env;
+    env.module.add_module_comment(
+        "; EXPECT: simple function returning constant 0");
     auto fn_type = std::make_shared<ir::FunctionType>(
         env.i32_type, std::vector<ir::IRType_ptr>{});
     auto fn = env.module.define_function("main", fn_type);
@@ -89,9 +103,11 @@ std::string build_simple_return() {
 
 std::string build_print_literal() {
     BuilderEnv env;
+    env.module.add_module_comment(
+        "; EXPECT: print builtin called with &str literal");
     auto ptr_type = std::make_shared<ir::PointerType>();
-    auto str_struct = std::make_shared<ir::StructType>(
-        std::vector<ir::IRType_ptr>{ptr_type, env.i32_type});
+    auto str_struct =
+        env.register_struct("StrLiteral", {ptr_type, env.i32_type});
     auto fn_type = std::make_shared<ir::FunctionType>(
         env.i32_type, std::vector<ir::IRType_ptr>{});
     env.module.declare_function(
@@ -122,6 +138,8 @@ std::string build_print_literal() {
 
 std::string build_local_alloca_store() {
     BuilderEnv env;
+    env.module.add_module_comment(
+        "; EXPECT: stack allocation, store, load and return");
     auto fn_type = std::make_shared<ir::FunctionType>(
         env.i32_type, std::vector<ir::IRType_ptr>{});
     auto fn = env.module.define_function("main", fn_type);
@@ -136,6 +154,8 @@ std::string build_local_alloca_store() {
 
 std::string build_branch_compare() {
     BuilderEnv env;
+    env.module.add_module_comment(
+        "; EXPECT: comparison driving conditional branch");
     auto fn_type = std::make_shared<ir::FunctionType>(
         env.i32_type, std::vector<ir::IRType_ptr>{env.i32_type, env.i32_type});
     auto fn = env.module.define_function("max", fn_type);
@@ -156,6 +176,8 @@ std::string build_branch_compare() {
 
 std::string build_array_access() {
     BuilderEnv env;
+    env.module.add_module_comment(
+        "; EXPECT: stack array, element store and load");
     auto arr_type = std::make_shared<ir::ArrayType>(env.i32_type, 3);
     auto fn_type = std::make_shared<ir::FunctionType>(
         env.i32_type, std::vector<ir::IRType_ptr>{});
@@ -183,9 +205,10 @@ std::string build_array_access() {
 
 std::string build_loop_and_call() {
     BuilderEnv env;
+    env.module.add_module_comment(
+        "; EXPECT: loop with counter and runtime call");
     auto ptr_type = std::make_shared<ir::PointerType>();
-    auto str_struct = std::make_shared<ir::StructType>(
-        std::vector<ir::IRType_ptr>{ptr_type, env.i32_type});
+    auto str_struct = env.register_struct("LoopMsg", {ptr_type, env.i32_type});
     env.module.declare_function(
         "print",
         std::make_shared<ir::FunctionType>(
@@ -234,9 +257,10 @@ std::string build_loop_and_call() {
 
 std::string build_struct_usage() {
     BuilderEnv env;
-    env.module.add_type_definition("Point", {"i32", "i32"});
-    auto point_type = std::make_shared<ir::StructType>(
-        std::vector<ir::IRType_ptr>{env.i32_type, env.i32_type}, "Point");
+    env.module.add_module_comment(
+        "; EXPECT: struct stack allocation and field manipulation");
+    auto point_type =
+        env.register_struct("Point", {env.i32_type, env.i32_type});
     auto fn_type = std::make_shared<ir::FunctionType>(
         env.i32_type, std::vector<ir::IRType_ptr>{});
     auto fn = env.module.define_function("use_point", fn_type);
@@ -258,6 +282,8 @@ std::string build_struct_usage() {
 
 std::string build_function_multiple_returns() {
     BuilderEnv env;
+    env.module.add_module_comment(
+        "; EXPECT: function with multiple return blocks and shared exit");
     auto fn_type = std::make_shared<ir::FunctionType>(
         env.i32_type,
         std::vector<ir::IRType_ptr>{env.i32_type, env.i32_type, env.i32_type});
@@ -289,6 +315,8 @@ std::string build_function_multiple_returns() {
 
 std::string build_bitwise_ops() {
     BuilderEnv env;
+    env.module.add_module_comment(
+        "; EXPECT: coverage for bitwise, shift, and division instructions");
     auto fn_type = std::make_shared<ir::FunctionType>(
         env.i32_type, std::vector<ir::IRType_ptr>{env.i32_type, env.i32_type});
     auto fn = env.module.define_function("bitwise_ops", fn_type);
@@ -321,6 +349,8 @@ std::string build_bitwise_ops() {
 
 std::string build_loop_with_continue() {
     BuilderEnv env;
+    env.module.add_module_comment(
+        "; EXPECT: explicit continue block with multiple loop labels");
     auto fn_type = std::make_shared<ir::FunctionType>(
         env.i32_type, std::vector<ir::IRType_ptr>{env.i32_type});
     auto fn = env.module.define_function("sum_even_under", fn_type);
@@ -369,6 +399,8 @@ std::string build_loop_with_continue() {
 
 std::string build_loop_with_function_call() {
     BuilderEnv env;
+    env.module.add_module_comment(
+        "; EXPECT: loop nesting with inner function call and accumulator return");
     auto helper_type = std::make_shared<ir::FunctionType>(
         env.i32_type, std::vector<ir::IRType_ptr>{env.i32_type});
     env.module.declare_function("helper", helper_type, false);
@@ -410,6 +442,32 @@ std::string build_loop_with_function_call() {
     return env.module.to_string();
 }
 
+std::string build_call_auto_name() {
+    BuilderEnv env;
+    env.module.add_module_comment(
+        "; EXPECT: call without name hint uses auto numbered temps");
+    auto helper_type = std::make_shared<ir::FunctionType>(
+        env.i32_type, std::vector<ir::IRType_ptr>{env.i32_type});
+    env.module.declare_function("helper", helper_type, false);
+    auto fn_type = std::make_shared<ir::FunctionType>(
+        env.i32_type, std::vector<ir::IRType_ptr>{});
+    auto fn = env.module.define_function("use_calls", fn_type);
+    auto entry = fn->create_block("entry");
+    env.builder.set_insertion_point(entry);
+    auto first = env.builder.create_call("helper", {env.iconst(1)}, env.i32_type);
+    auto second = env.builder.create_call("helper", {first}, env.i32_type);
+    env.builder.create_ret(second);
+    return env.module.to_string();
+}
+
+std::string build_runtime_builtins() {
+    BuilderEnv env;
+    env.module.add_module_comment(
+        "; EXPECT: ensure_runtime_builtins injects builtin declarations");
+    env.module.ensure_runtime_builtins();
+    return env.module.to_string();
+}
+
 int main() {
     const auto fixtures_dir = find_fixtures_dir();
     if (fixtures_dir.empty()) {
@@ -430,6 +488,8 @@ int main() {
         {"bitwise_ops.ir.expected", build_bitwise_ops},
         {"loop_with_continue.ir.expected", build_loop_with_continue},
         {"loop_with_function_call.ir.expected", build_loop_with_function_call},
+        {"call_auto_name.ir.expected", build_call_auto_name},
+        {"runtime_builtins.ir.expected", build_runtime_builtins},
     };
 
     bool failed = false;
@@ -449,5 +509,7 @@ int main() {
     if (failed) {
         return 1;
     }
+    std::cout << "IR builder fixtures matched all expectations (" << builders.size()
+              << " cases)." << std::endl;
     return 0;
 }

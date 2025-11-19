@@ -2,16 +2,18 @@
 target triple = "unknown-unknown-unknown"
 target datalayout = ""
 
+%LoopMsg = type { ptr, i32 }
+
 @.str.loop = private constant [4 x i8] c"cnt\00"
 
-declare void @print({ ptr, i32 })
+declare void @print(%LoopMsg)
 
 define i32 @main() {
 entry.0:
     %i.addr = alloca i32
-    %msg.alloca = alloca { ptr, i32 }
-    %ptr.field = getelementptr { ptr, i32 }, ptr %msg.alloca, i32 0, i32 0
-    %len.field = getelementptr { ptr, i32 }, ptr %msg.alloca, i32 0, i32 1
+    %msg.alloca = alloca %LoopMsg
+    %ptr.field = getelementptr %LoopMsg, ptr %msg.alloca, i32 0, i32 0
+    %len.field = getelementptr %LoopMsg, ptr %msg.alloca, i32 0, i32 1
     %msg.ptr = getelementptr [4 x i8], ptr @.str.loop, i32 0, i32 0
     store ptr %msg.ptr, ptr %ptr.field
     store i32 3, ptr %len.field
@@ -24,8 +26,8 @@ loop.cond.0:
     br i1 %cmp, label %loop.body.0, label %loop.end.0
 
 loop.body.0:
-    %msg.value = load { ptr, i32 }, ptr %msg.alloca
-    call void @print({ ptr, i32 } %msg.value)
+    %msg.value = load %LoopMsg, ptr %msg.alloca
+    call void @print(%LoopMsg %msg.value)
     %next = add i32 %i.val, 1
     store i32 %next, ptr %i.addr
     br label %loop.cond.0

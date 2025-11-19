@@ -33,16 +33,25 @@ int main() {
 
     const std::vector<std::pair<std::string, std::vector<std::string>>> expectations = {
         {"simple_return.ir.expected", {"@main", "ret i32 0"}},
-        {"print_literal.ir.expected", {"@print", "@.str.0", "call void @print", "ret i32 0"}},
+        {"print_literal.ir.expected",
+         {"%StrLiteral = type", "declare void @print(%StrLiteral)",
+          "alloca %StrLiteral", "call void @print(%StrLiteral"}},
         {"local_alloca_store.ir.expected", {"alloca i32", "store i32 5", "load i32"}},
         {"branch_compare.ir.expected", {"icmp sgt", "br i1", "label %then.0", "label %else.0"}},
-        {"loop_and_call.ir.expected", {"br label %loop.cond", "call void @print", "@.str.loop", "ret i32 0"}},
+        {"loop_and_call.ir.expected",
+         {"%LoopMsg = type", "declare void @print(%LoopMsg)",
+          "alloca %LoopMsg", "call void @print(%LoopMsg"}},
         {"array_access.ir.expected", {"alloca [3 x i32]", "getelementptr [3 x i32]", "ret i32 %sum"}},
         {"struct_usage.ir.expected", {"%Point = type", "getelementptr %Point", "ret i32 %sum"}},
         {"loop_with_continue.ir.expected", {"loop.continue", "br label %loop.cond", "and i32", "ret i32 %result"}},
         {"bitwise_ops.ir.expected", {"and i32", "or i32", "xor i32", "sdiv i32", "udiv i32", "srem i32", "urem i32"}},
         {"function_multiple_returns.ir.expected", {"ret i32 %min", "ret i32 %max", "ret i32 %value"}},
         {"loop_with_function_call.ir.expected", {"call i32 @helper", "br label %loop.cond", "ret i32 %result"}},
+        {"call_auto_name.ir.expected",
+         {"%0 = call i32 @helper", "%1 = call i32 @helper", "ret i32 %1"}},
+        {"runtime_builtins.ir.expected",
+         {"%BuiltinStr = type", "%BuiltinString = type", "declare void @print",
+          "declare %BuiltinString @String_from", "declare i32 @Array_len"}},
     };
 
     for (const auto &fixture : expectations) {

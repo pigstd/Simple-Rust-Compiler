@@ -45,8 +45,7 @@ static_assert(std::is_constructible_v<ir::IntegerType, int>);
 static_assert(std::is_constructible_v<ir::PointerType>);
 static_assert(
     std::is_constructible_v<ir::ArrayType, ir::IRType_ptr, std::size_t>);
-static_assert(std::is_constructible_v<
-              ir::StructType, std::vector<ir::IRType_ptr>, std::string>);
+static_assert(std::is_constructible_v<ir::StructType, std::string>);
 static_assert(std::is_constructible_v<ir::FunctionType, ir::IRType_ptr,
                                       std::vector<ir::IRType_ptr>>);
 static_assert(std::is_constructible_v<ir::ConstantValue, ir::IRType_ptr,

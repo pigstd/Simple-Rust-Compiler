@@ -66,6 +66,8 @@ enum class Opcode {
     Mul,
     SDiv,
     UDiv,
+    SRem,
+    URem,
     And,
     Or,
     Xor,
@@ -152,10 +154,12 @@ class ArrayType : public IRType {
 
 class StructType : public IRType {
   public:
-    // 构造结构体类型，可选命名。
-    StructType(std::vector<IRType_ptr> fields, std::string name = "");
+    // 构造命名结构体类型。
+    explicit StructType(std::string name);
     ~StructType() override;
 
+    // 设置结构体字段类型列表。
+    void set_fields(std::vector<IRType_ptr> fields);
     // 获取结构体字段类型列表。
     const std::vector<IRType_ptr> &fields() const;
     // 获取结构体名字。
@@ -164,8 +168,8 @@ class StructType : public IRType {
     std::string to_string() const override;
 
   private:
-    std::vector<IRType_ptr> fields_;
     std::string name_;
+    std::vector<IRType_ptr> fields_;
 };
 
 class FunctionType : public IRType {
@@ -405,6 +409,11 @@ class IRModule : public std::enable_shared_from_this<IRModule> {
     const std::vector<std::pair<std::string, std::vector<std::string>>> &
     type_definitions() const;
 
+    // 添加模块级注释行，会在序列化最前方输出。
+    void add_module_comment(std::string comment);
+    // 读取模块注释列表。
+    const std::vector<std::string> &module_comments() const;
+
     // 创建全局变量或常量。
     GlobalValue_ptr create_global(const std::string &name, IRType_ptr type,
                                   const std::string &init_text,
@@ -434,6 +443,7 @@ class IRModule : public std::enable_shared_from_this<IRModule> {
     std::string data_layout_;
     std::vector<std::pair<std::string, std::vector<std::string>>>
         type_definitions_;
+    std::vector<std::string> module_comments_;
     std::vector<GlobalValue_ptr> globals_;
     std::vector<IRFunction_ptr> functions_;
     bool builtins_injected_;

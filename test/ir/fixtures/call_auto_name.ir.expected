@@ -1,0 +1,12 @@
+; EXPECT: call without name hint uses auto numbered temps
+target triple = "unknown-unknown-unknown"
+target datalayout = ""
+
+declare i32 @helper(i32)
+
+define i32 @use_calls() {
+entry.0:
+    %0 = call i32 @helper(i32 1)
+    %1 = call i32 @helper(i32 %0)
+    ret i32 %1
+}

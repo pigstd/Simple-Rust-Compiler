@@ -14,7 +14,7 @@ IR 相关的所有类型、builder、上下文统一置于 `namespace ir` 下：
   - `IntegerType`：字段 `int bit_width`，构造函数 `IntegerType(int bits)`；本项目仅使用 `bits = 1/8/32`，其中 `32` 同时覆盖 `i32/u32/isize/usize`。
   - `PointerType`：无需记录具体被指向类型，构造函数 `PointerType()` 始终表示 LLVM 的 `ptr`（opaque pointer 模式），若需额外调试信息可在外部自行关联。
   - `ArrayType`：字段 `IRType_ptr element_type` 与 `size_t element_count`，构造函数 `ArrayType(IRType_ptr elem, size_t count)`。
-  - `StructType`：字段 `vector<IRType_ptr> fields` 与可选的 `string name`（用于 `%Struct = type { ... }`）。构造函数 `StructType(vector<IRType_ptr> fields, string name = "")` 支持带名/匿名结构体；`&str` 与 `String` 的布局也通过此类描述。
+  - `StructType`：记录一个命名结构体的类型标识 `string name`（例如 `%Str`）。构造函数 `StructType(string name)`；匿名结构体暂不支持，所有结构体必须在模块中以 `%Name = type { ... }` 的形式预先注册，并通过 `void set_fields(vector<IRType_ptr> fields)` 指定字段布局（主要供 `getelementptr` 推导用途，序列化时仍输出 `%Name`）。
   - `FunctionType`：字段 `IRType_ptr return_type`, `vector<IRType_ptr> param_types`，构造函数 `FunctionType(IRType_ptr ret, vector<IRType_ptr> params)`。暂不支持可变参数，所有函数签名均为固定参数列表。
 - **核心接口**：
   - `virtual string to_string() const = 0;` 子类输出 LLVM 格式，如 `void`, `i32`, `ptr`, `[4 x i8]`, `{ ptr, i32 }`。
@@ -70,6 +70,7 @@ IR 相关的所有类型、builder、上下文统一置于 `namespace ir` 下：
 - **接口**：
   - `GlobalValue_ptr create_global(string name, IRType_ptr type, string init_text, bool is_const = true, string linkage = "private")`：创建全局变量/常量，`init_text` 由调用方提前串好（如 `c"hi\00"` 或 `[2 x i32] [i32 1, i32 2]`），返回可在指令中使用的 `GlobalValue` 并登记定义。
   - `void add_type_definition(string name, vector<string> fields)`：记录命名结构体/别名的字段布局，序列化时输出 `%name = type { ... }`。
+  - `void add_module_comment(string text)`：追加一行模块级注释（例如 `; EXPECT: ...`），序列化时位于 `target triple` 之前，可用于 fixture 描述或调试信息。
   - `IRFunction_ptr declare_function(name, fn_type, is_builtin)`：仅声明函数原型（无函数体），常用于内建/外部函数。
   - `IRFunction_ptr define_function(name, fn_type)`：创建函数定义并返回 `IRFunction_ptr` 以便填充基本块。
   - `void ensure_runtime_builtins()`：注入 `@print`, `@println`, `@exit`, `@String_from`, `@Array_len` 等内建声明，供 IRBuilder 调用。
