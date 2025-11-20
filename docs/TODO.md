@@ -1,5 +1,1 @@
-完成 PLAN.md 中的第一步：**搭建 IR 框架与手写 IR Builder**  
-
-现在已经完成了 IRBuilder 的文档，测试以及 IRBuilder.h，你需要按照文档的要求，完成 IRBuilder.cpp，并且确保可以通过测试。
-
-如果你没有通过测试，先检查代码的问题，不要用特判解决。如果你确定是测试数据而不是代码逻辑的问题，和我汇报。
+完成 PLAN.md 中的第二步：**实现 `RealType -> IRType` 映射**  

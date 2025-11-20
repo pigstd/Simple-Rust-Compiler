@@ -768,15 +768,10 @@ void IRModule::ensure_runtime_builtins() {
     auto void_type = std::make_shared<VoidType>();
     auto i32_type = std::make_shared<IntegerType>(32);
     auto ptr_type = std::make_shared<PointerType>();
-    auto str_struct = std::make_shared<StructType>("BuiltinStr");
+    auto str_struct = std::make_shared<StructType>("Str");
     str_struct->set_fields({ptr_type, i32_type});
-    add_type_definition("BuiltinStr", {ptr_type->to_string(),
-                                        i32_type->to_string()});
-    auto string_struct = std::make_shared<StructType>("BuiltinString");
+    auto string_struct = std::make_shared<StructType>("String");
     string_struct->set_fields({ptr_type, i32_type, i32_type});
-    add_type_definition("BuiltinString",
-                        {ptr_type->to_string(), i32_type->to_string(),
-                         i32_type->to_string()});
 
     declare_function("print",
                      std::make_shared<FunctionType>(void_type,

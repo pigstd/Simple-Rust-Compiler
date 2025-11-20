@@ -73,7 +73,7 @@ IR 相关的所有类型、builder、上下文统一置于 `namespace ir` 下：
   - `void add_module_comment(string text)`：追加一行模块级注释（例如 `; EXPECT: ...`），序列化时位于 `target triple` 之前，可用于 fixture 描述或调试信息。
   - `IRFunction_ptr declare_function(name, fn_type, is_builtin)`：仅声明函数原型（无函数体），常用于内建/外部函数。
   - `IRFunction_ptr define_function(name, fn_type)`：创建函数定义并返回 `IRFunction_ptr` 以便填充基本块。
-  - `void ensure_runtime_builtins()`：注入 `@print`, `@println`, `@exit`, `@String_from`, `@Array_len` 等内建声明，供 IRBuilder 调用。
+  - `void ensure_runtime_builtins()`：注入 `@print`, `@println`, `@exit`, `@String_from`, `@Array_len` 等内建声明，供 IRBuilder 调用。该函数假设 `%Str = { ptr, i32 }` 与 `%String = { ptr, i32, i32 }` 已由 TypeLowering（或等效初始化逻辑）提前通过 `add_type_definition` 注册，因此不会重复写入这些结构体类型。
   - `string to_string() const`：序列化整个模块（target triple、类型定义、globals、functions）。
 
 #### IRBuilder
@@ -119,9 +119,9 @@ IR 相关的所有类型、builder、上下文统一置于 `namespace ir` 下：
 - 可以在序列化时为指令追加注释（如 `; node_id=123`）帮助排查问题。
 
 #### 测试计划与示例
-- `test/ir/ir_builder_contract_test.cpp`：所有 `IRBuilder`/`IRModule`/`IRFunction` 接口先通过 `static_assert` 固化签名及继承关系，保证头文件与本文档描述一致，即便实现尚未完成也能立即发现接口偏差。
-- `test/ir/ir_builder_fixture_catalog.cpp`：遍历 `test/ir/fixtures/*.ir.expected` 的期望 IR 文本，只读取文件内容并检查关键 token（block 标签、指令名称等），确保 fixture 自身完整可用。
-- `test/ir/ir_builder_fixture_runner.cpp`：当 `ENABLE_IR_BUILDER_RUNTIME_TESTS` 打开时，利用 `IRBuilder` API 手动构造与各个 fixture 对应的 IR Module，调用 `module.to_string()` 并与期望文本逐字比对，实现 IRBuilder 后即可作为端到端回归测试。
+- `test/IRBuilder/ir_builder_contract_test.cpp`：所有 `IRBuilder`/`IRModule`/`IRFunction` 接口先通过 `static_assert` 固化签名及继承关系，保证头文件与本文档描述一致，即便实现尚未完成也能立即发现接口偏差。
+- `test/IRBuilder/ir_builder_fixture_catalog.cpp`：遍历 `test/IRBuilder/fixtures/*.ir.expected` 的期望 IR 文本，只读取文件内容并检查关键 token（block 标签、指令名称等），确保 fixture 自身完整可用。
+- `test/IRBuilder/ir_builder_fixture_runner.cpp`：当 `ENABLE_IR_BUILDER_RUNTIME_TESTS` 打开时，利用 `IRBuilder` API 手动构造与各个 fixture 对应的 IR Module，调用 `module.to_string()` 并与期望文本逐字比对，实现 IRBuilder 后即可作为端到端回归测试。
 
 - 简短示例们：
   1. **返回常量 0**
