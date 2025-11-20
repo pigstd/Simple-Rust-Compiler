@@ -1,0 +1,17 @@
+; EXPECT: ensure_runtime_builtins injects builtin declarations
+target triple = "unknown-unknown-unknown"
+target datalayout = ""
+
+%Str = type { ptr, i32 }
+%String = type { ptr, i32, i32 }
+
+declare void @print(%Str)
+
+declare void @println(%Str)
+
+declare void @exit(i32)
+
+declare %String @String_from(%Str)
+
+declare i32 @Array_len(ptr)
+

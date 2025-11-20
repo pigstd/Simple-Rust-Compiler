@@ -17,7 +17,7 @@ namespace {
 [[maybe_unused]] fs::path find_fixtures_dir() {
     auto current = fs::current_path();
     for (int depth = 0; depth < 8; ++depth) {
-        auto candidate = current / "test" / "ir" / "fixtures";
+        auto candidate = current / "test" / "IRBuilder" / "fixtures";
         if (fs::exists(candidate)) {
             return candidate;
         }
@@ -464,6 +464,10 @@ std::string build_runtime_builtins() {
     BuilderEnv env;
     env.module.add_module_comment(
         "; EXPECT: ensure_runtime_builtins injects builtin declarations");
+    auto ptr_type = std::make_shared<ir::PointerType>();
+    env.register_struct("Str", {ptr_type, env.i32_type});
+    env.register_struct("String",
+                        {ptr_type, env.i32_type, env.i32_type});
     env.module.ensure_runtime_builtins();
     return env.module.to_string();
 }
@@ -471,7 +475,7 @@ std::string build_runtime_builtins() {
 int main() {
     const auto fixtures_dir = find_fixtures_dir();
     if (fixtures_dir.empty()) {
-        std::cerr << "Failed to locate test/ir/fixtures directory\n";
+        std::cerr << "Failed to locate test/IRBuilder/fixtures directory\n";
         return 1;
     }
 

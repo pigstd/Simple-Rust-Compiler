@@ -17,7 +17,7 @@ TEST_BINARIES = [
 
 def main() -> int:
     repo_root = Path(__file__).resolve().parents[2]
-    bin_dir = repo_root / "test" / "build" / "ir"
+    bin_dir = repo_root / "test" / "build" / "IRBuilder"
 
     if not bin_dir.is_dir():
         print(f"[ERROR] Missing test binary directory: {bin_dir}", file=sys.stderr)

@@ -11,7 +11,7 @@ namespace fs = std::filesystem;
 fs::path find_fixtures_dir() {
     auto current = fs::current_path();
     for (int depth = 0; depth < 8; ++depth) {
-        auto candidate = current / "test" / "ir" / "fixtures";
+        auto candidate = current / "test" / "IRBuilder" / "fixtures";
         if (fs::exists(candidate)) {
             return candidate;
         }
@@ -27,7 +27,7 @@ fs::path find_fixtures_dir() {
 int main() {
     const auto fixtures_dir = find_fixtures_dir();
     if (fixtures_dir.empty()) {
-        std::cerr << "Failed to locate test/ir/fixtures directory\n";
+        std::cerr << "Failed to locate test/IRBuilder/fixtures directory\n";
         return 1;
     }
 
@@ -50,8 +50,8 @@ int main() {
         {"call_auto_name.ir.expected",
          {"%0 = call i32 @helper", "%1 = call i32 @helper", "ret i32 %1"}},
         {"runtime_builtins.ir.expected",
-         {"%BuiltinStr = type", "%BuiltinString = type", "declare void @print",
-          "declare %BuiltinString @String_from", "declare i32 @Array_len"}},
+         {"%Str = type", "%String = type", "declare void @print",
+          "declare %String @String_from", "declare i32 @Array_len"}},
     };
 
     for (const auto &fixture : expectations) {
