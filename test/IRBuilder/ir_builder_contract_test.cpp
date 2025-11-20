@@ -42,7 +42,7 @@ static_assert(std::is_same_v<ir::ConstantLiteral, int64_t>);
 
 static_assert(std::is_constructible_v<ir::VoidType>);
 static_assert(std::is_constructible_v<ir::IntegerType, int>);
-static_assert(std::is_constructible_v<ir::PointerType>);
+static_assert(std::is_constructible_v<ir::PointerType, ir::IRType_ptr>);
 static_assert(
     std::is_constructible_v<ir::ArrayType, ir::IRType_ptr, std::size_t>);
 static_assert(std::is_constructible_v<ir::StructType, std::string>);

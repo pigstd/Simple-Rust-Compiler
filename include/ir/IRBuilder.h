@@ -126,12 +126,17 @@ class IntegerType : public IRType {
 
 class PointerType : public IRType {
   public:
-    // 构造指针类型（opaque pointer）。
-    PointerType();
+    // 构造指针类型，pointee 表示被指向的元素类型。
+    explicit PointerType(IRType_ptr pointee);
     ~PointerType() override;
 
+    // 返回指针指向的元素类型。
+    IRType_ptr pointee_type() const;
     // 输出指针的 LLVM 表示。
     std::string to_string() const override;
+
+  private:
+    IRType_ptr pointee_;
 };
 
 class ArrayType : public IRType {
@@ -240,12 +245,15 @@ class ConstantValue : public IRValue {
 class GlobalValue : public IRValue {
   public:
     // 构造全局符号引用。
-    GlobalValue(std::string name, IRType_ptr type, std::string init_text,
-                bool is_const = true, std::string linkage = "private");
+    GlobalValue(std::string name, IRType_ptr pointee_type,
+                std::string init_text, bool is_const = true,
+                std::string linkage = "private");
     ~GlobalValue() override = default;
 
     // 返回全局名字。
     const std::string &name() const;
+    // 返回存储类型。
+    IRType_ptr pointee_type() const;
     // 返回初始值文本。
     const std::string &init_text() const;
     // 是否为常量。
@@ -261,6 +269,7 @@ class GlobalValue : public IRValue {
 
   private:
     std::string name_;
+    IRType_ptr pointee_type_;
     std::string init_text_;
     bool is_const_;
     std::string linkage_;
@@ -280,6 +289,10 @@ class IRInstruction : public std::enable_shared_from_this<IRInstruction> {
     IRValue_ptr result() const;
     // 设置指令的结果寄存器。
     void set_result(IRValue_ptr result);
+
+    // 设置/获取需要输出的类型字面量（alloca/gep/call）。
+    void set_literal_type(IRType_ptr type);
+    IRType_ptr literal_type() const;
 
     // 设置整数比较谓词。
     void set_predicate(ICmpPredicate predicate);
@@ -313,6 +326,7 @@ class IRInstruction : public std::enable_shared_from_this<IRInstruction> {
     Opcode opcode_;
     std::vector<IRValue_ptr> operands_;
     IRValue_ptr result_;
+    IRType_ptr literal_type_;
     ICmpPredicate predicate_;
     std::string call_callee_;
     BasicBlock_ptr branch_target_;

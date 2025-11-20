@@ -105,7 +105,7 @@ std::string build_print_literal() {
     BuilderEnv env;
     env.module.add_module_comment(
         "; EXPECT: print builtin called with &str literal");
-    auto ptr_type = std::make_shared<ir::PointerType>();
+    auto ptr_type = std::make_shared<ir::PointerType>(env.i8_type);
     auto str_struct =
         env.register_struct("StrLiteral", {ptr_type, env.i32_type});
     auto fn_type = std::make_shared<ir::FunctionType>(
@@ -207,7 +207,7 @@ std::string build_loop_and_call() {
     BuilderEnv env;
     env.module.add_module_comment(
         "; EXPECT: loop with counter and runtime call");
-    auto ptr_type = std::make_shared<ir::PointerType>();
+    auto ptr_type = std::make_shared<ir::PointerType>(env.i8_type);
     auto str_struct = env.register_struct("LoopMsg", {ptr_type, env.i32_type});
     env.module.declare_function(
         "print",
@@ -399,8 +399,8 @@ std::string build_loop_with_continue() {
 
 std::string build_loop_with_function_call() {
     BuilderEnv env;
-    env.module.add_module_comment(
-        "; EXPECT: loop nesting with inner function call and accumulator return");
+    env.module.add_module_comment("; EXPECT: loop nesting with inner function "
+                                  "call and accumulator return");
     auto helper_type = std::make_shared<ir::FunctionType>(
         env.i32_type, std::vector<ir::IRType_ptr>{env.i32_type});
     env.module.declare_function("helper", helper_type, false);
@@ -454,7 +454,8 @@ std::string build_call_auto_name() {
     auto fn = env.module.define_function("use_calls", fn_type);
     auto entry = fn->create_block("entry");
     env.builder.set_insertion_point(entry);
-    auto first = env.builder.create_call("helper", {env.iconst(1)}, env.i32_type);
+    auto first =
+        env.builder.create_call("helper", {env.iconst(1)}, env.i32_type);
     auto second = env.builder.create_call("helper", {first}, env.i32_type);
     env.builder.create_ret(second);
     return env.module.to_string();
@@ -464,10 +465,9 @@ std::string build_runtime_builtins() {
     BuilderEnv env;
     env.module.add_module_comment(
         "; EXPECT: ensure_runtime_builtins injects builtin declarations");
-    auto ptr_type = std::make_shared<ir::PointerType>();
+    auto ptr_type = std::make_shared<ir::PointerType>(env.i8_type);
     env.register_struct("Str", {ptr_type, env.i32_type});
-    env.register_struct("String",
-                        {ptr_type, env.i32_type, env.i32_type});
+    env.register_struct("String", {ptr_type, env.i32_type, env.i32_type});
     env.module.ensure_runtime_builtins();
     return env.module.to_string();
 }
@@ -513,7 +513,7 @@ int main() {
     if (failed) {
         return 1;
     }
-    std::cout << "IR builder fixtures matched all expectations (" << builders.size()
-              << " cases)." << std::endl;
+    std::cout << "IR builder fixtures matched all expectations ("
+              << builders.size() << " cases)." << std::endl;
     return 0;
 }

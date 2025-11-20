@@ -28,24 +28,24 @@ private:
     unordered_map<string, shared_ptr<ir::StructType>> struct_cache_; // `%StructName` → 已声明的 StructType，declare_struct/lower 共享缓存
 };
 ```
-- 构造函数：注入 `IRModule` 与语义数据表，`TypeLowering` 不拥有资源，仅在整个 IR 生成过程中保活。构造时就注册 `builder.i1_type()`、`builder.i8_type()`、`builder.i32_type()` 等单例，避免重复 `make_shared`。
-- `lower(RealType_ptr type)`：外部统一入口：若 `type->is_ref != ReferenceType::NO_REF`，直接返回 `ptr`；否则按 `RealTypeKind` 区分（整数/布尔/数组/结构体/字符串等），必要时调用 `declare_struct` 或 `ensure_struct_cached` 生成命名结构体类型。若传入 `nullptr`，立即抛出 `TypeLoweringError("invalid RealType")`。
+- 构造函数：注入 `IRModule`，并缓存 `Void/i1/i8/i32` 等基础 `IRType` 以复用，后续创建 `PointerType` 时总能提供准确的 pointee。
+- `lower(RealType_ptr type)`：外部统一入口：若 `type->is_ref != ReferenceType::NO_REF`，先浅拷贝一个 `ReferenceType::NO_REF` 的同类型，再对该副本调用 `lower` 并用结果包装成 `PointerType`；其余情况按 `RealTypeKind` 区分（整数/布尔/数组/结构体/字符串等），必要时调用 `declare_struct` 填充命名结构体类型。若传入 `nullptr`，立即抛出 `TypeLoweringError("invalid RealType")`。
 - `lower_function(FnDecl_ptr decl)`：把函数实参/返回值的 `RealType` 分别映射为 `ir::FunctionType`；若返回类型是 `()` 则输出 `void`。参数顺序与 `FnDecl::parameters` 保持一致，`self`（如果存在）也走列表第一位。
 - `lower_const(ConstValue_ptr value, RealType_ptr expected_type)`：根据 `ConstValueKind` 推导出 `ir::ConstantValue` 的 bitwidth，并做必要的符号扩展/截断；若传入的是数组/结构体/字符串等复合常量则返回 `nullptr`，由后续阶段处理。函数还会在 `expected_type` 为引用时直接返回 `nullptr`，因为引用常量在 IR 层只能用全局指针表示。
 - `declare_struct(StructDecl_ptr decl)`：供“遍历 AST 遇到结构体声明”时调用。根据 `decl->fields` 的顺序逐个调用 `lower(field_type)` 生成字段 `IRType`，然后通过 `module_.add_type_definition(name, field_strings)` 注册 `%Name = type { ... }`，最后把构造好的 `StructType` 写入 `struct_cache_` 并返回，方便立即用于方法签名或其他地方。
-- `declare_builtin_string_types()`：由编译驱动在 TypeLowering 初始化后立即调用，将 `%Str = { ptr, i32 }` 与 `%String = { ptr, i32, i32 }` 注册到 `IRModule`，并把返回的 `StructType` 直接写入 `struct_cache_`。之后 `lower(StrRealType)`/`lower(StringRealType)` 只查缓存（命中即返回，未命中直接抛错）。这样 runtime 内建声明 (`IRModule::ensure_runtime_builtins`) 就可以专注于函数签名，不再重复生成这些结构。
+- `declare_builtin_string_types()`：由编译驱动在 TypeLowering 初始化后立即调用，将 `%Str = { ptr(i8*), i32 }` 与 `%String = { ptr(i8*), i32, i32 }` 注册到 `IRModule`，并把返回的 `StructType` 直接写入 `struct_cache_`。之后 `lower(StrRealType)`/`lower(StringRealType)` 只查缓存（命中即返回，未命中直接抛错）。这样 runtime 内建声明 (`IRModule::ensure_runtime_builtins`) 就可以专注于函数签名，不再重复生成这些结构。
 - 结构体缓存策略：假设编译驱动会在结构体声明阶段调用 `declare_struct` 并把所有 `%StructName` 写入 `struct_cache_`。若 `lower` 遇到某个结构体时缓存未命中，视为初始化顺序错误，直接抛出 `TypeLoweringError("struct not declared")`。
 
 #### RealType -> IRType 映射细则
 - **整型族 (`I32`/`U32`/`ISIZE`/`USIZE`/`ANYINT`)**：全部降为 `std::shared_ptr<ir::IntegerType>(32)`；参考 `IRBuilder` 文档，指针大小与 `usize` 均为 32 bit。
 - **布尔 (`BOOL`)**：`i1`。
 - **字符 (`CHAR`)**：`i8`，UTF-8 单字节表示。
-- **引用修饰 (`REF`/`REF_MUT`)**：无论底层类型为何，直接映射为 `ir::PointerType`（LLVM opaque `ptr`）。不在引用层做类型回溯，引用目标的布局信息由上层通过 `node_type_and_place_kind_map` 决定是否需要 `load`。
+- **引用修饰 (`REF`/`REF_MUT`)**：拷贝一个 `ReferenceType::NO_REF` 的底层 `RealType`，对其调用 `lower` 并用结果构造 `PointerType(lower(base))`。这样每个指针都随身携带准确的 pointee（虽然 `to_string()` 仍输出 `ptr`），后续 `load/store/gep` 可以直接读取指向类型。
 - **`()` (`UNIT`)**：统一映射为 `ir::VoidType`；若某表达式需要物理槽位，则由 IRBuilder 创建零字节栈槽。
 - **`!` (`NEVER`)**：理论上没有值，但 IR 层仍以 `void` 表示；调用者负责在控制流级别插入 `unreachable`。
 - **数组 (`ARRAY`)**：调用 `lower` 递归得到元素类型，再读取 `ArrayRealType::size` 创建 `ir::ArrayType(elem_ir, size)`。若 `size` 仍为 0 说明语义阶段未填回数组长度，应抛出 `TypeLoweringError("array size missing")`。该类型仅用于静态分配的栈槽/全局常量，动态数组（`String`/`Vec`）仍走结构体。
-- **字符串切片 (`STR`)**：固定返回结构 `{ ptr, i32 }`。TypeLowering 应在初始化时调用 `declare_struct` 注册 `%Str = type { ptr, i32 }`（或其他统一命名），并把结果存进 `struct_cache_`，后续 `lower(StrRealType)` 直接复用。不要依赖 `IRModule::ensure_runtime_builtins` 来插入这些类型，避免初始化顺序错乱。
-- **`String`**：同 `IRBuilder` 设定 `{ ptr, i32, i32 }`（指针、长度、容量）。同样在 TypeLowering 初始化时通过 `declare_struct` 注册 `%String = type { ... }` 并缓存，`lower(StringRealType)` 必须命中缓存，否则抛错。
+- **字符串切片 (`STR`)**：固定返回结构 `{ ptr(i8*), i32 }`。TypeLowering 应在初始化时调用 `declare_struct` 注册 `%Str = type { ptr, i32 }` 并缓存，后续 `lower(StrRealType)` 直接复用。不要依赖 `IRModule::ensure_runtime_builtins` 来插入这些类型，避免初始化顺序错乱。
+- **`String`**：同 `IRBuilder` 设定 `{ ptr(i8*), i32, i32 }`（指针、长度、容量）。同样在 TypeLowering 初始化时通过 `declare_struct` 注册 `%String = type { ... }` 并缓存，`lower(StringRealType)` 必须命中缓存，否则抛错。
 - **结构体 (`STRUCT`)**：读取 `StructDecl_ptr decl = struct_type->decl.lock()`，若缓存中尚未存在则调用 `declare_struct(decl)` 生成并注册 `%StructName = type { ... }`（会同步更新 `IRModule` 的类型表）。若结构体出现在引用上下文（`StructRealType::is_ref != NO_REF`），优先把结构体类型缓存下来，再在上一条规则应用后返回 `ptr`。若 `decl.lock()` 失败（语义阶段未绑定），TypeLowering 抛出 `TypeLoweringError("StructDecl missing")`。
 - **枚举 (`ENUM`)**：当前语义阶段把 enum 当 C-like 枚举处理：`EnumDecl::variants` 只有离散值，因此直接下降为 `i32`。若未来支持带负载的 enum，再扩展为 `{ i32, [payload] }`。
 - **函数 (`FUNCTION`)**：`lower_function` 中构造：对参数逐个 `lower`（引用参数直接得到 `ptr`），返回类型 `()` → `void`，其余交给 `lower`。
@@ -67,7 +67,7 @@ private:
 
 #### 测试约定
 - `test/TypeLowering/test_type_lowering.cpp`：
-  * 使用伪造的 `StructDecl`/`EnumDecl`，调用 `lower` 并断言 `to_string()` 结果，例如 `Struct` → `%Point = type { i32, i32 }`、`&Point` → `ptr`。
+  * 使用伪造的 `StructDecl`/`EnumDecl`，调用 `lower` 并断言 `to_string()` 结果，例如 `Struct` → `%Point = type { i32, i32 }`、`&Point` → `ptr`，并进一步通过 `PointerType::pointee_type()` 验证指针确实指向 `%Point`。
   * 构造 `ArrayRealType` 并确认当 `size` 已由语义阶段写回时能正确生成 `[N x T]`；再构造一个未填写 `size` 的数组，断言 `lower` 会抛出缺失数组长度的错误。
   * 验证 `StrRealType`、`StringRealType` 均获得固定布局，并且多次调用重用缓存（比较 `StructType` 指针地址）。
   * 函数签名测试：创建一个伪造的 `FnDecl`，包含引用参数和 `()` 返回值，断言 `lower_function` 产出的 `FunctionType` 序列化为 `void (ptr, i32)`.

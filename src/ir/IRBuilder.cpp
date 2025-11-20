@@ -38,8 +38,10 @@ std::string IntegerType::to_string() const {
     return "i" + std::to_string(bit_width_);
 }
 
-PointerType::PointerType() = default;
+PointerType::PointerType(IRType_ptr pointee) : pointee_(std::move(pointee)) {}
 PointerType::~PointerType() = default;
+
+IRType_ptr PointerType::pointee_type() const { return pointee_; }
 
 std::string PointerType::to_string() const { return "ptr"; }
 
@@ -53,8 +55,7 @@ std::size_t ArrayType::element_count() const { return element_count_; }
 
 std::string ArrayType::to_string() const {
     std::ostringstream oss;
-    oss << "[" << element_count_ << " x " << element_type_->to_string()
-        << "]";
+    oss << "[" << element_count_ << " x " << element_type_->to_string() << "]";
     return oss.str();
 }
 
@@ -69,9 +70,7 @@ const std::vector<IRType_ptr> &StructType::fields() const { return fields_; }
 
 const std::string &StructType::name() const { return name_; }
 
-std::string StructType::to_string() const {
-    return "%" + name_;
-}
+std::string StructType::to_string() const { return "%" + name_; }
 
 FunctionType::FunctionType(IRType_ptr return_type,
                            std::vector<IRType_ptr> param_types)
@@ -126,14 +125,17 @@ std::string ConstantValue::typed_repr() const {
     return type_->to_string() + " " + repr();
 }
 
-GlobalValue::GlobalValue(std::string name, IRType_ptr type,
+GlobalValue::GlobalValue(std::string name, IRType_ptr pointee_type,
                          std::string init_text, bool is_const,
                          std::string linkage)
-    : IRValue(std::move(type)), name_(std::move(name)),
+    : IRValue(std::make_shared<PointerType>(pointee_type)),
+      name_(std::move(name)), pointee_type_(std::move(pointee_type)),
       init_text_(std::move(init_text)), is_const_(is_const),
       linkage_(std::move(linkage)) {}
 
 const std::string &GlobalValue::name() const { return name_; }
+
+IRType_ptr GlobalValue::pointee_type() const { return pointee_type_; }
 
 const std::string &GlobalValue::init_text() const { return init_text_; }
 
@@ -148,24 +150,12 @@ std::string GlobalValue::typed_repr() const { return "ptr @" + name_; }
 std::string GlobalValue::definition_string() const {
     std::ostringstream oss;
     oss << "@" << name_ << " = " << linkage_ << " "
-        << (is_const_ ? "constant " : "global ") << type_->to_string()
+        << (is_const_ ? "constant " : "global ") << pointee_type_->to_string()
         << " " << init_text_;
     return oss.str();
 }
 
 namespace {
-
-class TypeLiteralValue : public IRValue {
-  public:
-    explicit TypeLiteralValue(IRType_ptr type)
-        : IRValue(std::move(type)) {}
-
-    std::string repr() const override { return type_->to_string(); }
-};
-
-IRValue_ptr make_type_literal(IRType_ptr type) {
-    return std::make_shared<TypeLiteralValue>(std::move(type));
-}
 
 std::string typed_value_repr(const IRValue_ptr &value) {
     if (auto constant = std::dynamic_pointer_cast<ConstantValue>(value)) {
@@ -179,30 +169,6 @@ std::string typed_value_repr(const IRValue_ptr &value) {
 
 bool is_void_type(const IRType_ptr &type) {
     return dynamic_cast<const VoidType *>(type.get()) != nullptr;
-}
-
-std::unordered_map<const IRValue *, IRType_ptr> &pointer_pointee_map() {
-    static std::unordered_map<const IRValue *, IRType_ptr> map;
-    return map;
-}
-
-void remember_pointer_pointee(const IRValue_ptr &value,
-                              const IRType_ptr &pointee) {
-    if (!value || !pointee) {
-        return;
-    }
-    pointer_pointee_map()[value.get()] = pointee;
-}
-
-IRType_ptr lookup_pointer_pointee(const IRValue_ptr &value) {
-    if (!value) {
-        return nullptr;
-    }
-    auto it = pointer_pointee_map().find(value.get());
-    if (it == pointer_pointee_map().end()) {
-        return nullptr;
-    }
-    return it->second;
 }
 
 IRType_ptr deduce_gep_pointee(IRType_ptr root_type,
@@ -232,8 +198,7 @@ IRType_ptr deduce_gep_pointee(IRType_ptr root_type,
                     "GEP struct index must be a constant literal");
             }
             if (constant->literal() < 0) {
-                throw std::runtime_error(
-                    "GEP struct index cannot be negative");
+                throw std::runtime_error("GEP struct index cannot be negative");
             }
             const auto idx = static_cast<std::size_t>(constant->literal());
             const auto &fields = struct_type->fields();
@@ -299,8 +264,7 @@ const char *predicate_to_string(ICmpPredicate predicate) {
 
 } // namespace
 
-IRInstruction::IRInstruction(Opcode opcode,
-                             std::vector<IRValue_ptr> operands,
+IRInstruction::IRInstruction(Opcode opcode, std::vector<IRValue_ptr> operands,
                              IRValue_ptr result)
     : opcode_(opcode), operands_(std::move(operands)),
       result_(std::move(result)), predicate_(ICmpPredicate::EQ) {}
@@ -316,6 +280,12 @@ IRValue_ptr IRInstruction::result() const { return result_; }
 void IRInstruction::set_result(IRValue_ptr result) {
     result_ = std::move(result);
 }
+
+void IRInstruction::set_literal_type(IRType_ptr type) {
+    literal_type_ = std::move(type);
+}
+
+IRType_ptr IRInstruction::literal_type() const { return literal_type_; }
 
 void IRInstruction::set_predicate(ICmpPredicate predicate) {
     predicate_ = predicate;
@@ -336,7 +306,7 @@ void IRInstruction::set_branch_target(BasicBlock_ptr target) {
 BasicBlock_ptr IRInstruction::branch_target() const { return branch_target_; }
 
 void IRInstruction::set_conditional_targets(BasicBlock_ptr true_target,
-                                           BasicBlock_ptr false_target) {
+                                            BasicBlock_ptr false_target) {
     true_target_ = std::move(true_target);
     false_target_ = std::move(false_target);
 }
@@ -414,36 +384,23 @@ std::string IRInstruction::to_string() const {
             oss << result_->repr() << " = ";
         }
         oss << "icmp " << predicate_to_string(predicate_) << " "
-            << operands_[0]->type()->to_string() << " "
-            << operands_[0]->repr() << ", " << operands_[1]->repr();
+            << operands_[0]->type()->to_string() << " " << operands_[0]->repr()
+            << ", " << operands_[1]->repr();
         break;
     case Opcode::Call: {
         if (result_) {
             oss << result_->repr() << " = ";
         }
-        IRType_ptr ret_type = result_ ? result_->type() : nullptr;
-        std::size_t arg_index = 0;
-        if (!result_) {
-            if (!operands_.empty()) {
-                ret_type = operands_[0]->type();
-                arg_index = 1;
-            }
-        }
+        IRType_ptr ret_type = result_ ? result_->type() : literal_type_;
         if (!ret_type) {
             ret_type = std::make_shared<VoidType>();
         }
-        oss << "call " << ret_type->to_string() << " @" << call_callee_
-            << "(";
-        bool first = true;
-        for (std::size_t i = arg_index; i < operands_.size(); ++i) {
-            if (!result_ && i == 0) {
-                continue;
-            }
-            if (!first) {
+        oss << "call " << ret_type->to_string() << " @" << call_callee_ << "(";
+        for (std::size_t i = 0; i < operands_.size(); ++i) {
+            if (i > 0) {
                 oss << ", ";
             }
             oss << typed_value_repr(operands_[i]);
-            first = false;
         }
         oss << ")";
         break;
@@ -452,7 +409,10 @@ std::string IRInstruction::to_string() const {
         if (result_) {
             oss << result_->repr() << " = ";
         }
-        oss << "alloca " << operands_[0]->repr();
+        if (!literal_type_) {
+            throw std::runtime_error("alloca missing literal type");
+        }
+        oss << "alloca " << literal_type_->to_string();
         break;
     case Opcode::Load:
         if (result_) {
@@ -469,10 +429,15 @@ std::string IRInstruction::to_string() const {
         if (result_) {
             oss << result_->repr() << " = ";
         }
-        oss << "getelementptr " << operands_[0]->repr() << ", "
-            << typed_value_repr(operands_[1]);
-        for (std::size_t i = 2; i < operands_.size(); ++i) {
-            oss << ", " << typed_value_repr(operands_[i]);
+        if (!literal_type_) {
+            throw std::runtime_error("getelementptr missing literal type");
+        }
+        oss << "getelementptr " << literal_type_->to_string();
+        if (!operands_.empty()) {
+            oss << ", " << typed_value_repr(operands_[0]);
+            for (std::size_t i = 1; i < operands_.size(); ++i) {
+                oss << ", " << typed_value_repr(operands_[i]);
+            }
         }
         break;
     case Opcode::Br:
@@ -480,8 +445,7 @@ std::string IRInstruction::to_string() const {
         break;
     case Opcode::CondBr:
         oss << "br " << typed_value_repr(operands_[0]) << ", label %"
-            << true_target_->label() << ", label %"
-            << false_target_->label();
+            << true_target_->label() << ", label %" << false_target_->label();
         break;
     case Opcode::Ret:
         if (operands_.empty()) {
@@ -622,7 +586,8 @@ IRValue_ptr IRFunction::add_param(const std::string &name, IRType_ptr type) {
     return std::make_shared<RegisterValue>(name, std::move(type));
 }
 
-const std::vector<std::pair<std::string, IRType_ptr>> &IRFunction::params() const {
+const std::vector<std::pair<std::string, IRType_ptr>> &
+IRFunction::params() const {
     return params_;
 }
 
@@ -638,8 +603,7 @@ std::string IRFunction::signature_string() const {
             if (i > 0) {
                 oss << ", ";
             }
-            oss << params_[i].second->to_string() << " %"
-                << params_[i].first;
+            oss << params_[i].second->to_string() << " %" << params_[i].first;
         }
     } else {
         const auto &param_types = fn_type->param_types();
@@ -695,8 +659,8 @@ void IRModule::add_type_definition(std::string name,
     type_definitions_.emplace_back(std::move(name), std::move(fields));
 }
 
-const std::vector<
-    std::pair<std::string, std::vector<std::string>>> &IRModule::type_definitions() const {
+const std::vector<std::pair<std::string, std::vector<std::string>>> &
+IRModule::type_definitions() const {
     return type_definitions_;
 }
 
@@ -719,9 +683,7 @@ GlobalValue_ptr IRModule::create_global(const std::string &name,
         }
     }
     auto global = std::make_shared<GlobalValue>(name, std::move(type),
-                                                init_text, is_const,
-                                                linkage);
-    remember_pointer_pointee(global, global->type());
+                                                init_text, is_const, linkage);
     globals_.push_back(global);
     return global;
 }
@@ -767,31 +729,29 @@ void IRModule::ensure_runtime_builtins() {
     builtins_injected_ = true;
     auto void_type = std::make_shared<VoidType>();
     auto i32_type = std::make_shared<IntegerType>(32);
-    auto ptr_type = std::make_shared<PointerType>();
+    auto i8_type = std::make_shared<IntegerType>(8);
+    auto ptr_type = std::make_shared<PointerType>(i8_type);
     auto str_struct = std::make_shared<StructType>("Str");
     str_struct->set_fields({ptr_type, i32_type});
     auto string_struct = std::make_shared<StructType>("String");
     string_struct->set_fields({ptr_type, i32_type, i32_type});
 
     declare_function("print",
-                     std::make_shared<FunctionType>(void_type,
-                                                    std::vector<IRType_ptr>{
-                                                        str_struct}),
+                     std::make_shared<FunctionType>(
+                         void_type, std::vector<IRType_ptr>{str_struct}),
                      true);
     declare_function("println",
-                     std::make_shared<FunctionType>(void_type,
-                                                    std::vector<IRType_ptr>{
-                                                        str_struct}),
+                     std::make_shared<FunctionType>(
+                         void_type, std::vector<IRType_ptr>{str_struct}),
                      true);
-    declare_function(
-        "exit",
-        std::make_shared<FunctionType>(void_type, std::vector<IRType_ptr>{i32_type}),
-        true);
-    declare_function(
-        "String_from",
-        std::make_shared<FunctionType>(string_struct,
-                                       std::vector<IRType_ptr>{str_struct}),
-        true);
+    declare_function("exit",
+                     std::make_shared<FunctionType>(
+                         void_type, std::vector<IRType_ptr>{i32_type}),
+                     true);
+    declare_function("String_from",
+                     std::make_shared<FunctionType>(
+                         string_struct, std::vector<IRType_ptr>{str_struct}),
+                     true);
     declare_function("Array_len",
                      std::make_shared<FunctionType>(
                          i32_type, std::vector<IRType_ptr>{ptr_type}),
@@ -864,8 +824,7 @@ IRSerializer::IRSerializer(const IRModule &module) : module_(module) {}
 
 std::string IRSerializer::serialize() const { return module_.to_string(); }
 
-IRBuilder::IRBuilder(IRModule &module)
-    : module_(module), next_reg_index_(0) {}
+IRBuilder::IRBuilder(IRModule &module) : module_(module), next_reg_index_(0) {}
 
 IRModule &IRBuilder::module() { return module_; }
 
@@ -930,28 +889,23 @@ IRValue_ptr IRBuilder::create_temp_alloca(IRType_ptr type,
 
 IRValue_ptr IRBuilder::create_alloca(IRType_ptr type,
                                      const std::string &name_hint) {
-    auto ptr_type = std::make_shared<PointerType>();
-    auto result = create_temp(ptr_type, name_hint);
-    std::vector<IRValue_ptr> operands;
-    operands.push_back(make_type_literal(type));
-    auto inst = std::make_shared<IRInstruction>(Opcode::Alloca,
-                                                std::move(operands), result);
+    auto result = create_temp(std::make_shared<PointerType>(type), name_hint);
+    auto inst = std::make_shared<IRInstruction>(
+        Opcode::Alloca, std::vector<IRValue_ptr>{}, result);
+    inst->set_literal_type(type);
     insert_instruction(inst);
-    remember_pointer_pointee(result, type);
     return result;
 }
 
 IRValue_ptr IRBuilder::create_load(IRValue_ptr address,
                                    const std::string &name_hint) {
-    auto value_type = lookup_pointer_pointee(address);
-    if (!value_type) {
+    auto ptr_type = std::dynamic_pointer_cast<PointerType>(address->type());
+    if (!ptr_type || !ptr_type->pointee_type()) {
         throw std::runtime_error("Unknown pointee type for load");
     }
-    auto result = create_temp(value_type, name_hint);
-    auto inst =
-        std::make_shared<IRInstruction>(Opcode::Load,
-                                        std::vector<IRValue_ptr>{address},
-                                        result);
+    auto result = create_temp(ptr_type->pointee_type(), name_hint);
+    auto inst = std::make_shared<IRInstruction>(
+        Opcode::Load, std::vector<IRValue_ptr>{address}, result);
     insert_instruction(inst);
     return result;
 }
@@ -965,18 +919,18 @@ void IRBuilder::create_store(IRValue_ptr value, IRValue_ptr address) {
 IRValue_ptr IRBuilder::create_gep(IRValue_ptr base_ptr, IRType_ptr element_type,
                                   const std::vector<IRValue_ptr> &indices,
                                   const std::string &name_hint) {
-    auto ptr_type = std::make_shared<PointerType>();
-    auto result = create_temp(ptr_type, name_hint);
+    auto pointee = deduce_gep_pointee(element_type, indices);
+    auto result_type =
+        std::make_shared<PointerType>(pointee ? pointee : element_type);
+    auto result = create_temp(result_type, name_hint);
     std::vector<IRValue_ptr> operands;
-    operands.reserve(2 + indices.size());
-    operands.push_back(make_type_literal(element_type));
+    operands.reserve(1 + indices.size());
     operands.push_back(base_ptr);
     operands.insert(operands.end(), indices.begin(), indices.end());
     auto inst = std::make_shared<IRInstruction>(Opcode::GEP,
                                                 std::move(operands), result);
+    inst->set_literal_type(element_type);
     insert_instruction(inst);
-    auto pointee = deduce_gep_pointee(element_type, indices);
-    remember_pointer_pointee(result, pointee ? pointee : element_type);
     return result;
 }
 
@@ -1055,8 +1009,8 @@ IRValue_ptr IRBuilder::create_ashr(IRValue_ptr lhs, IRValue_ptr rhs,
     return create_simple_arith(Opcode::AShr, lhs, rhs, name_hint);
 }
 
-IRValue_ptr IRBuilder::create_compare(ICmpPredicate predicate,
-                                      IRValue_ptr lhs, IRValue_ptr rhs,
+IRValue_ptr IRBuilder::create_compare(ICmpPredicate predicate, IRValue_ptr lhs,
+                                      IRValue_ptr rhs,
                                       const std::string &name_hint) {
     auto result = create_temp(std::make_shared<IntegerType>(1), name_hint);
     auto inst = std::make_shared<IRInstruction>(
@@ -1127,8 +1081,8 @@ IRValue_ptr IRBuilder::create_not(IRValue_ptr value,
 }
 
 void IRBuilder::create_br(BasicBlock_ptr target) {
-    auto inst = std::make_shared<IRInstruction>(Opcode::Br,
-                                                std::vector<IRValue_ptr>{});
+    auto inst =
+        std::make_shared<IRInstruction>(Opcode::Br, std::vector<IRValue_ptr>{});
     inst->set_branch_target(std::move(target));
     insert_instruction(inst);
 }
@@ -1157,18 +1111,20 @@ IRValue_ptr IRBuilder::create_call(const std::string &callee,
                                    const std::vector<IRValue_ptr> &args,
                                    IRType_ptr ret_type,
                                    const std::string &name) {
-    std::vector<IRValue_ptr> operands;
+    std::vector<IRValue_ptr> operands(args.begin(), args.end());
+    IRType_ptr call_ret_type =
+        ret_type ? ret_type : std::make_shared<VoidType>();
     IRValue_ptr result;
-    if (is_void_type(ret_type)) {
-        operands.push_back(make_type_literal(ret_type));
-    } else {
-        result = create_temp(ret_type, name);
+    const bool returns_void = is_void_type(call_ret_type);
+    if (!returns_void) {
+        result = create_temp(call_ret_type, name);
     }
-    operands.insert(operands.end(), args.begin(), args.end());
-    auto inst =
-        std::make_shared<IRInstruction>(Opcode::Call, std::move(operands),
-                                        result);
+    auto inst = std::make_shared<IRInstruction>(Opcode::Call,
+                                                std::move(operands), result);
     inst->set_call_callee(callee);
+    if (returns_void) {
+        inst->set_literal_type(call_ret_type);
+    }
     insert_instruction(inst);
     return result;
 }

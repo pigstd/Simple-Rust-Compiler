@@ -61,7 +61,8 @@ int main() {
         std::make_shared<StructRealType>("Point", ReferenceType::REF, point_decl);
 
     expect_type_string(lowering.lower(point_rt), "%Point");
-    expect_type_string(lowering.lower(point_ref_rt), "ptr");
+    auto point_ptr = std::dynamic_pointer_cast<PointerType>(lowering.lower(point_ref_rt));
+    assert(point_ptr && point_ptr->pointee_type()->to_string() == "%Point");
 
     auto enum_decl = std::make_shared<EnumDecl>(nullptr);
     enum_decl->variants["A"] = 0;

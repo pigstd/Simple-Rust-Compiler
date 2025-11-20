@@ -12,7 +12,7 @@ IR 相关的所有类型、builder、上下文统一置于 `namespace ir` 下：
 - **子类与构造参数**：
   - `VoidType`：表示 Rust 的 `()`，对应 LLVM `void`。构造函数 `VoidType()` 无额外字段。
   - `IntegerType`：字段 `int bit_width`，构造函数 `IntegerType(int bits)`；本项目仅使用 `bits = 1/8/32`，其中 `32` 同时覆盖 `i32/u32/isize/usize`。
-  - `PointerType`：无需记录具体被指向类型，构造函数 `PointerType()` 始终表示 LLVM 的 `ptr`（opaque pointer 模式），若需额外调试信息可在外部自行关联。
+  - `PointerType`：字段 `IRType_ptr pointee` 记录指向的元素类型，构造函数 `PointerType(IRType_ptr pointee)`；若确实需要“opaque pointer”，可显式传入 `VoidType` 作为 pointee。`to_string()` 仍输出 `ptr`，但在实现内部任何指针值都能直接追溯到元素类型，`alloca`/`gep`/`load` 不必再靠额外表格推断。
   - `ArrayType`：字段 `IRType_ptr element_type` 与 `size_t element_count`，构造函数 `ArrayType(IRType_ptr elem, size_t count)`。
   - `StructType`：记录一个命名结构体的类型标识 `string name`（例如 `%Str`）。构造函数 `StructType(string name)`；匿名结构体暂不支持，所有结构体必须在模块中以 `%Name = type { ... }` 的形式预先注册，并通过 `void set_fields(vector<IRType_ptr> fields)` 指定字段布局（主要供 `getelementptr` 推导用途，序列化时仍输出 `%Name`）。
   - `FunctionType`：字段 `IRType_ptr return_type`, `vector<IRType_ptr> param_types`，构造函数 `FunctionType(IRType_ptr ret, vector<IRType_ptr> params)`。暂不支持可变参数，所有函数签名均为固定参数列表。
@@ -30,6 +30,7 @@ IR 相关的所有类型、builder、上下文统一置于 `namespace ir` 下：
 - **字段**：
   - `enum class Opcode { Add, Sub, Mul, SDiv, UDiv, And, Or, Xor, Shl, AShr, LShr, ICmp, Call, Alloca, Load, Store, GEP, Br, CondBr, Ret } opcode;`
   - `vector<IRValue_ptr> operands;`
+  - 可选的 `IRType_ptr literal_type;`（仅 `alloca`、`getelementptr`、`call` 等需要显式写出类型的指令使用，用于序列化 `alloca i32`、`getelementptr {ptr, i32}`、`call void` 这类语法时携带类型信息）
   - `IRValue_ptr result;`（有返回值时非空）
   - 额外信息：`ICmpPredicate predicate;`（仅 `ICmp` 使用，枚举值覆盖 `EQ/NE`, 有符号比较 `SLT/SLE/SGT/SGE`，无符号比较 `ULT/ULE/UGT/UGE`），`string call_callee`（仅 `Call` 使用，记录直接调用的符号名）。
   - 跳转指令补充字段：`BasicBlock_ptr target`（无条件 `br`）、`BasicBlock_ptr true_target/false_target`（条件 `br`），用于序列化跳转标签。
@@ -105,7 +106,7 @@ IR 相关的所有类型、builder、上下文统一置于 `namespace ir` 下：
     - `IRValue_ptr create_load(IRValue_ptr ptr, string name_hint = "")`
     - `void create_store(IRValue_ptr value, IRValue_ptr ptr)`
     - `IRValue_ptr create_gep(IRValue_ptr base_ptr, IRType_ptr element_type, vector<IRValue_ptr> indices, string name_hint = "")`
-    用于声明局部变量、读取/写入地址、计算偏移；`create_gep` 需要显式提供元素类型，PointerType 不记录 pointee。
+    用于声明局部变量、读取/写入地址、计算偏移；`create_gep` 仍需显式提供元素类型（便于在 `ptr` 指向结构体/数组时精确定义索引），但 PointerType 自身已经记录 pointee，`load/store` 等接口可以直接读取指向类型做校验。
   - **控制流**：
     - `void create_br(BasicBlock_ptr target)`
     - `void create_cond_br(IRValue_ptr cond, BasicBlock_ptr true_block, BasicBlock_ptr false_block)`
@@ -114,7 +115,12 @@ IR 相关的所有类型、builder、上下文统一置于 `namespace ir` 下：
   - **字符串字面量**：`create_string_literal(text)`——生成 `[len x i8]` 全局常量并返回指向它的 `GlobalValue`/`RegisterValue`。
 
 #### 序列化与调试
-- `IRSerializer`：负责 `IRModule::to_string()`，确保缩进、换行与 LLVM 语法一致；类型定义通过遍历 `type_definitions` 中的 `pair<string, vector<string>>` 拼出 `%TypeName = type { ... }` 格式；所有 IR 文本统一带 `target triple = ...` 与 `target datalayout = ...` 头部，fixture/runner 也据此比对。
+- `IRSerializer`：负责 `IRModule::to_string()`，确保缩进、换行与 LLVM 语法一致；类型定义通过遍历 `type_definitions` 中的 `pair<string, vector<string>>` 拼出 `%TypeName = type { ... }` 格式；所有 IR 文本统一带 `target triple = ...` 与 `target datalayout = ...` 头部，fixture/runner 也据此比对。实现上会借助若干内部工具：
+  - `IRInstruction` 的 `literal_type` 字段（仅 `alloca`/`getelementptr`/`call` 使用），用于序列化需要显式写出类型的场景，生成 `alloca i32`、`getelementptr { ptr, i32 }`、`call void ...` 等文本，而无需再临时包装成 `IRValue`。
+  - `typed_value_repr()`：序列化任意 `IRValue` 时，如果是常量或全局会拼出 `i32 42`、`ptr @foo` 的形式；否则退回到 `<type> <repr>`。
+  - `deduce_gep_pointee()`：根据数组/结构索引序列推导 `getelementptr` 结果指向的元素类型；`PointerType` 本身存着 `pointee`，因此 `create_load`/`create_store` 等只需直接查看指针类型即可，还可以在 `GlobalValue`/`alloca` 构造时立刻携带 pointee。
+  - `string_literal_counters()` / `encode_string_literal()`：为 `create_string_literal()` 生成唯一的 `.str.N` 名称，同时把原始文本编码为 LLVM `c"..."` 语法（包含转义和结尾的 `\00`）。
+  - `predicate_to_string()`、`opcode_to_string()`：把内部枚举（`ICmpPredicate`、`Opcode`）转换为 LLVM 指令助记符，便于 `IRInstruction::to_string()`。
 - `void IRModule::dump() const;`、`void IRFunction::dump() const;` 输出到 `stderr`，用于调试。
 - 可以在序列化时为指令追加注释（如 `; node_id=123`）帮助排查问题。
 

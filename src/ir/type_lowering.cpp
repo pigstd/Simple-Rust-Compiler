@@ -33,10 +33,14 @@ vector<string> build_field_order(const StructDecl_ptr &decl) {
 
 ReferenceType receiver_to_ref(fn_reciever_type receiver) {
     switch (receiver) {
-    case fn_reciever_type::SELF: return ReferenceType::NO_REF;
-    case fn_reciever_type::SELF_REF: return ReferenceType::REF;
-    case fn_reciever_type::SELF_REF_MUT: return ReferenceType::REF_MUT;
-    case fn_reciever_type::NO_RECEIVER: return ReferenceType::NO_REF;
+    case fn_reciever_type::SELF:
+        return ReferenceType::NO_REF;
+    case fn_reciever_type::SELF_REF:
+        return ReferenceType::REF;
+    case fn_reciever_type::SELF_REF_MUT:
+        return ReferenceType::REF_MUT;
+    case fn_reciever_type::NO_RECEIVER:
+        return ReferenceType::NO_REF;
     }
     return ReferenceType::NO_REF;
 }
@@ -65,22 +69,79 @@ uint64_t read_unsigned(ConstValue_ptr value) {
     throw TypeLoweringError("ConstValue is not unsigned integer");
 }
 
+RealType_ptr strip_reference(const RealType_ptr &type) {
+    if (!type) {
+        throw TypeLoweringError("invalid RealType");
+    }
+    switch (type->kind) {
+    case RealTypeKind::BOOL:
+        return std::make_shared<BoolRealType>(ReferenceType::NO_REF);
+    case RealTypeKind::CHAR:
+        return std::make_shared<CharRealType>(ReferenceType::NO_REF);
+    case RealTypeKind::UNIT:
+        return std::make_shared<UnitRealType>(ReferenceType::NO_REF);
+    case RealTypeKind::NEVER:
+        return std::make_shared<NeverRealType>(ReferenceType::NO_REF);
+    case RealTypeKind::I32:
+        return std::make_shared<I32RealType>(ReferenceType::NO_REF);
+    case RealTypeKind::ISIZE:
+        return std::make_shared<IsizeRealType>(ReferenceType::NO_REF);
+    case RealTypeKind::U32:
+        return std::make_shared<U32RealType>(ReferenceType::NO_REF);
+    case RealTypeKind::USIZE:
+        return std::make_shared<UsizeRealType>(ReferenceType::NO_REF);
+    case RealTypeKind::ANYINT:
+        return std::make_shared<AnyIntRealType>(ReferenceType::NO_REF);
+    case RealTypeKind::STR:
+        return std::make_shared<StrRealType>(ReferenceType::NO_REF);
+    case RealTypeKind::STRING:
+        return std::make_shared<StringRealType>(ReferenceType::NO_REF);
+    default:
+        break;
+    }
+    switch (type->kind) {
+    case RealTypeKind::ARRAY: {
+        auto arr = std::dynamic_pointer_cast<ArrayRealType>(type);
+        return std::make_shared<ArrayRealType>(arr->element_type, arr->size_expr,
+                                               ReferenceType::NO_REF, arr->size);
+    }
+    case RealTypeKind::STRUCT: {
+        auto struct_type = std::dynamic_pointer_cast<StructRealType>(type);
+        return std::make_shared<StructRealType>(
+            struct_type->name, ReferenceType::NO_REF, struct_type->decl.lock());
+    }
+    case RealTypeKind::ENUM: {
+        auto enum_type = std::dynamic_pointer_cast<EnumRealType>(type);
+        return std::make_shared<EnumRealType>(
+            enum_type->name, ReferenceType::NO_REF, enum_type->decl.lock());
+    }
+    case RealTypeKind::FUNCTION: {
+        auto fn_type = std::dynamic_pointer_cast<FunctionRealType>(type);
+        return std::make_shared<FunctionRealType>(fn_type->decl.lock(),
+                                                  ReferenceType::NO_REF);
+    }
+    default:
+        break;
+    }
+    throw TypeLoweringError("strip_reference: unsupported RealType");
+}
+
 } // namespace
 
 TypeLowering::TypeLowering(IRModule &module)
-    : module_(module),
-      void_type_(std::make_shared<VoidType>()),
+    : module_(module), void_type_(std::make_shared<VoidType>()),
       i1_type_(std::make_shared<IntegerType>(1)),
       i8_type_(std::make_shared<IntegerType>(8)),
-      i32_type_(std::make_shared<IntegerType>(32)),
-      ptr_type_(std::make_shared<PointerType>()) {}
+      i32_type_(std::make_shared<IntegerType>(32)) {}
 
 IRType_ptr TypeLowering::lower(RealType_ptr type) {
     if (!type) {
         throw TypeLoweringError("invalid RealType");
     }
     if (type->is_ref != ReferenceType::NO_REF) {
-        return ptr_type_;
+        auto base = strip_reference(type);
+        auto pointee = lower(base);
+        return std::make_shared<PointerType>(pointee);
     }
     switch (type->kind) {
     case RealTypeKind::BOOL:
@@ -169,12 +230,13 @@ std::shared_ptr<FunctionType> TypeLowering::lower_function(FnDecl_ptr decl) {
     for (const auto &param : decl->parameters) {
         params.push_back(lower(param.second));
     }
-    IRType_ptr ret_type = decl->return_type ? lower(decl->return_type) : void_type_;
+    IRType_ptr ret_type =
+        decl->return_type ? lower(decl->return_type) : void_type_;
     return std::make_shared<FunctionType>(ret_type, params);
 }
 
-std::shared_ptr<ConstantValue> TypeLowering::lower_const(ConstValue_ptr value,
-                                                         RealType_ptr expected_type) {
+std::shared_ptr<ConstantValue>
+TypeLowering::lower_const(ConstValue_ptr value, RealType_ptr expected_type) {
     if (!value || !expected_type) {
         throw TypeLoweringError("const lowering requires value and type");
     }
@@ -194,7 +256,8 @@ std::shared_ptr<ConstantValue> TypeLowering::lower_const(ConstValue_ptr value,
             throw TypeLoweringError("const value/type mismatch (bool)");
         }
         auto bool_value = std::dynamic_pointer_cast<Bool_ConstValue>(value);
-        return std::make_shared<ConstantValue>(i1_type_, bool_value->value ? 1 : 0);
+        return std::make_shared<ConstantValue>(i1_type_,
+                                               bool_value->value ? 1 : 0);
     }
     case RealTypeKind::CHAR: {
         if (value->kind != ConstValueKind::CHAR) {
@@ -251,18 +314,20 @@ std::shared_ptr<StructType> TypeLowering::declare_struct(StructDecl_ptr decl) {
 void TypeLowering::declare_builtin_string_types() {
     if (!struct_cache_.count("Str")) {
         auto str_struct = std::make_shared<StructType>("Str");
-        str_struct->set_fields({ptr_type_, i32_type_});
+        auto byte_ptr = std::make_shared<PointerType>(i8_type_);
+        str_struct->set_fields({byte_ptr, i32_type_});
         struct_cache_["Str"] = str_struct;
-        module_.add_type_definition("Str",
-                                    {ptr_type_->to_string(), i32_type_->to_string()});
+        module_.add_type_definition(
+            "Str", {byte_ptr->to_string(), i32_type_->to_string()});
     }
     if (!struct_cache_.count("String")) {
         auto string_struct = std::make_shared<StructType>("String");
-        string_struct->set_fields({ptr_type_, i32_type_, i32_type_});
+        auto byte_ptr = std::make_shared<PointerType>(i8_type_);
+        string_struct->set_fields({byte_ptr, i32_type_, i32_type_});
         struct_cache_["String"] = string_struct;
-        module_.add_type_definition(
-            "String",
-            {ptr_type_->to_string(), i32_type_->to_string(), i32_type_->to_string()});
+        module_.add_type_definition("String",
+                                    {byte_ptr->to_string(), i32_type_->to_string(),
+                                     i32_type_->to_string()});
     }
 }
 
