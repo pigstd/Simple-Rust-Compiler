@@ -15,7 +15,8 @@ StructDecl_ptr make_point_decl() {
     auto ast = std::make_shared<StructItem>(
         "Point", std::vector<std::pair<std::string, Type_ptr>>(
                       {{"x", nullptr}, {"y", nullptr}}));
-    auto decl = std::make_shared<StructDecl>(ast);
+    auto decl = std::make_shared<StructDecl>(ast, "Point");
+    decl->field_order = {"x", "y"};
     decl->fields["x"] = std::make_shared<I32RealType>(ReferenceType::NO_REF);
     decl->fields["y"] = std::make_shared<I32RealType>(ReferenceType::NO_REF);
     return decl;
@@ -64,7 +65,7 @@ int main() {
     auto point_ptr = std::dynamic_pointer_cast<PointerType>(lowering.lower(point_ref_rt));
     assert(point_ptr && point_ptr->pointee_type()->to_string() == "%Point");
 
-    auto enum_decl = std::make_shared<EnumDecl>(nullptr);
+    auto enum_decl = std::make_shared<EnumDecl>(nullptr, "Color");
     enum_decl->variants["A"] = 0;
     auto enum_rt =
         std::make_shared<EnumRealType>("Color", ReferenceType::NO_REF, enum_decl);
@@ -83,8 +84,8 @@ int main() {
     auto array_const = std::make_shared<Array_ConstValue>(std::vector<ConstValue_ptr>{});
     assert(lowering.lower_const(array_const, array_rt) == nullptr);
 
-    auto fn_decl =
-        std::make_shared<FnDecl>(nullptr, nullptr, fn_reciever_type::NO_RECEIVER);
+    auto fn_decl = std::make_shared<FnDecl>(
+        nullptr, nullptr, fn_reciever_type::NO_RECEIVER, "dummy");
     fn_decl->parameters.push_back({nullptr, bool_rt});
     fn_decl->parameters.push_back({nullptr, point_rt});
     fn_decl->return_type = bool_rt;

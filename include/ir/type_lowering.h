@@ -6,16 +6,11 @@
 #include "semantic/decl.h"
 #include "semantic/type.h"
 #include <memory>
-#include <stdexcept>
 #include <string>
 #include <unordered_map>
+#include <stdexcept>
 
 namespace ir {
-
-class TypeLoweringError : public std::runtime_error {
-  public:
-    explicit TypeLoweringError(const std::string &msg) : std::runtime_error(msg) {}
-};
 
 class TypeLowering {
   public:
