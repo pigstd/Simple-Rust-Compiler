@@ -18,10 +18,10 @@ IR 相关的所有类型、builder、上下文统一置于 `namespace ir` 下：
   - `FunctionType`：字段 `IRType_ptr return_type`, `vector<IRType_ptr> param_types`，构造函数 `FunctionType(IRType_ptr ret, vector<IRType_ptr> params)`。暂不支持可变参数，所有函数签名均为固定参数列表。
 - **核心接口**：
   - `virtual string to_string() const = 0;` 子类输出 LLVM 格式，如 `void`, `i32`, `ptr`, `[4 x i8]`, `{ ptr, i32 }`。
-  - `bool is_integer(int bits = -1) const; bool is_pointer() const;` 等便捷判定函数可以在基类中以 `dynamic_cast`/`typeid` 实现。
+  - `bool is_integer(int bits = -1) const; bool is_pointer() const; bool is_void() const;` 等便捷判定函数可以在基类中以 `dynamic_cast`/`typeid` 实现。
 
 - #### IRValue 层级
-- `IRValue` 为抽象基类，持有 `IRType_ptr type` 与纯虚函数 `repr()`，其派生类负责具体表现。
+- `IRValue` 为抽象基类，持有 `IRType_ptr type` 与纯虚函数 `repr()`，其派生类负责具体表现，同时统一提供 `virtual string typed_repr() const` 默认实现（输出 `<type> <repr>`），方便 `store`/`call` 等指令直接引用带类型的文本。
 - **`RegisterValue`**：表示 SSA 寄存器或局部地址（`alloca`/`getelementptr` 结果），字段包含 `string name`、可选 `IRInstruction_ptr def`。构造函数 `RegisterValue(string name, IRType_ptr type, IRInstruction_ptr def = nullptr)`，`repr()` 返回 `%name`。
 - **`ConstantValue`**：仅针对可内联的标量常量（`i32`、`bool`）。构造函数 `ConstantValue(IRType_ptr type, int64_t literal)`，其中 `literal` 的解释由 `type` 决定（若 `type` 是 `i1` 则只取最低位表示 `true/false`）。提供 `repr()`（返回裸值，如 `42`、`true`）和 `typed_repr()`（返回 `i32 42`、`i1 true`）两种输出形式，分别用于指令参数与需要带类型的上下文。需要占内存的数组/字符串常量会转换成全局值。
 - **`GlobalValue`**：继承 `IRValue`，表示模块级全局变量/常量，可直接作为指令操作数。字段包含 `string name`, `IRType_ptr type`, `string init_text`, `bool is_constant`, `string linkage`。构造函数 `GlobalValue(string name, IRType_ptr type, string init_text, bool is_const = true, string linkage = "private")`；`repr()` 输出 `@name`，`typed_repr()` 输出 `ptr @name`，`definition_string()` 返回 `@name = linkage (constant|global) <type> <init_text>`，供模块序列化时使用。
@@ -43,7 +43,7 @@ IR 相关的所有类型、builder、上下文统一置于 `namespace ir` 下：
 - **字段**：`string label; vector<IRInstruction_ptr> instructions;`
 - **构造函数**：`BasicBlock(string label);`
 - **接口**：
-  - `IRInstruction_ptr append(IRInstruction_ptr inst);` 将指令附加在当前块末尾。
+  - `IRInstruction_ptr append(IRInstruction_ptr inst);` 将指令附加在当前块末尾；若块尾已有终止指令（`ret`/`br`），则自动把新指令插入到终止指令之前，避免生成非法 IR（便于先写控制流骨架再补 `store`/`alloca` 等指令）。
   - `IRInstruction_ptr insert_before_terminator(IRInstruction_ptr inst);` 在终止指令前插入，用于在 `ret`/`br` 前补充操作。
   - `IRInstruction_ptr get_terminator() const;` 返回块中的终止指令，便于检测是否还能追加新指令。
   - `string to_string() const;` 序列化该基本块（标签 + 指令列表）。
@@ -57,9 +57,10 @@ IR 相关的所有类型、builder、上下文统一置于 `namespace ir` 下：
 - **构造函数**：`IRFunction(string name, IRType_ptr fn_type, bool is_declaration = false);`
 - **接口**：
   - `BasicBlock_ptr get_entry_block();` 获取入口块指针（若为空则尚未创建），方便将 `alloca` 插入入口。
+  - `BasicBlock_ptr create_block(string label);` 在函数内创建新的基本块；无论传入的 `label` 是否带数字后缀，都会基于原始 `label` 追加 `.N`（`label.0/label.1/...`）的形式递增，保证同一函数内标签唯一。
   - `IRValue_ptr add_param(string name, IRType_ptr type);` 记录形参信息并返回对应的 `RegisterValue` 供函数体使用。
   - `string signature_string() const;` 生成 `define/declare` 语句所需的函数签名文本。
-  - `string to_string() const;` 序列化整个函数（声明或定义）。所有新建基本块统一通过 `IRBuilder::create_block` 完成，确保命名唯一性。
+  - `string to_string() const;` 序列化整个函数（声明或定义）。所有新建基本块统一通过 `IRFunction::create_block`（通常由 `IRBuilder::create_block` 间接调用）完成，确保命名唯一性。
 
 #### IRModule
 - **字段**：
@@ -84,7 +85,7 @@ IR 相关的所有类型、builder、上下文统一置于 `namespace ir` 下：
 - **构造函数**：`IRBuilder(IRModule &module);`
 - **关键接口**：
   - `void set_insertion_point(block)`：指定后续指令插入的基本块。
-  - `BasicBlock_ptr create_block(label)`：在当前函数中新建基本块并返回。内部维护 `unordered_map<string, size_t> block_name_counter`，每个标签会自动拼接 `.N` 后缀（如 `then` 申请两次得到 `then.0/then.1`），因此文档中的 fixture 及 runner 一律假定由 Builder 自动编号，无需手动附加 `.0`。
+  - `BasicBlock_ptr create_block(label)`：在当前函数中新建基本块并返回。`IRFunction::create_block` 会为同名标签在函数内部维护一个计数器，自动拼接 `.N` 后缀（如 `then` 申请两次得到 `then.0/then.1`），因此调用者无需关心命名冲突。
   - `IRValue_ptr create_temp(IRType_ptr type, string name_hint = "")`：分配新的 SSA 寄存器；若 `name_hint` 非空且未冲突则使用 `%name_hint`，否则按 `%0/%1/...` 递增。
   - `IRValue_ptr create_temp_alloca(IRType_ptr type, string name_hint = "tmp")`：在入口块生成 `alloca`，为表达式结果或局部变量申请栈空间，返回指向该栈槽的 `RegisterValue`。
   - **算术接口**：
@@ -116,8 +117,6 @@ IR 相关的所有类型、builder、上下文统一置于 `namespace ir` 下：
 
 #### 序列化与调试
 - `IRSerializer`：负责 `IRModule::to_string()`，确保缩进、换行与 LLVM 语法一致；类型定义通过遍历 `type_definitions` 中的 `pair<string, vector<string>>` 拼出 `%TypeName = type { ... }` 格式；所有 IR 文本统一带 `target triple = ...` 与 `target datalayout = ...` 头部，fixture/runner 也据此比对。实现上会借助若干内部工具：
-  - `IRInstruction` 的 `literal_type` 字段（仅 `alloca`/`getelementptr`/`call` 使用），用于序列化需要显式写出类型的场景，生成 `alloca i32`、`getelementptr { ptr, i32 }`、`call void ...` 等文本，而无需再临时包装成 `IRValue`。
-  - `typed_value_repr()`：序列化任意 `IRValue` 时，如果是常量或全局会拼出 `i32 42`、`ptr @foo` 的形式；否则退回到 `<type> <repr>`。
   - `deduce_gep_pointee()`：根据数组/结构索引序列推导 `getelementptr` 结果指向的元素类型；`PointerType` 本身存着 `pointee`，因此 `create_load`/`create_store` 等只需直接查看指针类型即可，还可以在 `GlobalValue`/`alloca` 构造时立刻携带 pointee。
   - `string_literal_counters()` / `encode_string_literal()`：为 `create_string_literal()` 生成唯一的 `.str.N` 名称，同时把原始文本编码为 LLVM `c"..."` 语法（包含转义和结尾的 `\00`）。
   - `predicate_to_string()`、`opcode_to_string()`：把内部枚举（`ICmpPredicate`、`Opcode`）转换为 LLVM 指令助记符，便于 `IRInstruction::to_string()`。

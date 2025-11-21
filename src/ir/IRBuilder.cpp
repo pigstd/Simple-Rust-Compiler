@@ -24,6 +24,10 @@ bool IRType::is_pointer() const {
     return dynamic_cast<const PointerType *>(this) != nullptr;
 }
 
+bool IRType::is_void() const {
+    return dynamic_cast<const VoidType *>(this) != nullptr;
+}
+
 VoidType::VoidType() = default;
 VoidType::~VoidType() = default;
 
@@ -101,6 +105,10 @@ IRValue::IRValue(IRType_ptr type) : type_(std::move(type)) {}
 
 IRType_ptr IRValue::type() const { return type_; }
 
+std::string IRValue::typed_repr() const {
+    return type_->to_string() + " " + repr();
+}
+
 RegisterValue::RegisterValue(std::string name, IRType_ptr type)
     : IRValue(std::move(type)), name_(std::move(name)) {}
 
@@ -156,20 +164,6 @@ std::string GlobalValue::definition_string() const {
 }
 
 namespace {
-
-std::string typed_value_repr(const IRValue_ptr &value) {
-    if (auto constant = std::dynamic_pointer_cast<ConstantValue>(value)) {
-        return constant->typed_repr();
-    }
-    if (auto global = std::dynamic_pointer_cast<GlobalValue>(value)) {
-        return global->typed_repr();
-    }
-    return value->type()->to_string() + " " + value->repr();
-}
-
-bool is_void_type(const IRType_ptr &type) {
-    return dynamic_cast<const VoidType *>(type.get()) != nullptr;
-}
 
 IRType_ptr deduce_gep_pointee(IRType_ptr root_type,
                               const std::vector<IRValue_ptr> &indices) {
@@ -262,6 +256,40 @@ const char *predicate_to_string(ICmpPredicate predicate) {
     return "eq";
 }
 
+const char *opcode_to_string(Opcode opcode) {
+    switch (opcode) {
+    case Opcode::Add:
+        return "add";
+    case Opcode::Sub:
+        return "sub";
+    case Opcode::Mul:
+        return "mul";
+    case Opcode::SDiv:
+        return "sdiv";
+    case Opcode::UDiv:
+        return "udiv";
+    case Opcode::SRem:
+        return "srem";
+    case Opcode::URem:
+        return "urem";
+    case Opcode::And:
+        return "and";
+    case Opcode::Or:
+        return "or";
+    case Opcode::Xor:
+        return "xor";
+    case Opcode::Shl:
+        return "shl";
+    case Opcode::AShr:
+        return "ashr";
+    case Opcode::LShr:
+        return "lshr";
+    default:
+        break;
+    }
+    return "";
+}
+
 } // namespace
 
 IRInstruction::IRInstruction(Opcode opcode, std::vector<IRValue_ptr> operands,
@@ -315,44 +343,6 @@ BasicBlock_ptr IRInstruction::true_target() const { return true_target_; }
 
 BasicBlock_ptr IRInstruction::false_target() const { return false_target_; }
 
-namespace {
-
-const char *opcode_to_string(Opcode opcode) {
-    switch (opcode) {
-    case Opcode::Add:
-        return "add";
-    case Opcode::Sub:
-        return "sub";
-    case Opcode::Mul:
-        return "mul";
-    case Opcode::SDiv:
-        return "sdiv";
-    case Opcode::UDiv:
-        return "udiv";
-    case Opcode::SRem:
-        return "srem";
-    case Opcode::URem:
-        return "urem";
-    case Opcode::And:
-        return "and";
-    case Opcode::Or:
-        return "or";
-    case Opcode::Xor:
-        return "xor";
-    case Opcode::Shl:
-        return "shl";
-    case Opcode::AShr:
-        return "ashr";
-    case Opcode::LShr:
-        return "lshr";
-    default:
-        break;
-    }
-    return "";
-}
-
-} // namespace
-
 std::string IRInstruction::to_string() const {
     std::ostringstream oss;
     auto emit_binary = [&](const char *mnemonic) {
@@ -383,24 +373,20 @@ std::string IRInstruction::to_string() const {
         if (result_) {
             oss << result_->repr() << " = ";
         }
-        oss << "icmp " << predicate_to_string(predicate_) << " "
-            << operands_[0]->type()->to_string() << " " << operands_[0]->repr()
-            << ", " << operands_[1]->repr();
+        oss << "icmp ";
+        emit_binary(predicate_to_string(predicate_));
         break;
     case Opcode::Call: {
         if (result_) {
             oss << result_->repr() << " = ";
         }
-        IRType_ptr ret_type = result_ ? result_->type() : literal_type_;
-        if (!ret_type) {
-            ret_type = std::make_shared<VoidType>();
-        }
+        IRType_ptr ret_type = literal_type_;
         oss << "call " << ret_type->to_string() << " @" << call_callee_ << "(";
         for (std::size_t i = 0; i < operands_.size(); ++i) {
             if (i > 0) {
                 oss << ", ";
             }
-            oss << typed_value_repr(operands_[i]);
+            oss << operands_[i]->typed_repr();
         }
         oss << ")";
         break;
@@ -417,13 +403,15 @@ std::string IRInstruction::to_string() const {
     case Opcode::Load:
         if (result_) {
             oss << result_->repr() << " = ";
+        } else {
+            throw std::runtime_error("Error, load instruction must contain result.");
         }
         oss << "load " << result_->type()->to_string() << ", "
-            << typed_value_repr(operands_[0]);
+            << operands_[0]->typed_repr();
         break;
     case Opcode::Store:
-        oss << "store " << typed_value_repr(operands_[0]) << ", "
-            << typed_value_repr(operands_[1]);
+        oss << "store " << operands_[0]->typed_repr() << ", "
+            << operands_[1]->typed_repr();
         break;
     case Opcode::GEP:
         if (result_) {
@@ -433,25 +421,22 @@ std::string IRInstruction::to_string() const {
             throw std::runtime_error("getelementptr missing literal type");
         }
         oss << "getelementptr " << literal_type_->to_string();
-        if (!operands_.empty()) {
-            oss << ", " << typed_value_repr(operands_[0]);
-            for (std::size_t i = 1; i < operands_.size(); ++i) {
-                oss << ", " << typed_value_repr(operands_[i]);
-            }
+        for (const auto &op : operands_) {
+            oss << ", " << op->typed_repr();
         }
         break;
     case Opcode::Br:
         oss << "br label %" << branch_target_->label();
         break;
     case Opcode::CondBr:
-        oss << "br " << typed_value_repr(operands_[0]) << ", label %"
+        oss << "br " << operands_[0]->typed_repr() << ", label %"
             << true_target_->label() << ", label %" << false_target_->label();
         break;
     case Opcode::Ret:
         if (operands_.empty()) {
             oss << "ret void";
         } else {
-            oss << "ret " << typed_value_repr(operands_[0]);
+            oss << "ret " << operands_[0]->typed_repr();
         }
         break;
     }
@@ -489,10 +474,6 @@ IRInstruction_ptr BasicBlock::insert_before_terminator(IRInstruction_ptr inst) {
                            [](const IRInstruction_ptr &candidate) {
                                return candidate->is_terminator();
                            });
-    if (it == instructions_.end()) {
-        instructions_.push_back(std::move(inst));
-        return instructions_.back();
-    }
     it = instructions_.insert(it, std::move(inst));
     return *it;
 }
@@ -542,36 +523,8 @@ BasicBlock_ptr IRFunction::get_entry_block() {
 }
 
 BasicBlock_ptr IRFunction::create_block(const std::string &label) {
-    std::string final_label = label;
-    auto dot_pos = final_label.rfind('.');
-    auto has_suffix = [&]() {
-        if (dot_pos == std::string::npos || dot_pos + 1 >= final_label.size()) {
-            return false;
-        }
-        auto offset = static_cast<std::string::difference_type>(dot_pos + 1);
-        auto suffix_begin = final_label.begin() + offset;
-        return std::all_of(suffix_begin, final_label.end(), [](char ch) {
-            return std::isdigit(static_cast<unsigned char>(ch));
-        });
-    }();
-    if (!has_suffix) {
-        std::string prefix = label + ".";
-        std::size_t next_index = 0;
-        for (const auto &block : blocks_) {
-            const auto &existing = block->label();
-            if (existing.rfind(prefix, 0) == 0) {
-                auto suffix = existing.substr(prefix.size());
-                if (!suffix.empty()) {
-                    try {
-                        std::size_t value = std::stoul(suffix);
-                        next_index = std::max(next_index, value + 1);
-                    } catch (...) {
-                    }
-                }
-            }
-        }
-        final_label = prefix + std::to_string(next_index);
-    }
+    auto &counter = block_name_counter_[label];
+    std::string final_label = label + "." + std::to_string(counter++);
     auto block = std::make_shared<BasicBlock>(final_label);
     blocks_.push_back(block);
     return block;
@@ -853,9 +806,7 @@ BasicBlock_ptr IRBuilder::create_block(const std::string &label) {
     if (!current_function_) {
         throw std::runtime_error("No current function to attach block");
     }
-    auto &counter = block_name_counter_[label];
-    std::string final_label = label + "." + std::to_string(counter++);
-    return current_function_->create_block(final_label);
+    return current_function_->create_block(label);
 }
 
 IRValue_ptr IRBuilder::create_temp(IRType_ptr type,
@@ -1115,16 +1066,14 @@ IRValue_ptr IRBuilder::create_call(const std::string &callee,
     IRType_ptr call_ret_type =
         ret_type ? ret_type : std::make_shared<VoidType>();
     IRValue_ptr result;
-    const bool returns_void = is_void_type(call_ret_type);
+    const bool returns_void = call_ret_type->is_void();
     if (!returns_void) {
         result = create_temp(call_ret_type, name);
     }
     auto inst = std::make_shared<IRInstruction>(Opcode::Call,
                                                 std::move(operands), result);
     inst->set_call_callee(callee);
-    if (returns_void) {
-        inst->set_literal_type(call_ret_type);
-    }
+    inst->set_literal_type(call_ret_type);
     insert_instruction(inst);
     return result;
 }

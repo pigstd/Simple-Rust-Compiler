@@ -97,6 +97,8 @@ class IRType {
     virtual bool is_integer(int bits = -1) const;
     // 检查是否为指针类型。
     virtual bool is_pointer() const;
+    // 检查是否为 void 类型。
+    virtual bool is_void() const;
 };
 
 class VoidType : public IRType {
@@ -205,6 +207,8 @@ class IRValue : public std::enable_shared_from_this<IRValue> {
     IRType_ptr type() const;
     // 返回 Value 在指令中的文本表示。
     virtual std::string repr() const = 0;
+    // 返回带类型的文本表示。
+    virtual std::string typed_repr() const;
 
   protected:
     IRType_ptr type_;
@@ -236,7 +240,7 @@ class ConstantValue : public IRValue {
     // 输出裸值形式。
     std::string repr() const override;
     // 输出带类型的常量。
-    std::string typed_repr() const;
+    std::string typed_repr() const override;
 
   private:
     ConstantLiteral literal_;
@@ -263,7 +267,7 @@ class GlobalValue : public IRValue {
     // 输出 `@name` 形式。
     std::string repr() const override;
     // 输出 `ptr @name` 形式。
-    std::string typed_repr() const;
+    std::string typed_repr() const override;
     // 输出全局定义文本。
     std::string definition_string() const;
 
@@ -401,6 +405,7 @@ class IRFunction : public std::enable_shared_from_this<IRFunction> {
     std::vector<std::pair<std::string, IRType_ptr>> params_;
     std::vector<BasicBlock_ptr> blocks_;
     bool is_declaration_;
+    std::unordered_map<std::string, std::size_t> block_name_counter_;
 };
 
 class IRModule : public std::enable_shared_from_this<IRModule> {
@@ -582,7 +587,6 @@ class IRBuilder {
     IRFunction_ptr current_function_;
     BasicBlock_ptr insertion_block_;
     std::size_t next_reg_index_;
-    std::unordered_map<std::string, std::size_t> block_name_counter_;
 };
 
 } // namespace ir
