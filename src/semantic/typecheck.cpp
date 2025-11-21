@@ -1039,10 +1039,10 @@ void ExprTypeAndLetStmtVisitor::intro_let_stmt(Scope_ptr current_scope, Pattern_
     // 只要考虑是否 mut
     if (ident_pattern->is_mut == Mutibility::MUTABLE) {
         scope_local_variable_map[current_scope][ident_pattern->name] =
-            std::make_shared<LetDecl>(let_type, Mutibility::MUTABLE);
+            std::make_shared<LetDecl>(ident_pattern->name, let_type, Mutibility::MUTABLE);
     } else {
         scope_local_variable_map[current_scope][ident_pattern->name] =
-            std::make_shared<LetDecl>(let_type, Mutibility::IMMUTABLE);
+            std::make_shared<LetDecl>(ident_pattern->name, let_type, Mutibility::IMMUTABLE);
     }
 }
 

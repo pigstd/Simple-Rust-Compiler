@@ -242,7 +242,8 @@ void Semantic_Checker::add_builtin_methods_and_associated_funcs() {
         auto print_fn_decl = std::make_shared<FnDecl>(
             nullptr,
             nullptr,
-            fn_reciever_type::NO_RECEIVER
+            fn_reciever_type::NO_RECEIVER,
+            "print"
         );
         IdentifierPattern_ptr id_pattern = std::make_shared<IdentifierPattern>("s", Mutibility::IMMUTABLE, ReferenceType::NO_REF);
         print_fn_decl->parameters.push_back({id_pattern, std::make_shared<StrRealType>(ReferenceType::REF)});
@@ -258,7 +259,8 @@ void Semantic_Checker::add_builtin_methods_and_associated_funcs() {
         auto println_fn_decl = std::make_shared<FnDecl>(
             nullptr,
             nullptr,
-            fn_reciever_type::NO_RECEIVER
+            fn_reciever_type::NO_RECEIVER,
+            "println"
         );
         IdentifierPattern_ptr id_pattern = std::make_shared<IdentifierPattern>("s", Mutibility::IMMUTABLE, ReferenceType::NO_REF);
         println_fn_decl->parameters.push_back({id_pattern, std::make_shared<StrRealType>(ReferenceType::REF)});
@@ -274,7 +276,8 @@ void Semantic_Checker::add_builtin_methods_and_associated_funcs() {
         auto printint_fn_decl = std::make_shared<FnDecl>(
             nullptr,
             nullptr,
-            fn_reciever_type::NO_RECEIVER
+            fn_reciever_type::NO_RECEIVER,
+            "printInt"
         );
         IdentifierPattern_ptr id_pattern = std::make_shared<IdentifierPattern>("n", Mutibility::IMMUTABLE, ReferenceType::NO_REF);
         printint_fn_decl->parameters.push_back({id_pattern, std::make_shared<I32RealType>(ReferenceType::NO_REF)});
@@ -290,7 +293,8 @@ void Semantic_Checker::add_builtin_methods_and_associated_funcs() {
         auto printlnint_fn_decl = std::make_shared<FnDecl>(
             nullptr,
             nullptr,
-            fn_reciever_type::NO_RECEIVER
+            fn_reciever_type::NO_RECEIVER,
+            "printlnInt"
         );
         IdentifierPattern_ptr id_pattern = std::make_shared<IdentifierPattern>("n", Mutibility::IMMUTABLE, ReferenceType::NO_REF);
         printlnint_fn_decl->parameters.push_back({id_pattern, std::make_shared<I32RealType>(ReferenceType::NO_REF)});
@@ -306,7 +310,8 @@ void Semantic_Checker::add_builtin_methods_and_associated_funcs() {
         auto getstring_fn_decl = std::make_shared<FnDecl>(
             nullptr,
             nullptr,
-            fn_reciever_type::NO_RECEIVER
+            fn_reciever_type::NO_RECEIVER,
+            "getString"
         );
         getstring_fn_decl->return_type = std::make_shared<StringRealType>(ReferenceType::NO_REF);
         string fn_name = "getString";
@@ -320,7 +325,8 @@ void Semantic_Checker::add_builtin_methods_and_associated_funcs() {
         auto getint_fn_decl = std::make_shared<FnDecl>(
             nullptr,
             nullptr,
-            fn_reciever_type::NO_RECEIVER
+            fn_reciever_type::NO_RECEIVER,
+            "getInt"
         );
         getint_fn_decl->return_type = std::make_shared<I32RealType>(ReferenceType::NO_REF);
         string fn_name = "getInt";
@@ -335,7 +341,8 @@ void Semantic_Checker::add_builtin_methods_and_associated_funcs() {
         auto exit_fn_decl = std::make_shared<FnDecl>(
             nullptr,
             nullptr,
-            fn_reciever_type::NO_RECEIVER
+            fn_reciever_type::NO_RECEIVER,
+            "exit"
         );
         exit_fn_decl->is_exit = true;
         IdentifierPattern_ptr id_pattern = std::make_shared<IdentifierPattern>("code", Mutibility::IMMUTABLE, ReferenceType::NO_REF);
@@ -356,7 +363,8 @@ void Semantic_Checker::add_builtin_methods_and_associated_funcs() {
         auto to_string_fn_decl = std::make_shared<FnDecl>(
             nullptr,
             nullptr,
-            fn_reciever_type::SELF_REF
+            fn_reciever_type::SELF_REF,
+            "to_string"
         );
         to_string_fn_decl->return_type = std::make_shared<StringRealType>(ReferenceType::NO_REF);
         builtin_method_funcs.push_back({RealTypeKind::U32, "to_string", to_string_fn_decl});
@@ -375,14 +383,16 @@ void Semantic_Checker::add_builtin_methods_and_associated_funcs() {
         auto as_str_fn_decl = std::make_shared<FnDecl>(
             nullptr,
             nullptr,
-            fn_reciever_type::SELF_REF
+            fn_reciever_type::SELF_REF,
+            "as_str"
         );
         as_str_fn_decl->return_type = std::make_shared<StrRealType>(ReferenceType::REF);
         builtin_method_funcs.push_back({RealTypeKind::STRING, "as_str", as_str_fn_decl});
         auto as_mut_str_fn_decl = std::make_shared<FnDecl>(
             nullptr,
             nullptr,
-            fn_reciever_type::SELF_REF_MUT
+            fn_reciever_type::SELF_REF_MUT,
+            "as_mut_str"
         );
         as_mut_str_fn_decl->return_type = std::make_shared<StrRealType>(ReferenceType::REF_MUT);
         builtin_method_funcs.push_back({RealTypeKind::STRING, "as_mut_str", as_mut_str_fn_decl});
@@ -396,7 +406,8 @@ void Semantic_Checker::add_builtin_methods_and_associated_funcs() {
         auto len_fn_decl = std::make_shared<FnDecl>(
             nullptr,
             nullptr,
-            fn_reciever_type::SELF_REF
+            fn_reciever_type::SELF_REF,
+            "len"
         );
         len_fn_decl->return_type = std::make_shared<UsizeRealType>(ReferenceType::NO_REF);
         builtin_method_funcs.push_back({RealTypeKind::ARRAY, "len", len_fn_decl});
@@ -412,7 +423,8 @@ void Semantic_Checker::add_builtin_methods_and_associated_funcs() {
         auto from_fn_decl = std::make_shared<FnDecl>(
             nullptr,
             nullptr,
-            fn_reciever_type::NO_RECEIVER
+            fn_reciever_type::NO_RECEIVER,
+            "from"
         );
         IdentifierPattern_ptr from_id_pattern = std::make_shared<IdentifierPattern>("s", Mutibility::IMMUTABLE, ReferenceType::NO_REF);
         from_fn_decl->parameters.push_back({from_id_pattern, std::make_shared<StrRealType>(ReferenceType::REF)});
@@ -421,7 +433,8 @@ void Semantic_Checker::add_builtin_methods_and_associated_funcs() {
         auto from_mut_fn_decl = std::make_shared<FnDecl>(
             nullptr,
             nullptr,
-            fn_reciever_type::NO_RECEIVER
+            fn_reciever_type::NO_RECEIVER,
+            "from"
         );
         IdentifierPattern_ptr from_mut_id_pattern = std::make_shared<IdentifierPattern>("s", Mutibility::IMMUTABLE, ReferenceType::NO_REF);
         from_mut_fn_decl->parameters.push_back({from_mut_id_pattern, std::make_shared<StrRealType>(ReferenceType::REF_MUT)});
@@ -437,7 +450,8 @@ void Semantic_Checker::add_builtin_methods_and_associated_funcs() {
         auto append_fn_decl = std::make_shared<FnDecl>(
             nullptr,
             nullptr,
-            fn_reciever_type::SELF_REF_MUT
+            fn_reciever_type::SELF_REF_MUT,
+            "append"
         );
         IdentifierPattern_ptr append_id_pattern = std::make_shared<IdentifierPattern>("s", Mutibility::IMMUTABLE, ReferenceType::NO_REF);
         append_fn_decl->parameters.push_back({append_id_pattern, std::make_shared<StrRealType>(ReferenceType::REF)});

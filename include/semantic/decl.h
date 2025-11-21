@@ -4,6 +4,7 @@
 #include "ast/ast.h"
 #include <map>
 #include <memory>
+#include <utility>
 #include <vector>
 
 using std::map;
@@ -51,31 +52,36 @@ enum class ValueDeclKind {
 
 struct TypeDecl {
     TypeDeclKind kind;
+    string name;
     virtual ~TypeDecl() = default;
-    TypeDecl(TypeDeclKind kind_) : kind(kind_) {}
+    TypeDecl(TypeDeclKind kind_, string name_) : kind(kind_), name(std::move(name_)) {}
 };
 struct ValueDecl {
     ValueDeclKind kind;
+    string name;
     virtual ~ValueDecl() = default;
-    ValueDecl(ValueDeclKind kind_) : kind(kind_) {}
+    ValueDecl(ValueDeclKind kind_, string name_) : kind(kind_), name(std::move(name_)) {}
 };
 // 作为基类
 
 struct StructDecl : public TypeDecl {
+    vector<string> field_order;
     StructItem_ptr ast_node;
     map<string, RealType_ptr> fields; // 字段名的类型，第二轮填
     map<string, FnDecl_ptr> methods, associated_func;
     // example : point.len() -> methods, point::len() -> associated_func
     map<string, ConstDecl_ptr> associated_const;
     // example : point::ZERO -> associated_const
-    StructDecl(StructItem_ptr ast_node_) : TypeDecl(TypeDeclKind::Struct), ast_node(ast_node_) {}
+    StructDecl(StructItem_ptr ast_node_, string name_)
+        : TypeDecl(TypeDeclKind::Struct, std::move(name_)), ast_node(ast_node_) {}
     virtual ~StructDecl() = default;
 };
 
 struct EnumDecl : public TypeDecl {
     EnumItem_ptr ast_node;
     map<string, int> variants; // 变体名和对应的值，第二轮填
-    EnumDecl(EnumItem_ptr ast_node_) : TypeDecl(TypeDeclKind::Enum), ast_node(ast_node_) {}
+    EnumDecl(EnumItem_ptr ast_node_, string name_)
+        : TypeDecl(TypeDeclKind::Enum, std::move(name_)), ast_node(ast_node_) {}
     virtual ~EnumDecl() = default;
 };
 
@@ -90,15 +96,16 @@ struct FnDecl : public ValueDecl {
     fn_reciever_type receiver_type; // 是否有 self 参数
     weak_ptr<StructDecl> self_struct; // 如果是 method，则存储这个 method 属于哪个 struct，第二轮填
     bool is_main, is_exit; // 是否是 main 函数，是否是 exit 函数
-    FnDecl(FnItem_ptr ast_node_, Scope_ptr function_scope_, fn_reciever_type receiver_type_)
-        : ValueDecl(ValueDeclKind::Function), ast_node(ast_node_), function_scope(function_scope_), receiver_type(receiver_type_),
-          is_main(false), is_exit(false) {}
+    FnDecl(FnItem_ptr ast_node_, Scope_ptr function_scope_, fn_reciever_type receiver_type_, string name_)
+        : ValueDecl(ValueDeclKind::Function, std::move(name_)), ast_node(ast_node_), function_scope(function_scope_),
+          receiver_type(receiver_type_), is_main(false), is_exit(false) {}
 };
 
 struct ConstDecl : public ValueDecl {
     ConstItem_ptr ast_node;
     RealType_ptr const_type; // 常量类型，第二轮填
-    ConstDecl(ConstItem_ptr ast_node_) : ValueDecl(ValueDeclKind::Constant), ast_node(ast_node_) {}
+    ConstDecl(ConstItem_ptr ast_node_, string name_)
+        : ValueDecl(ValueDeclKind::Constant, std::move(name_)), ast_node(ast_node_) {}
 };
 
 // Let 语句引入一个局部变量
@@ -106,7 +113,8 @@ struct ConstDecl : public ValueDecl {
 struct LetDecl : public ValueDecl {
     RealType_ptr let_type;
     Mutibility is_mut;
-    LetDecl(RealType_ptr let_type_, Mutibility is_mut_) : ValueDecl(ValueDeclKind::LetStmt), let_type(let_type_), is_mut(is_mut_) {}
+    LetDecl(string name_, RealType_ptr let_type_, Mutibility is_mut_)
+        : ValueDecl(ValueDeclKind::LetStmt, std::move(name_)), let_type(let_type_), is_mut(is_mut_) {}
 };
 
 // 找到 scope 里面的 const_decl

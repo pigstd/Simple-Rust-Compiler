@@ -117,7 +117,8 @@ void ScopeBuilder_Visitor::visit(FnItem &node) {
 
     // FnDecl 现在接收 FnItem_ptr
     FnItem_ptr fn_item_ptr = make_shared<FnItem>(node);
-    FnDecl_ptr fn_decl = make_shared<FnDecl>(fn_item_ptr, new_scope, node.receiver_type);
+    FnDecl_ptr fn_decl =
+        make_shared<FnDecl>(fn_item_ptr, new_scope, node.receiver_type, node.function_name);
     // 关联函数的事情，第二轮再搞
     // 加入 value_namespace
     if (current_scope()->value_namespace.find(node.function_name) != 
@@ -140,7 +141,12 @@ void ScopeBuilder_Visitor::visit(StructItem &node) {
 
     // StructDecl 现在接收 StructItem_ptr
     StructItem_ptr struct_item_ptr = make_shared<StructItem>(node);
-    StructDecl_ptr struct_decl = make_shared<StructDecl>(struct_item_ptr);
+    StructDecl_ptr struct_decl =
+        make_shared<StructDecl>(struct_item_ptr, node.struct_name);
+    struct_decl->field_order.reserve(node.fields.size());
+    for (const auto &field : node.fields) {
+        struct_decl->field_order.push_back(field.first);
+    }
     // 加入 type_namespace
     if (current_scope()->type_namespace.find(node.struct_name) != 
         current_scope()->type_namespace.end()) {
@@ -155,7 +161,7 @@ void ScopeBuilder_Visitor::visit(EnumItem &node) {
 
     // EnumDecl 现在接收 EnumItem_ptr
     EnumItem_ptr enum_item_ptr = make_shared<EnumItem>(node);
-    EnumDecl_ptr enum_decl = make_shared<EnumDecl>(enum_item_ptr);
+    EnumDecl_ptr enum_decl = make_shared<EnumDecl>(enum_item_ptr, node.enum_name);
     // 加入 type_namespace
     if (current_scope()->type_namespace.find(node.enum_name) != 
         current_scope()->type_namespace.end()) {
@@ -178,7 +184,7 @@ void ScopeBuilder_Visitor::visit(ConstItem &node) {
 
     // ConstDecl 现在接收 ConstItem_ptr
     ConstItem_ptr const_item_ptr = make_shared<ConstItem>(node);
-    ConstDecl_ptr const_decl = make_shared<ConstDecl>(const_item_ptr);
+    ConstDecl_ptr const_decl = make_shared<ConstDecl>(const_item_ptr, node.const_name);
     // 加入 value_namespace
     if (current_scope()->value_namespace.find(node.const_name) != 
         current_scope()->value_namespace.end()) {
