@@ -23,6 +23,12 @@ jobs:
         run: |
           cmake ..
           make -j
+      
+      - name: Run IRBuilder tests
+        run: python3 test/IRBuilder/run_tests.py
+
+      - name: Run TypeLowering tests
+        run: python3 test/TypeLowering/run_tests.py
 
       - name: Test Semantic-1
         working-directory: scripts
