@@ -251,6 +251,7 @@ void ExprTypeAndLetStmtVisitor::visit(IdentifierExpr &node) {
     if (decl == nullptr) {
         throw string("CE, cannot find identifier declaration: ") + node.name;
     }
+    identifier_expr_to_decl_map[node.NodeId] = decl;
     RealType_ptr result_type = nullptr;
     PlaceKind place_kind = PlaceKind::NotPlace;
     if (require_function) {

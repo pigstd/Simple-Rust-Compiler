@@ -28,6 +28,9 @@ struct Semantic_Checker {
     // 每个函数调用表达式最终绑定到的 FnDecl
     map<size_t, FnDecl_ptr> call_expr_to_decl_map;
 
+    // 每个 IdentifierExpr 最终解析到的 ValueDecl
+    map<size_t, ValueDecl_ptr> identifier_expr_to_decl_map;
+
     // 在第二步解析类型的时候，数组大小的表达式还没有被解析
     // 第三步的时候，let 语句的数组大小表达式以及 repeat array 的 size 表达式需要被解析
     // 这些表达式都必须是常量表达式，在求完所有的常量之后去求这个常量表达式的值

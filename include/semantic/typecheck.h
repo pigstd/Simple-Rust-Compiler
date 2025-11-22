@@ -116,6 +116,8 @@ struct ExprTypeAndLetStmtVisitor : public AST_Walker {
     bool require_function;
     // 存放每个表达式节点的 RealType 和 PlaceKind
     map<size_t, pair<RealType_ptr, PlaceKind>> &node_type_and_place_kind_map;
+    // 记录 IdentifierExpr 解析到的 ValueDecl
+    map<size_t, ValueDecl_ptr> &identifier_expr_to_decl_map;
     // 存放每个节点对应的作用域
     map<size_t, Scope_ptr> &node_scope_map;
     // 存放每个 AST 的 Type 对应的 RealType，直接复制过来即可
@@ -178,6 +180,7 @@ struct ExprTypeAndLetStmtVisitor : public AST_Walker {
 
     ExprTypeAndLetStmtVisitor(bool require_function_,
             map<size_t, pair<RealType_ptr, PlaceKind>> &node_type_and_place_kind_map_,
+            map<size_t, ValueDecl_ptr> &identifier_expr_to_decl_map_,
             map<size_t, Scope_ptr> &node_scope_map_,
             map<size_t, RealType_ptr> &type_map_,
             map<Scope_ptr, Local_Variable_map> &scope_local_variable_map_,
@@ -188,6 +191,7 @@ struct ExprTypeAndLetStmtVisitor : public AST_Walker {
             vector<std::tuple<RealTypeKind, string, FnDecl_ptr>> &builtin_associated_funcs_) :
             require_function(require_function_),
             node_type_and_place_kind_map(node_type_and_place_kind_map_),
+            identifier_expr_to_decl_map(identifier_expr_to_decl_map_),
             node_scope_map(node_scope_map_),
             type_map(type_map_),
             scope_local_variable_map(scope_local_variable_map_),

@@ -19,6 +19,7 @@
 - 维护的核心成员：
   * `map<size_t, pair<RealType_ptr, PlaceKind>> &node_type_and_place_kind_map`：为每个节点存储推断出的类型和左值属性。
   * `map<size_t, Scope_ptr> &node_scope_map`、`map<Scope_ptr, Local_Variable_map> &scope_local_variable_map`：提供符号查找与局部变量表。
+  * `map<size_t, ValueDecl_ptr> &identifier_expr_to_decl_map`：在 `IdentifierExpr` 解析完成后记录其对应的 `ValueDecl`，避免后续阶段重复查找作用域。
   * `map<size_t, RealType_ptr> &type_map`、`map<size_t, size_t> &const_expr_to_size_map`：获取预解析的类型与数组长度。
   * 控制流信息 `map<size_t, OutcomeState> &node_outcome_state_map`，用于推断 `loop`、`if` 的返回类型。
   * `map<size_t, FnDecl_ptr> &call_expr_to_decl_map`：在解析 `CallExpr` 时回填其绑定的 `FnDecl`。
@@ -31,8 +32,10 @@
   * `check_cast()` 验证 `as` 转换合法性。
   * `visit(FnItem &)` 期间更新 `now_func_decl`，用于识别 `return`/`exit` 要求，遍历函数体时将参数以 `LetDecl` 形式引入函数作用域。
   * 对于 `BinaryExpr`、`UnaryExpr`、`CallExpr` 等节点，根据运算规则合并类型；当成功解析 `CallExpr` 的目标函数时，同时将其 `node_id` 对应的 `FnDecl` 写入 `call_expr_to_decl_map`。控制流结构（`if/loop`）结合 `node_outcome_state_map` 判断分支是否必定返回，从而允许推断结果类型为 `Never` 或 `()`。
+  * `visit(IdentifierExpr &)` 在找到 `ValueDecl` 后，除了设置类型与 `PlaceKind`，还会把 `NodeId -> ValueDecl` 存入 `identifier_expr_to_decl_map`，供 IR 阶段快速区别局部变量、常量或函数。
 
 #### 结果
 语义检查完成后：
 - `node_type_and_place_kind_map` 存有每个表达式节点的类型与可变性信息。
+- `identifier_expr_to_decl_map` 记录所有标识符表达式的绑定目标。
 - `scope_local_variable_map` 含有每个作用域内注册的局部变量，供后续阶段（若有）复用。
