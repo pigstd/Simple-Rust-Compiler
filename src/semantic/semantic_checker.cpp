@@ -108,6 +108,9 @@ void Semantic_Checker::Scope_dfs_and_build_type(Scope_ptr scope) {
                 // 没有返回类型，默认为 ()
                 fn_decl->return_type = std::make_shared<UnitRealType>(ReferenceType::NO_REF);
             }
+            if (fn_decl->ast_node) {
+                fn_item_to_decl_map[fn_decl->ast_node->NodeId] = fn_decl;
+            }
         } else if (value_decl->kind == ValueDeclKind::Constant) {
             auto const_decl = std::dynamic_pointer_cast<ConstDecl>(value_decl);
             // 解析 const type
@@ -227,6 +230,7 @@ void Semantic_Checker::step4_expr_type_and_let_stmt_analysis() {
         scope_local_variable_map,
         const_expr_to_size_map,
         node_outcome_state_map,
+        call_expr_to_decl_map,
         builtin_method_funcs,
         builtin_associated_funcs
     );

@@ -6,6 +6,8 @@
 - `Scope_ptr root_scope`：根作用域。
 - `map<size_t, Scope_ptr> node_scope_map`：记录每个节点所属作用域。
 - `map<size_t, RealType_ptr> type_map`：缓存 AST 类型节点解析出的 `RealType`。
+- `map<size_t, FnDecl_ptr> fn_item_to_decl_map`：`FnItem` 的 `NodeId` 到注册的 `FnDecl` 的映射，便于后续阶段直接找到声明对象。
+- `map<size_t, FnDecl_ptr> call_expr_to_decl_map`：记录每个函数调用表达式最终绑定到的 `FnDecl`，供 IR 生成直接复用。
 - `vector<Expr_ptr> const_expr_queue`、`map<size_t, size_t> const_expr_to_size_map`：追踪数组大小等常量表达式。
 - `map<ConstDecl_ptr, ConstValue_ptr> const_value_map`：保存常量定义的求值结果。
 - `map<size_t, OutcomeState> node_outcome_state_map`：控制流分析结果。
@@ -20,7 +22,7 @@
 2. **`step2_resolve_types_and_check()`**  
    深度优先遍历作用域（`Scope_dfs_and_build_type`）：
    - `impl` 作用域会解析 `self_struct` 并把方法/关联函数/关联常量挂入目标结构体的声明对象。
-   - 对所有结构体字段、函数参数和返回类型、常量类型调用 `find_real_type()`。
+   - 对所有结构体字段、函数参数和返回类型、常量类型调用 `find_real_type()`，在生成 `FnDecl` 的同时把 `FnItem` 的 `NodeId` 写入 `fn_item_to_decl_map`。
    - 校验重复定义、`impl` 中 receiver 的合法性，以及入口函数 `main` 是否存在。
 
 3. **`add_builtin_methods_and_associated_funcs()`**  
@@ -33,6 +35,6 @@
 
 5. **`step4_expr_type_and_let_stmt_analysis()`**  
    - `ArrayTypeVisitor` 根据 `const_expr_to_size_map` 回填数组真实长度。
-   - `ExprTypeAndLetStmtVisitor` 推断所有表达式的类型与 `PlaceKind`，同时处理 `let` 绑定、函数参数引入、内建方法解析、`as` 转换检查等。
+   - `ExprTypeAndLetStmtVisitor` 推断所有表达式的类型与 `PlaceKind`，同时处理 `let` 绑定、函数参数引入、内建方法解析、`as` 转换检查等；当解析到 `CallExpr` 并确定目标函数时，会把该表达式的 `NodeId` → `FnDecl` 写入 `call_expr_to_decl_map`。
 
 执行完上述步骤后，语义分析阶段所需的类型、常量、控制流及局部变量信息全部准备就绪，可供后续（如代码生成）直接使用。

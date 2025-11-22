@@ -134,6 +134,9 @@ struct ExprTypeAndLetStmtVisitor : public AST_Walker {
     // 记录每个 AST 树节点的 OutComeState
     map<size_t, OutcomeState> &node_outcome_state_map;
 
+    // 每个函数调用表达式对应的 FnDecl 映射
+    map<size_t, FnDecl_ptr> &call_expr_to_decl_map;
+
     // 内置方法 e.g. array.len()
     // (类型, 方法名, 方法的 FnDecl)
     vector<std::tuple<RealTypeKind, string, FnDecl_ptr>> &builtin_method_funcs;
@@ -180,6 +183,7 @@ struct ExprTypeAndLetStmtVisitor : public AST_Walker {
             map<Scope_ptr, Local_Variable_map> &scope_local_variable_map_,
             map<size_t, size_t> &const_expr_to_size_map_,
             map<size_t, OutcomeState> &node_outcome_state_map_,
+            map<size_t, FnDecl_ptr> &call_expr_to_decl_map_,
             vector<std::tuple<RealTypeKind, string, FnDecl_ptr>> &builtin_method_funcs_,
             vector<std::tuple<RealTypeKind, string, FnDecl_ptr>> &builtin_associated_funcs_) :
             require_function(require_function_),
@@ -189,6 +193,7 @@ struct ExprTypeAndLetStmtVisitor : public AST_Walker {
             scope_local_variable_map(scope_local_variable_map_),
             const_expr_to_size_map(const_expr_to_size_map_),
             node_outcome_state_map(node_outcome_state_map_),
+            call_expr_to_decl_map(call_expr_to_decl_map_),
             builtin_method_funcs(builtin_method_funcs_),
             builtin_associated_funcs(builtin_associated_funcs_),
             now_func_decl(nullptr) {}

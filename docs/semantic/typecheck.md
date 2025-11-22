@@ -21,6 +21,7 @@
   * `map<size_t, Scope_ptr> &node_scope_map`、`map<Scope_ptr, Local_Variable_map> &scope_local_variable_map`：提供符号查找与局部变量表。
   * `map<size_t, RealType_ptr> &type_map`、`map<size_t, size_t> &const_expr_to_size_map`：获取预解析的类型与数组长度。
   * 控制流信息 `map<size_t, OutcomeState> &node_outcome_state_map`，用于推断 `loop`、`if` 的返回类型。
+  * `map<size_t, FnDecl_ptr> &call_expr_to_decl_map`：在解析 `CallExpr` 时回填其绑定的 `FnDecl`。
   * `builtin_method_funcs`、`builtin_associated_funcs`：存放编译器内建的方法/关联函数签名，按 `RealTypeKind` 和名称匹配。
 - 关键逻辑：
   * `find_value_decl` 先查局部 `LetDecl`，再查作用域的值命名空间。
@@ -29,7 +30,7 @@
   * `intro_let_stmt()` 将模式中绑定的变量插入当前作用域的局部变量表，供后续标识符解析。
   * `check_cast()` 验证 `as` 转换合法性。
   * `visit(FnItem &)` 期间更新 `now_func_decl`，用于识别 `return`/`exit` 要求，遍历函数体时将参数以 `LetDecl` 形式引入函数作用域。
-  * 对于 `BinaryExpr`、`UnaryExpr`、`CallExpr` 等节点，根据运算规则合并类型；控制流结构（`if/loop`）结合 `node_outcome_state_map` 判断分支是否必定返回，从而允许推断结果类型为 `Never` 或 `()`。
+  * 对于 `BinaryExpr`、`UnaryExpr`、`CallExpr` 等节点，根据运算规则合并类型；当成功解析 `CallExpr` 的目标函数时，同时将其 `node_id` 对应的 `FnDecl` 写入 `call_expr_to_decl_map`。控制流结构（`if/loop`）结合 `node_outcome_state_map` 判断分支是否必定返回，从而允许推断结果类型为 `Never` 或 `()`。
 
 #### 结果
 语义检查完成后：

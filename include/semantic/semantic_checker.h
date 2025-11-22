@@ -22,6 +22,12 @@ struct Semantic_Checker {
     // 使用 NodeId 作为 key
     map<size_t, RealType_ptr> type_map;
 
+    // 每个 FnItem 对应的语义声明，key 为 FnItem 的 NodeId
+    map<size_t, FnDecl_ptr> fn_item_to_decl_map;
+
+    // 每个函数调用表达式最终绑定到的 FnDecl
+    map<size_t, FnDecl_ptr> call_expr_to_decl_map;
+
     // 在第二步解析类型的时候，数组大小的表达式还没有被解析
     // 第三步的时候，let 语句的数组大小表达式以及 repeat array 的 size 表达式需要被解析
     // 这些表达式都必须是常量表达式，在求完所有的常量之后去求这个常量表达式的值

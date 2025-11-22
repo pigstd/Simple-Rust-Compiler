@@ -534,6 +534,7 @@ void ExprTypeAndLetStmtVisitor::visit(CallExpr &node) {
         }
         now_func_decl->function_scope.lock()->has_exit = true;
     }
+    call_expr_to_decl_map[node.NodeId] = fn_decl;
     node_type_and_place_kind_map[node.NodeId] =
         {fn_decl->return_type, PlaceKind::NotPlace};
 }
