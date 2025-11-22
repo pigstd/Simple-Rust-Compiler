@@ -1,0 +1,4 @@
+declare void @outer()
+declare void @inner.0()
+declare void @outer2()
+declare void @main()

@@ -51,9 +51,10 @@ class GlobalLoweringDriver {
 `visit_scope` 统一贯穿整个 Scope 树：在进入某个 scope 时，先把 `type_namespace` 里的结构体交给 `TypeLowering::declare_struct` 并立刻 `IRModule::add_type_definition`，确保后续子节点和函数都能引用；再处理 `value_namespace`（函数、常量），最后递归子节点。语义阶段已经把函数/常量按作用域注册好，因此不需要再回到 AST；仅需依据 `Scope` 中的 decl 生成 IR。
 - **结构体**：`visit_scope` 遇到 `StructDecl` 时立即调用 `TypeLowering::declare_struct` 注册 `%StructName` 并 `IRModule::add_type_definition` 写入字段布局，保证后续子作用域可以引用。
 - **枚举**：语义上用 `i32` 表示，本阶段什么都不用做——既无需写出声明，也不再重复登记；TypeLowering 会在需要时把 `RealTypeKind::ENUM` 统一映射为 `i32`。
-- **函数**：`emit_function_decl` 直接调用 `IRModule::define_function` 创建 `define <sig> @symbol(...)` 的函数壳，并为每个形参分配 `%arg.N` 名字；基本块和具体指令在步骤 4 中填充。函数命名不再依赖语义阶段，`GlobalLoweringDriver` 在遍历 `Scope` 树时根据 DFS 路径生成唯一后缀：
-  1. 每个 scope 在 `visit_scope` 开始时声明局部 `size_t local_counter = 0;`。处理 `type_namespace`/`value_namespace`/子 scope 时，遇到需要命名的实体就从 `local_counter` 取当前值 `N`，压入 `scope_suffix_stack_` 的 `.N` 并递增 counter；递归返回后弹出后缀。
-  2. 对 `FnDecl`，使用 `decl->name + scope_suffix_stack_.back()` 作为 IR 符号名（如 `len.0.1`），并写回 `FnDecl::name` 供后续阶段复用。
+- **函数**：`emit_function_decl` 直接调用 `IRModule::define_function` 创建 `define <sig> @symbol(...)` 的函数壳，并为每个形参分配 `%arg.N` 名字；基本块和具体指令在步骤 4 中填充。函数命名在遍历 `Scope` 树时按 DFS 路径生成唯一后缀：
+  1. 每个 scope 在 `visit_scope` 开始时声明局部 `size_t local_counter = 0;`。处理需要命名的实体或递归子 scope 时，先将 `N = local_counter++` 推入 `scope_suffix_stack_`。若栈推入后非空，则把当前 `FnDecl` 命名为 `原名 +` 所有栈元素拼出的后缀（例如栈 `{0,1}` → `.0.1`）；若栈之前为空，则保持原名。
+  2. 子 scope 结束时弹出栈顶，确保兄弟节点获得新的编号。
+  2. 对 `FnDecl`，使用上述规则得到的名字回写到 `decl->name` 中，使后续阶段共享同一符号。
   3. `ConstDecl` 的数组全局同理，直接在 `emit_const` 中拼接对应后缀。
 - 这样保证即使处在同一个作用域内出现多个同名函数/常量，也能借由层级计数自动区分。
 - **常量 `const`（仅数组）**：`emit_const` 只接受数组类型的声明：

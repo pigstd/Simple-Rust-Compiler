@@ -1,0 +1,4 @@
+const BASE: [1; i32] = [0];
+const MIRROR: [1; i32] = BASE;
+
+fn main() {}

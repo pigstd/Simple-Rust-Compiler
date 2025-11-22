@@ -1,0 +1,11 @@
+fn outer() {
+    fn inner() {}
+    inner();
+}
+
+fn outer2() {}
+
+fn main() {
+    outer();
+    outer2();
+}

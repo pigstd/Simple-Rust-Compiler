@@ -1,0 +1,5 @@
+%Point = type { i32, i32 }
+
+@const.TABLE.0 = private constant [2 x i32] [ i32 1, i32 2 ]
+
+declare i32 @main()

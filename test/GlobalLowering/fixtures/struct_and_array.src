@@ -1,0 +1,8 @@
+struct Point {
+    x: i32,
+    y: i32,
+}
+
+const TABLE: [2; i32] = [1, 2];
+
+fn main() {}

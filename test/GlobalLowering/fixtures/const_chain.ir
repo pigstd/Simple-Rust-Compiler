@@ -1,0 +1,4 @@
+@const.BASE.0 = private constant [1 x i32] [ i32 0 ]
+@const.MIRROR.0 = private constant [1 x i32] [ i32 0 ]
+
+declare i32 @main()
