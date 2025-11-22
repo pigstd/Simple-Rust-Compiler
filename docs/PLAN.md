@@ -14,12 +14,12 @@
    - Tests：`test/TypeLowering/test_type_lowering.cpp` 逐个断言 `RealTypeKind` 到 `IRType` 的 bit width/字段数量/布局正确；额外验证若向 `TypeLowering` 投入 `ConstValue`（如 `Bool_ConstValue`、`I32_ConstValue`）即可得到匹配的 `ir::ConstantValue` 且不会对表达式做常量折叠。  
    - Docs：新增 `docs/IR/type-lowering.md`，详细说明各 `RealTypeKind` 如何落到自研 IR 类型，包括字符串/数组/引用的布局选择与原因，并记录 `ConstValue -> ir::ConstantValue` 的桥接约束。
 
-3. **全局项与内建运行时支持生成**  
-   - 遍历所有 `Item`，首先为结构体、枚举生成 `IRType`，再声明/定义函数、常量、全局字符串；对需要运行时支持的内建（`print/println/String::from/Array::len` 等）定义 IR 层的抽象函数签名或运行时桩，约定参数/返回值语义。  
-   - 生成 `const` 与 `static` 的 IR 全局变量，并确保引用它们的表达式能直接拿到 `IRConstant`，避免重复插入；输出时提供统一的 `.data/.text` 段或自定义段表示。  
-   - Tests：新增一组端到端样例程序（例如 `test/IRBuilder/programs/global_struct.rs`、`.../string_from.rs`），通过新的测试驱动编译 -> 输出 IR，再由轻量解释器或脚本检查全局常量初始化和值传递是否符合期望。  
-   - Docs：`docs/ir/globals.md` 描述全局生成流程、内建运行时 ABI 以及字符串/数组常量的组织方式。
-   - Runtime 注意事项：内建函数的真实实现单独放在 `runtime/*.cpp`（或 `.rs`）里，提前用 `clang -S -emit-llvm` / `rustc --emit=llvm-ir` 生成 `runtime.ll` 或 `runtime.bc`，确保符号名与 IR 中声明一致。编译/运行时，将编译器生成的 `program.ll` 与 runtime 的 `runtime.ll` 一并交给 LLVM 工具（`lli program.ll runtime.ll` 或 `llc`+`clang program.o runtime.o`）完成链接，使内建函数在最终可执行中具备实现。
+3. **全局项生成**  
+   - 以 `root_scope` 为入口深度优先遍历整棵作用域树：在每个节点先处理结构体（调用 `TypeLowering::declare_struct` 并写入 `IRModule::add_type_definition`），再处理函数/数组常量，最后递归子 scope。  
+   - `GlobalLoweringDriver` 负责在遍历过程中根据 DFS 路径生成唯一化后缀（`scope_suffix_stack_`），并通过 `allocate_symbol` 回写到 `FnDecl`/`ConstDecl` 的 `name` 字段，确保任意作用域下的 `len` 等函数都不会冲突。  
+   - 仅为数组 `const` 创建 IR 全局，数值来自语义阶段的 `const_value_map`，其余类型的常量留给下一阶段按需加载；不再引入 `.data/.text` 段概念，直接复用 `IRModule` 现有的类型/全局/函数输出顺序。  
+   - Tests：编写若干语言源码，跑到语义阶段后调用 `GlobalLoweringDriver::emit_scope_tree`，对 `IRModule::serialize()` 的文本或结构体数据做断言，覆盖结构体定义、函数声明、数组常量以及命名策略。  
+   - Docs：`docs/IR/globals.md` 记录上述遍历流程、命名约定、数组常量格式与测试方法。
 
 4. **函数体、语句与表达式的 IR 生成**  
    - 在 `IRGenVisitor` 中实现 `visit(FnItem)`，为每个函数建立入口基本块、根据 `scope_local_variable_map` 分配栈空间（可用 `alloca` 风格的虚拟指令）、填充参数；实现 `visit`/`lower_*` 覆盖 `let`、赋值、控制流（`if/while/loop/break/continue/return`）、算术运算、比较、逻辑、数组/结构体访问、方法与关联函数调用。  
