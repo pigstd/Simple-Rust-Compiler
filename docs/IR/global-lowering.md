@@ -29,12 +29,10 @@ class GlobalLoweringDriver {
 
   private:
     void visit_scope(Scope_ptr scope);
-    void emit_const(ConstDecl_ptr decl);
-    void emit_function_decl(FnDecl_ptr decl, bool define_body);
-    GlobalValue_ptr ensure_global_bytes(string symbol,
-                                        const std::vector<uint8_t> &bytes,
-                                        bool is_constant);
-    string allocate_symbol(string_view base);
+    void emit_const(ConstDecl_ptr decl, const string &suffix);
+    void emit_function_decl(FnDecl_ptr decl, const string &suffix,
+                            bool define_body);
+    string current_scope_suffix() const;
 };
 ```
 - 构造函数注入 IRBuilder、TypeLowering 以及 `const_value_map`，内部成员包括：
@@ -42,31 +40,30 @@ class GlobalLoweringDriver {
   - `ir::IRBuilder &builder_`
   - `TypeLowering &type_lowering_`
   - `map<ConstDecl_ptr, ConstValue_ptr> &const_values_`
-  - `unordered_map<string, GlobalValue_ptr> globals_`：按符号名保存已创建的全局变量，`allocate_symbol` 会在写入前检查此表避免重名。
-  - `vector<string> scope_suffix_stack_`：DFS 过程中记录当前作用域的后缀（例如 `".0.1"`），确保命名唯一。
+  - `unordered_map<string, GlobalValue_ptr> globals_`：按符号名保存已创建的全局变量。
+  - `vector<string> scope_suffix_stack_`：DFS 过程中记录“从根到当前 scope 的路径”。只在**进入新的子 scope**前压入 `".N"` 片段（`N` 为该子 scope 在父节点内的计数），退出时弹出，栈内容串联后即为类似 `".0.1"` 的作用域后缀。
 - `emit_scope_tree` 执行顺序：
   1. 深度优先遍历 `Scope` 树，通过 `visit_scope` 在每个节点先处理 `type_namespace` 中的结构体（`TypeLowering::declare_struct` + `IRModule::add_type_definition`），再处理 `value_namespace` 中的函数/常量，最后递归子 scope。遍历结束后由 `IRModule::serialize()` 负责格式化输出顺序。
 
 #### Item 遍历与符号命名
-`visit_scope` 统一贯穿整个 Scope 树：在进入某个 scope 时，先把 `type_namespace` 里的结构体交给 `TypeLowering::declare_struct` 并立刻 `IRModule::add_type_definition`，确保后续子节点和函数都能引用；再处理 `value_namespace`（函数、常量），最后递归子节点。语义阶段已经把函数/常量按作用域注册好，因此不需要再回到 AST；仅需依据 `Scope` 中的 decl 生成 IR。
+`visit_scope` 统一贯穿整个 Scope 树：在进入某个 scope 时，先把 `type_namespace` 里的结构体交给 `TypeLowering::declare_struct` 并立刻 `IRModule::add_type_definition`，确保后续子节点和函数都能引用；再处理 `value_namespace`（函数、常量），最后递归子节点。语义阶段已经把函数/常量按作用域注册好，因此不需要再回到 AST；仅需依据 `Scope` 中的 decl 生成 IR。`scope_suffix_stack_` 只在递归子 scope 时更新：每次进入子 scope 之前先用局部 `local_counter` 分配一个 `"." + counter` 片段压栈，离开时弹栈，于是每个 scope 都拥有一条稳定的 DFS 路径。
 - **结构体**：`visit_scope` 遇到 `StructDecl` 时立即调用 `TypeLowering::declare_struct` 注册 `%StructName` 并 `IRModule::add_type_definition` 写入字段布局，保证后续子作用域可以引用。
+  - **注意**：当前实现直接按 `map` 的字典序遍历 `type_namespace`。若某个结构体在字段里引用了同一作用域内“字典序靠后”的结构体（例如 `Outer` 的字段类型指向 `Inner`，而 `Inner` 在 `map` 中排序更靠后），就可能在 `declare_struct(Outer)` 时查询不到 `Inner`，从而抛出 “struct not declared”。目前阶段暂未处理这种拓扑排序问题，仅在此记录潜在风险，后续若需要支持此类依赖需额外调整遍历顺序或显式声明依赖。
 - **枚举**：语义上用 `i32` 表示，本阶段什么都不用做——既无需写出声明，也不再重复登记；TypeLowering 会在需要时把 `RealTypeKind::ENUM` 统一映射为 `i32`。
-- **函数**：`emit_function_decl` 直接调用 `IRModule::define_function` 创建 `define <sig> @symbol(...)` 的函数壳，并为每个形参分配 `%arg.N` 名字；基本块和具体指令在步骤 4 中填充。函数命名在遍历 `Scope` 树时按 DFS 路径生成唯一后缀：
-  1. 每个 scope 在 `visit_scope` 开始时声明局部 `size_t local_counter = 0;`。处理需要命名的实体或递归子 scope 时，先将 `N = local_counter++` 推入 `scope_suffix_stack_`。若栈推入后非空，则把当前 `FnDecl` 命名为 `原名 +` 所有栈元素拼出的后缀（例如栈 `{0,1}` → `.0.1`）；若栈之前为空，则保持原名。
-  2. 子 scope 结束时弹出栈顶，确保兄弟节点获得新的编号。
-  2. 对 `FnDecl`，使用上述规则得到的名字回写到 `decl->name` 中，使后续阶段共享同一符号。
-  3. `ConstDecl` 的数组全局同理，直接在 `emit_const` 中拼接对应后缀。
-- 这样保证即使处在同一个作用域内出现多个同名函数/常量，也能借由层级计数自动区分。
+- **函数**：`emit_function_decl` 直接调用 `IRModule::define_function` 创建 `define <sig> @symbol(...)` 的函数壳，并为每个形参分配 `%arg.N` 名字；基本块和具体指令在步骤 4 中填充。命名规则：
+  1. `scope_suffix_stack_` 代表当前 scope 的 DFS 路径，例如 `{".0", ".1"}` 拼成 `".0.1"`；根作用域路径为空。
+  2. 处理某个 scope 的值声明时直接把这条路径附在原名后面：若路径为空，则保留原名；若路径非空，则使用 `原名 + 路径`。数组常量额外在前缀处加 `"const."`。
+- 形参命名：按照 `FnDecl::parameters` 的顺序生成 `%arg.N`，`N` 从 0 递增，与 `IRFunction::add_param` 的顺序一致。函数没有显式参数时签名内保持空列表。
+- **子 scope**：只有在递归子 scope 之前会使用 `local_counter` 生成新的 `"." + counter` 片段并压入 `scope_suffix_stack_`，退出时弹出即可。
 - **常量 `const`（仅数组）**：`emit_const` 只接受数组类型的声明：
   1. 调用 `TypeLowering::lower(const_decl->const_type)` 得到 `[N x T]`，并从 `const_value_map` 中取出同一个 `ConstDecl` 的求值结果。
-  2. 调用 `allocate_symbol(const_decl->name)` 获取不会冲突的 IR 名字，并写回 `const_decl->name`，保证后续引用使用同一符号。
+  2. 直接构造符号名 `"const." + const_decl->name + suffix` 并回写，保证后续引用使用同一符号。
   3. 将 `ConstValue` 递归格式化成 `[ T elem0, ... ]` 或 `{ ... }`，写入 `IRModule` 的全局表。
-符号命名使用 `allocate_symbol(base)`：
-- `base`：一个语义友好的标识符，例如 `const::Foo::BAR` 或 `fn::main`，便于定位来源。
-- 若冲突，函数自动在末尾追加 `.N` 计数器。
-
-#### 数组常量池
-数组常量使用 `ensure_global_bytes` helper，把元素 `ir::ConstantValue` 序列编码为十六进制 `\XX`，确保不同目标平台 byte 序列一致。
+- **字符串字面量**：若后续阶段需要把 `&str` literal 或任意字节序列落成全局，可直接调用 `IRBuilder::create_string_literal(text)`（已封装好 `[len x i8]` 全局和 `c"..."` 编码），无需另外的 helper。
+符号命名直接拼接“语义名 + DFS 路径”：
+- 函数使用 `decl->name + suffix`，根作用域因路径为空保持原名。
+- 数组常量在原名前额外加 `const.`，再拼接路径，例如 `@const.NAME.0.1`。
+- 当前设计不再额外检查冲突，如需拓展可在未来恢复检测逻辑。
 
 #### 输出段与序列化
 - `IRModule` 输出顺序为“类型定义 → 全局常量/变量 → 函数声明 → 函数定义”，因此第三步生成的内容也仅需按这一顺序注册即可。

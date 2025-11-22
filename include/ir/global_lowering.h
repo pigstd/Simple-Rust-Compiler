@@ -7,7 +7,6 @@
 #include "semantic/scope.h"
 #include <map>
 #include <string>
-#include <string_view>
 #include <unordered_map>
 #include <vector>
 
@@ -25,12 +24,10 @@ class GlobalLoweringDriver {
 
   private:
     void visit_scope(Scope_ptr scope);
-    void emit_const(ConstDecl_ptr decl);
-    void emit_function_decl(FnDecl_ptr decl, bool define_body);
-    GlobalValue_ptr ensure_global_bytes(std::string symbol,
-                                        const std::vector<uint8_t> &bytes,
-                                        bool is_constant);
-    std::string allocate_symbol(std::string_view base);
+    void emit_const(ConstDecl_ptr decl, const std::string &suffix);
+    void emit_function_decl(FnDecl_ptr decl, const std::string &suffix,
+                            bool define_body);
+    std::string current_scope_suffix() const;
 
     IRModule &module_;
     IRBuilder &builder_;

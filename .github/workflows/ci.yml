@@ -30,6 +30,10 @@ jobs:
       - name: Run TypeLowering tests
         run: python3 test/TypeLowering/run_tests.py
 
+        
+      - name: Run GlobalLowering tests
+        run: python3 test/GlobalLowering/run_tests.py
+
       - name: Test Semantic-1
         working-directory: scripts
         run: |
