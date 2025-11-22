@@ -12,6 +12,8 @@ CASES = [
     ("struct_and_array_const", FIXTURE_DIR / "struct_and_array.src", FIXTURE_DIR / "struct_and_array.ir"),
     ("const_chain_expands_values", FIXTURE_DIR / "const_chain.src", FIXTURE_DIR / "const_chain.ir"),
     ("nested_functions_unique_names", FIXTURE_DIR / "nested_functions.src", FIXTURE_DIR / "nested_functions.ir"),
+    ("two_dim_array_const", FIXTURE_DIR / "two_dim_array.src", FIXTURE_DIR / "two_dim_array.ir"),
+    ("function_with_params", FIXTURE_DIR / "function_with_params.src", FIXTURE_DIR / "function_with_params.ir"),
 ]
 
 

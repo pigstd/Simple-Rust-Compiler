@@ -1,5 +1,7 @@
+%Str = type { ptr, i32 }
+%String = type { ptr, i32, i32 }
 %Point = type { i32, i32 }
 
-@const.TABLE.0 = private constant [2 x i32] [ i32 1, i32 2 ]
+@const.TABLE = private constant [2 x i32] [ i32 1, i32 2 ]
 
-declare i32 @main()
+declare void @main()

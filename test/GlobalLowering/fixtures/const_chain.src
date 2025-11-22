@@ -1,4 +1,6 @@
-const BASE: [1; i32] = [0];
-const MIRROR: [1; i32] = BASE;
+const BASE: [i32; 1] = [0];
+const MIRROR: [i32; 1] = BASE;
 
-fn main() {}
+fn main() {
+    exit(0);
+}

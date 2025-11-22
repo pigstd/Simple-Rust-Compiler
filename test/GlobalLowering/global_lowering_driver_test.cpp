@@ -1,33 +1,54 @@
+#include "ir/IRBuilder.h"
+#include "ir/global_lowering.h"
+#include "ir/type_lowering.h"
+#include "lexer/lexer.h"
+#include "parser/parser.h"
+#include "semantic/semantic_checker.h"
+
 #include <iostream>
-#include <sstream>
+#include <stdexcept>
 #include <string>
 
+namespace {
+
+std::string strip_module_header(std::string text) {
+    const auto header_sep = text.find("\n\n");
+    if (header_sep != std::string::npos) {
+        text = text.substr(header_sep + 2);
+    }
+    const auto first = text.find_first_not_of("\r\n");
+    if (first == std::string::npos) {
+        return "";
+    }
+    const auto last = text.find_last_not_of("\r\n");
+    return text.substr(first, last - first + 1);
+}
+
+} // namespace
+
 int main() {
-    std::ostringstream source_buffer;
-    source_buffer << std::cin.rdbuf();
-    const std::string source = source_buffer.str();
+    try {
+        Lexer lexer;
+        lexer.read_and_get_tokens();
+        Parser parser(lexer);
+        auto items = parser.parse();
+        Semantic_Checker checker(items);
+        checker.checker();
 
-#if 0
-    // TODO: integrate Lexer -> Parser -> Semantic_Checker -> GlobalLoweringDriver
-    // Example skeleton (same entry as test_semantic_check):
-    // std::stringstream input(source);
-    // Lexer lexer(input);
-    // lexer.read_and_get_tokens();
-    // Parser parser(lexer);
-    // auto items = parser.parse();
-    // Semantic_Checker checker(items);
-    // checker.checker();
-    // IRModule module;
-    // IRBuilder builder(module);
-    // TypeLowering lowering(module);
-    // ir::GlobalLoweringDriver driver(module, builder, lowering,
-    //                                 checker.const_value_map);
-    // driver.emit_scope_tree(checker.root_scope);
-    // std::cout << module.to_string();
-    // return 0;
-#endif
+        ir::IRModule module("unknown-unknown-unknown", "");
+        ir::IRBuilder builder(module);
+        ir::TypeLowering type_lowering(module);
+        type_lowering.declare_builtin_string_types();
+        ir::GlobalLoweringDriver driver(module, builder, type_lowering,
+                                        checker.const_value_map);
+        driver.emit_scope_tree(checker.root_scope);
 
-    (void)source; // silence unused warning before implementation
-    std::cout << "GLOBAL_LOWERING_NOT_IMPLEMENTED" << std::endl;
-    return 0;
+        std::cout << strip_module_header(module.to_string()) << std::endl;
+        return 0;
+    } catch (const std::runtime_error &err) {
+        std::cerr << err.what() << std::endl;
+    } catch (const std::string &err) {
+        std::cerr << err << std::endl;
+    }
+    return 1;
 }

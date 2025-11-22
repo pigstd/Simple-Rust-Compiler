@@ -1,4 +1,7 @@
-@const.BASE.0 = private constant [1 x i32] [ i32 0 ]
-@const.MIRROR.0 = private constant [1 x i32] [ i32 0 ]
+%Str = type { ptr, i32 }
+%String = type { ptr, i32, i32 }
 
-declare i32 @main()
+@const.BASE = private constant [1 x i32] [ i32 0 ]
+@const.MIRROR = private constant [1 x i32] [ i32 0 ]
+
+declare void @main()

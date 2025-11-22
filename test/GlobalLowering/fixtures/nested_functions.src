@@ -8,4 +8,5 @@ fn outer2() {}
 fn main() {
     outer();
     outer2();
+    exit(0);
 }

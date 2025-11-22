@@ -3,8 +3,4 @@
 
 declare void @main()
 
-declare void @outer()
-
-declare void @outer2()
-
-declare void @inner.0()
+declare i32 @sum(i32 %arg.0, i32 %arg.1)
