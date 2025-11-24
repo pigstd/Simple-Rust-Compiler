@@ -118,6 +118,8 @@ struct ExprTypeAndLetStmtVisitor : public AST_Walker {
     map<size_t, pair<RealType_ptr, PlaceKind>> &node_type_and_place_kind_map;
     // 记录 IdentifierExpr 解析到的 ValueDecl
     map<size_t, ValueDecl_ptr> &identifier_expr_to_decl_map;
+    // 记录 LetStmt 对应的 LetDecl
+    map<size_t, LetDecl_ptr> &let_stmt_to_decl_map;
     // 存放每个节点对应的作用域
     map<size_t, Scope_ptr> &node_scope_map;
     // 存放每个 AST 的 Type 对应的 RealType，直接复制过来即可
@@ -172,7 +174,7 @@ struct ExprTypeAndLetStmtVisitor : public AST_Walker {
 
     // 将 let 语句加入到当前作用域
     // 同样，用于 let 语句和函数参数
-    void intro_let_stmt(Scope_ptr current_scope, Pattern_ptr let_pattern, RealType_ptr let_type);
+    LetDecl_ptr intro_let_stmt(Scope_ptr current_scope, Pattern_ptr let_pattern, RealType_ptr let_type);
 
     // 检查 cast 是否合法
     // 如果不合法 throw CE
@@ -181,6 +183,7 @@ struct ExprTypeAndLetStmtVisitor : public AST_Walker {
     ExprTypeAndLetStmtVisitor(bool require_function_,
             map<size_t, pair<RealType_ptr, PlaceKind>> &node_type_and_place_kind_map_,
             map<size_t, ValueDecl_ptr> &identifier_expr_to_decl_map_,
+            map<size_t, LetDecl_ptr> &let_stmt_to_decl_map_,
             map<size_t, Scope_ptr> &node_scope_map_,
             map<size_t, RealType_ptr> &type_map_,
             map<Scope_ptr, Local_Variable_map> &scope_local_variable_map_,
@@ -192,6 +195,7 @@ struct ExprTypeAndLetStmtVisitor : public AST_Walker {
             require_function(require_function_),
             node_type_and_place_kind_map(node_type_and_place_kind_map_),
             identifier_expr_to_decl_map(identifier_expr_to_decl_map_),
+            let_stmt_to_decl_map(let_stmt_to_decl_map_),
             node_scope_map(node_scope_map_),
             type_map(type_map_),
             scope_local_variable_map(scope_local_variable_map_),

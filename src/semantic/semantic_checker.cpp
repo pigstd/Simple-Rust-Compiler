@@ -226,6 +226,7 @@ void Semantic_Checker::step4_expr_type_and_let_stmt_analysis() {
         false,
         node_type_and_place_kind_map,
         identifier_expr_to_decl_map,
+        let_stmt_to_decl_map,
         node_scope_map,
         type_map,
         scope_local_variable_map,

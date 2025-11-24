@@ -904,7 +904,9 @@ void ExprTypeAndLetStmtVisitor::visit(FnItem &node) {
     now_func_decl = std::dynamic_pointer_cast<FnDecl>(decl);
     // 函数的参数可以认为在下一个定义域里面加了这些局部变量
     for (auto &[pattern, type] : now_func_decl->parameters) {
-        intro_let_stmt(now_func_decl->function_scope.lock(), pattern, type);
+        auto let_decl =
+            intro_let_stmt(now_func_decl->function_scope.lock(), pattern, type);
+        now_func_decl->parameter_let_decls.push_back(let_decl);
     }
     node.body->accept(*this);
     /*
@@ -953,7 +955,9 @@ void ExprTypeAndLetStmtVisitor::visit(LetStmt &node) {
     node.initializer->accept(*this);
     auto [init_type, init_place] = node_type_and_place_kind_map[node.initializer->NodeId];
     check_let_stmt(node.pattern, type_map[node.type->NodeId], init_type, init_place, node.initializer);
-    intro_let_stmt(node_scope_map[node.NodeId], node.pattern, type_map[node.type->NodeId]);
+    auto let_decl =
+        intro_let_stmt(node_scope_map[node.NodeId], node.pattern, type_map[node.type->NodeId]);
+    let_stmt_to_decl_map[node.NodeId] = let_decl;
 }
 void ExprTypeAndLetStmtVisitor::visit(ExprStmt &node) {
     AST_Walker::visit(node);
@@ -1035,17 +1039,18 @@ void ExprTypeAndLetStmtVisitor::check_let_stmt(Pattern_ptr let_pattern, RealType
     }
 }
 
-void ExprTypeAndLetStmtVisitor::intro_let_stmt(Scope_ptr current_scope, Pattern_ptr let_pattern, RealType_ptr let_type) {
+LetDecl_ptr ExprTypeAndLetStmtVisitor::intro_let_stmt(Scope_ptr current_scope, Pattern_ptr let_pattern, RealType_ptr let_type) {
     // Pattern 目前只有 IdentifierPattern
     auto ident_pattern = std::dynamic_pointer_cast<IdentifierPattern>(let_pattern);
     // 只要考虑是否 mut
     if (ident_pattern->is_mut == Mutibility::MUTABLE) {
-        scope_local_variable_map[current_scope][ident_pattern->name] =
-            std::make_shared<LetDecl>(ident_pattern->name, let_type, Mutibility::MUTABLE);
-    } else {
-        scope_local_variable_map[current_scope][ident_pattern->name] =
-            std::make_shared<LetDecl>(ident_pattern->name, let_type, Mutibility::IMMUTABLE);
+        auto let_decl = std::make_shared<LetDecl>(ident_pattern->name, let_type, Mutibility::MUTABLE);
+        scope_local_variable_map[current_scope][ident_pattern->name] = let_decl;
+        return let_decl;
     }
+    auto let_decl = std::make_shared<LetDecl>(ident_pattern->name, let_type, Mutibility::IMMUTABLE);
+    scope_local_variable_map[current_scope][ident_pattern->name] = let_decl;
+    return let_decl;
 }
 
 void ExprTypeAndLetStmtVisitor::check_cast(RealType_ptr expr_type, RealType_ptr target_type) {

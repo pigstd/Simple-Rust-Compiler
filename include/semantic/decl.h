@@ -92,6 +92,7 @@ struct FnDecl : public ValueDecl {
     FnItem_ptr ast_node;
     weak_ptr<Scope> function_scope; // 函数的作用域
     vector<pair<Pattern_ptr, RealType_ptr>> parameters; // 参数名(pattern)和参数类型，第二轮填
+    vector<LetDecl_ptr> parameter_let_decls; // 每个参数对应的 LetDecl，第四轮填
     RealType_ptr return_type; // 返回类型，第二轮填
     fn_reciever_type receiver_type; // 是否有 self 参数
     weak_ptr<StructDecl> self_struct; // 如果是 method，则存储这个 method 属于哪个 struct，第二轮填
