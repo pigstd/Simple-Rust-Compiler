@@ -223,7 +223,7 @@ private:
    - `StructExpr`/`FieldExpr`，验证 `gep` 下标。
    - `&&`/`||` 的短路结构。
 2. **端到端样例：执行验证（暂无 runtime）**  
-   写若干不依赖任何内置函数/方法的极简程序（仅用算术、if/while/loop、数组/结构体、`exit`），放在 `test/IRBuilder/manual_cases/` 中。每个案例都以 `exit(expected_code)` 表示“逻辑是否通过”：例如 `exit(0)` 代表通过，`exit(42)` 代表该测试预期的返回值。测试脚本顺序执行 `Lexer -> Parser -> Semantic_Checker -> IRGenerator`，把 IR 文本喂给 `clang -x ir -` 生成可执行文件，再运行并检查进程退出码是否与案例描述一致，无需额外的 stdout 检查。  
+   写若干不依赖任何内置函数/方法的极简程序（仅用算术、if/while/loop、数组/结构体、`exit`），放在 `test/IRGen/` 目录（当前已有 `arithmetic_combo.rx`、`loop_sum.rx`、`const_usage.rx`、`reference_ops.rx` 等示例）。每个案例都以 `exit(expected_code)` 表示“逻辑是否通过”：例如 `exit(0)` 代表通过，`exit(42)` 代表该测试预期的返回值。测试脚本顺序执行 `Lexer -> Parser -> Semantic_Checker -> IRGenerator`，把 IR 文本喂给 `clang -x ir -`（或 `clang -c -o a.out -`）生成可执行文件，再运行并检查进程退出码是否与案例描述一致，无需额外的 stdout 检查。  
    - 所有例子需遵守语言语法：`exit` 只能在 main 末尾调用一次；`if/while` 条件必须写括号；不可使用 `print`/`String::from` 等 runtime 依赖。
    - 案例涵盖基础算术、比较、while/loop/break/continue、结构体/数组访问、短路逻辑等；若需要观察中间结果，就在 main 内累加到某个变量，最后由 `exit(acc)` 返回。
 3. **回归样例**  
