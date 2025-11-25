@@ -110,9 +110,10 @@ class IRGenerator {
                 std::map<size_t, FnDecl_ptr> &call_expr_to_decl_map,
                 std::map<ConstDecl_ptr, ConstValue_ptr> &const_value_map);
 
-    void lower_functions(const std::vector<FnDecl_ptr> &ordered_fns);
+    void generate(const std::vector<Item_ptr> &ast_items);
 
   private:
+    void visit_item(Item_ptr item);
     void lower_function(FnDecl_ptr decl);
 
     IRModule &module_;

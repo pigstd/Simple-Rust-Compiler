@@ -15,6 +15,9 @@ static_assert(std::is_constructible_v<
               std::map<size_t, FnDecl_ptr> &,
               std::map<ConstDecl_ptr, ConstValue_ptr> &>);
 
+static_assert(std::is_same_v<void (IRGenerator::*)(const std::vector<Item_ptr> &),
+                             decltype(&IRGenerator::generate)>);
+
 static_assert(std::is_constructible_v<
               IRGenVisitor, FunctionContext &, IRBuilder &, TypeLowering &,
               std::map<size_t, Scope_ptr> &,

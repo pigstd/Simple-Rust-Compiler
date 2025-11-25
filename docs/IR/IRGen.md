@@ -18,7 +18,7 @@
   - `map<size_t, OutcomeState> &node_outcome_state_map`：控制流分析结果，用于判断基本块是否终止。
   - `map<size_t, FnDecl_ptr> &call_expr_to_decl_map`：每个函数调用最终绑定到的 `FnDecl`。
   - `map<ConstDecl_ptr, ConstValue_ptr> &const_value_map`：供常量表达式在 IR 中内联或引用。
-- 驱动类 `IRGenerator`（新增 `include/ir/ir_generator.h`, `src/ir/ir_generator.cpp`）负责对所有 `FnDecl` 调用一次 lowering：
+- 驱动类 `IRGenerator`（`include/ir/IRGen.h`, `src/ir/IRGen.cpp`）负责遍历整个 AST：
   ```cpp
   class IRGenerator {
   public:
@@ -32,24 +32,23 @@
                   map<size_t, FnDecl_ptr> &call_expr_to_decl_map,
                   map<ConstDecl_ptr, ConstValue_ptr> &const_value_map);
 
-      // `global lowering` 已经声明/定义了函数壳，这里只需要填充函数体。
-      void lower_functions(const std::vector<FnDecl_ptr> &ordered_fns);
+      void generate(const std::vector<Item_ptr> &ast_items);
 
   private:
-      void lower_function(FnDecl_ptr decl);
+      void visit_item(Item_ptr item);
   };
   ```
-  - `lower_functions` 会遍历 `IRModule::functions()` 或外部传入的拓扑顺序，跳过运行时/外部声明，只处理有 `ast_node` 的 `FnDecl`。每次调用 `lower_function` 都会创建一个 `IRGenVisitor` 实例来专门处理该函数体。
+  - `generate` 顺序遍历 AST Item：遇到 `FnItem` 就创建 `IRGenVisitor` 并直接对该函数体调用 `accept(visitor)`；`FunctionContext` 的初始化（entry/return 块、参数槽等）在 `visit(FnItem)` 内完成。非函数 Item 则交由既有模块处理或跳过。
 
 #### 函数级上下文
 为避免将全局状态塞进 visitor，本阶段引入以下辅助结构：
 
-- `struct FunctionContext`（声明于 `ir_generator.h`，仅在实现文件可见）：
+- `struct FunctionContext`（声明于 `ir_generator.h`，仅在实现文件可见）：由 `IRGenVisitor::visit(FnItem)` 在进入函数体时构造，负责记录该函数的所有 lowering 状态：
   - `FnDecl_ptr decl`：语义阶段的函数声明。
   - `IRFunction_ptr ir_function`：global lowering 创建的 IR 函数对象。
   - `BasicBlock_ptr entry_block` / `BasicBlock_ptr current_block` / `BasicBlock_ptr return_block`：管理 builder 的插入点与统一的返回出口。
   - `IRValue_ptr return_slot`：若函数返回非 `void` 类型，则在入口 `alloca` 一个槽，用于从任意分支写入返回值；返回 `void` 或 `Never` 时保持 `nullptr`。
-  - `unordered_map<LetDecl_ptr, IRValue_ptr> local_slots`：将语义阶段的局部声明映射到 `alloca` 结果。形参在 `visit(FnItem)` 之初写入此表，函数体中的 `let` 语句在执行时追加。
+  - `unordered_map<LetDecl_ptr, IRValue_ptr> local_slots`：将语义阶段的局部声明映射到 `alloca` 结果。形参在 `visit(FnItem)` 之初生成槽并写入此表，函数体中的 `let` 语句在执行时追加。
   - `IRValue_ptr self_slot`：方法/impl 函数中 `SelfExpr` 对应的栈槽，仅在 `receiver_type != NO_RECEIVER` 时有效。
   - `bool block_sealed`：若当前基本块已经通过 `ret/br` 终结，设置为 `true` 并阻止在同一块继续插入指令。
 
