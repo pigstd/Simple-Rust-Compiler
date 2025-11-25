@@ -1,0 +1,67 @@
+// Test arithmetic combinations and comparisons
+// Generator: Codex
+
+fn main() {
+    let mut code: i32 = 0;
+
+    let a: i32 = 42;
+    let b: i32 = 7;
+    let c: i32 = -3;
+
+    let calc1: i32 = a + b * c; // 42 + 7 * (-3) = 21
+    if (calc1 != 21) {
+        code = 1;
+    }
+
+    let calc2: i32 = (a - b) / c; // (35) / (-3) = -11 (integer division)
+    if (calc2 != -11) {
+        code = 2;
+    }
+
+    let calc3: i32 = (a % b) * (c * c); // (0) * 9 = 0
+    if (calc3 != 0) {
+        code = 3;
+    }
+
+    let cond: bool = calc1 > calc2;
+    if (!cond) {
+        code = 4;
+    }
+
+    let complex: i32 = calc1 + calc2 + calc3; // 21 + (-11) + 0 = 10
+    if (complex != 10) {
+        code = 5;
+    }
+
+    let eq: bool = (a - 0) == 42;
+    if (!eq) {
+        code = 6;
+    }
+
+    let ne: bool = (b * c) != 0; // 7 * -3 = -21
+    if (!ne) {
+        code = 7;
+    }
+
+    let ge: bool = (a / 2) >= 21;
+    if (!ge) {
+        code = 8;
+    }
+
+    let le: bool = (c + 5) <= 2;
+    if (!le) {
+        code = 9;
+    }
+
+    let unary_neg: i32 = -b; // -7
+    if (unary_neg != -7) {
+        code = 10;
+    }
+
+    let mod_check: i32 = (-20) % 6; // assume trunc toward zero => -2
+    if (mod_check != -2) {
+        code = 11;
+    }
+
+    exit(code);
+}

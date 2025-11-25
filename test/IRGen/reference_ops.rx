@@ -1,0 +1,28 @@
+// Test reference operations: mutable and immutable references
+// Generator: Codex
+
+fn main() {
+    let mut code: i32 = 0;
+
+    let mut x: i32 = 5;
+    let mut y: i32 = 10;
+
+    {
+        let ref_x: &mut i32 = &mut x;
+        let ref_y: &i32 = &y;
+
+        *ref_x = *ref_x + 2; // x = 7
+
+        let val: i32 = *ref_y + *ref_x; // 10 + 7 = 17
+        if (val != 17) {
+            code = 1;
+        }
+    }
+
+    // Ensure original variables reflect changes
+    if (x != 7 || y != 10) {
+        code = 1;
+    }
+
+    exit(code)
+}

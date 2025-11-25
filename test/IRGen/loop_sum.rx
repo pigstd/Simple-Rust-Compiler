@@ -1,0 +1,16 @@
+// Test loop with break returning a value
+// Generator: Codex
+fn main() {
+    let mut acc: i32 = 0;
+    let mut i: i32 = 0;
+    loop {
+        if (i == 10) {
+            break acc;
+        }
+        acc = acc + i;
+        i = i + 1;
+    }
+    // 将 break 结果写到变量，然后 exit 检验
+    let result: i32 = acc;
+    exit(result - 45); // 0 + 1 + ... + 9 = 45
+}

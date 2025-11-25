@@ -1,0 +1,18 @@
+// Test that struct associated functions are correctly handled.
+// Generator: Zemu Zhu
+
+struct point {
+    x : i32,
+    y : i32,
+}
+
+impl point {
+    fn new(x: i32, y: i32) -> Self {
+        point { x: x, y: y }
+    }
+}
+
+fn main() {
+    let p = point::new(2, 3);
+    exit(p.x + p.y - 5);
+}

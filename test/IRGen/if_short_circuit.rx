@@ -1,0 +1,16 @@
+// Test if statement with short-circuit evaluation
+// Generator: Codex
+fn main() {
+    let mut value: i32 = 0;
+    let cond_true: bool = true;
+    let cond_false: bool = false;
+    if (cond_true && !cond_false) {
+        value = 10;
+    } else {
+        value = 20;
+    }
+    if (false || cond_false) {
+        value = value + 1000; // 不会执行
+    }
+    exit(value - 10);
+}

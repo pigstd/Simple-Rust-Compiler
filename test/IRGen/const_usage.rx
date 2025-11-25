@@ -1,0 +1,25 @@
+// Test constant usage in arithmetic operations
+// Generator: Codex
+
+const BASE: i32 = 5;
+
+fn main() {
+    let mut code: i32 = 0;
+
+    let x: i32 = BASE + 7; // 12
+    if (x != 12) {
+        code = 1;
+    }
+
+    let y: i32 = x - BASE; // 7
+    if (y != 7) {
+        code = 2;
+    }
+
+    let nested: i32 = (BASE * BASE) - (BASE + BASE); // 25 - 10 = 15
+    if (nested != 15) {
+        code = 3;
+    }
+
+    exit(code);
+}

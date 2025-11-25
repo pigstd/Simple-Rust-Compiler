@@ -1,0 +1,12 @@
+// Test recursive function calls
+// Generator: Zemu Zhu
+
+fn fac(n: u32) -> u32 {
+    if (n == 0) { return 1; }
+    n * fac(n - 1)
+}
+
+fn main() {
+    let code : u32 = fac(5) - 120;
+    exit(code);
+}

@@ -1,0 +1,40 @@
+// Test struct methods: mutable and immutable
+// Generator: Zemu Zhu
+struct point {
+    x: i32,
+    y: i32,
+}
+impl point {
+    fn rot(&mut self) -> () {
+        let tmpx : i32 = self.x;
+        let tmpy : i32 = self.y;
+        self.x = tmpy;
+        self.y = -tmpx;
+    }
+    fn sum(&self) -> i32 {
+        self.x + self.y
+    }
+}
+
+fn main() {
+    let mut p : point =  point { x: 2, y: 3 };
+    let s1 : i32 = p.sum();
+    p.rot();
+    let s2 : i32 = p.sum();
+    let x : i32 = p.x;
+    let y : i32 = p.y;
+    let mut ok : i32 = 0;
+    if (s1 != 5) {
+        ok = 1;
+    }
+    if (s2 != 1) {
+        ok = 2;
+    }
+    if (x != 3) {
+        ok = 3;
+    }
+    if (y != -2) {
+        ok = 4;
+    }
+    exit(0);
+}

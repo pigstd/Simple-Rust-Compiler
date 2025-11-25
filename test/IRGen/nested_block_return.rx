@@ -1,0 +1,16 @@
+// Test nested blocks with variable scope and return values
+// Generator: Codex
+fn main() {
+    let mut acc: i32 = 0;
+    {
+        let inner: i32 = 3;
+        acc = acc + inner;
+        {
+            let inner2: i32 = inner * 2;
+            acc = acc + inner2;
+        }
+        acc = acc + inner;
+    }
+    // acc = 0 + 3 + 6 + 3 = 12
+    exit(acc - 12);
+}

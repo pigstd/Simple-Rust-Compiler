@@ -1,0 +1,13 @@
+// Test comparison and loop with conditional counting
+// Generator: Codex
+fn main() {
+    let mut i: i32 = 0;
+    let mut greater_cnt: i32 = 0;
+    while (i < 5) {
+        if (i >= 2) {
+            greater_cnt = greater_cnt + 1;
+        }
+        i = i + 1;
+    }
+    exit(greater_cnt - 3);
+}

@@ -1,0 +1,8 @@
+// Test basic arithmetic operations
+// Generator: Codex
+fn main() {
+    let a: i32 = 40;
+    let b: i32 = 2;
+    let c: i32 = a + b;
+    exit(c - 42);
+}
