@@ -1,7 +1,5 @@
-实现 PLAN.md 中的第三步：**全局项生成**  
+实现 PLAN.md 中的第四步：**函数体、语句与表达式的 IR 生成**  
 
-文档 `docs/IR/global-lowering.md` 已经给出所有约束，现在需要按文档实现：
-- 基于 `Semantic_Checker` 的 `root_scope` 与 `const_value_map`，实现 `GlobalLoweringDriver`，在一次 DFS 中依次处理结构体、函数、数组常量，并把结果注册到 `IRModule`。
-- 遵循文档描述的符号命名方案（`scope_suffix_stack_` + `allocate_symbol`），在 `emit_function_decl`/`emit_const` 中回写唯一化后的名字，防止 `len` 之类的重名。
-- 数组常量必须直接使用 `const_value_map` 给出的值展开，不允许复用其他常量的指针；其它类型的 `const` 暂不生成 IR。
-- 为该阶段补充测试：构造若干真实源码，跑到语义阶段后调用 `GlobalLoweringDriver`，断言结构体定义、函数声明、数组全局与命名规则都符合 `docs/IR/global-lowering.md`。
+先生成对应的文档，描述你需要做什么事情，需要定义那些类，函数和接口，并且把类的成员，函数的参数以及作用都写出来。可以参考 docs/IR/ 其他文档的描述格式。
+
+我的 IR 的测试数据在 testcases/semantic-2 和 testcases/IR-1 目录下，但是你还是可以先生成一些简单的代码进行测试，先确保简单的代码可以通过测试，再逐步增加复杂度。如果我没理解错的话，完成这一步就几乎完成了 IR 的生成。除了需要生成 runtime。
