@@ -53,8 +53,8 @@
   - `BasicBlock_ptr header_block`（while/loop 条件所在）、`BasicBlock_ptr body_block`、`BasicBlock_ptr continue_target`、`BasicBlock_ptr break_target`。
   - `IRValue_ptr break_slot`：只有 `loop` 表达式且结果被使用时才会分配，与 let/if 共享统一的“目的槽”机制。
 - `RealType_ptr result_type`：`loop { break expr; }` 推断出的类型，供 `TypeLowering` 把 break 值映射成 IRType。
-- `unordered_map<size_t, IRValue_ptr> expr_value_map`：记录每个表达式（按 `NodeId`）当前生成的寄存器值或指针值（都是 `IRValue_ptr`），二次使用时无需重新生成。
-- `unordered_map<size_t, IRValue_ptr> expr_address_map`：左值或需要地址的表达式（标识符、字段、索引、`SelfExpr` 等）在求值时把“写入位置”的 `IRValue_ptr` 写入此表，赋值/引用时直接取用。
+- `unordered_map<size_t, IRValue_ptr> expr_value_map_`：IRGenVisitor 级别的缓存，记录每个表达式（按 `NodeId`）生成的寄存器值或指针值，复用时无需重新生成。
+- `unordered_map<size_t, IRValue_ptr> expr_address_map_`：同样挂在 visitor 上，左值或需要地址的表达式在求值时把“写入位置”写入此表，赋值/引用时直接取用。
 
 #### 辅助工具
 - `ensure_current_insertion()`：所有需要发射 IR 指令的 `visit` 在 `store/load/br` 等操作前都调用此函数，确保 `ctx.current_block` 非空并同步到 `IRBuilder` 的插入点。这样可避免分支/循环更改插入点后把指令插到错误的基本块里。
@@ -127,7 +127,7 @@ private:
 #### visit 行为速查
 - **FnItem**：创建/清空 `entry` 与 `return_block`，为全部 `parameter_let_decls` 分配栈槽并 `store` 形参值，`alloca` `return_slot`（若返回非 void），处理 main/exit 特判，然后继续访问函数体 `BlockExpr`。
 - **LetStmt**：确保目标 `LetDecl` 已有 `alloca`。若有初始化表达式则先访问该表达式、通过 `get_rvalue` 拿到寄存器，再写入局部槽；语义阶段已保证类型匹配，因此无需额外 result slot。
-- **ExprStmt**：访问表达式但忽略结果；若 `OutcomeState` 无 `NEXT`，立刻把 `current_block` 置空。
+- **ExprStmt**：访问表达式；若 `OutcomeState` 无 `NEXT`，立刻把 `current_block` 置空；若语句末尾**没有**分号且表达式结果类型不是 `()`/`Never`，则把该寄存器结果写入 `expr_value_map[node.NodeId]`，这样父节点（例如 Block 的尾随表达式）可以继续使用。
 - **ReturnExpr**：若带值则写入 `return_slot`，随后 `br return_block` 并设置 `block_sealed = true`。
 - **BreakExpr/ContinueExpr**：Break 将值写入 `LoopContext.break_slot`（若存在）并 `br break_target`；Continue 直接 `br continue_target`。
 - **BlockExpr / 其它表达式返回值**：函数隐式返回、`if`/`loop` 结果等场景由 `get_rvalue(node_id)` 取寄存器值再写回父节点指定的槽位，完全由父节点掌控。只有 `ReturnExpr`、`BreakExpr` 等语义上固定的终止语句会直接写入 `FunctionContext::return_slot` 或 `LoopContext::break_slot`。
@@ -151,7 +151,7 @@ private:
 #### 语句 lowering
 - **LetStmt**：遇到声明时立即调用 `ensure_slot_for_decl` 为该 `LetDecl` 分配 `alloca` 并记录到 `local_slots`；若存在初始化器，则先访问该表达式，把结果寄存器写回 `expr_value_map`，随后 `store` 到刚分配的槽即可（不需要额外的 `current_result_slot_` 传递）。
 - **赋值表达式**：`BinaryExpr` 的 `ASSIGN`/`*_ASSIGN` 通过 `lower_place_expr(node.left)` 获取地址，然后将右值（或算术结果）写入该地址。对于 `+=` 等运算，先 `load` 左值，再使用算术 helper（`create_add` 等）计算后 `store`。
-- **ExprStmt**：访问内部表达式，让其在 `expr_value_map`/`expr_address_map` 中生成相应的 IRValue（寄存器或地址）；语句自身忽略该结果（除非子表达式发散，此时 `current_block` 将被置空）。
+- **ExprStmt**：访问内部表达式，让其在 `expr_value_map`/`expr_address_map` 中生成相应的 IRValue；若语句末尾没有分号且结果类型不是 `()`/`Never`，则把寄存器写入 `expr_value_map[node]`，否则忽略该结果（除非子表达式发散，此时 `current_block` 将被置空）。
 - **ItemStmt**：函数体中的 `Item` 在语义阶段已展开，此处直接忽略或转交 `AST_Walker`（无副作用）。
 
 #### 控制流与块

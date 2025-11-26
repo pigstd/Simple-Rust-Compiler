@@ -1,0 +1,7 @@
+// Minimal sanity test: verifies 2 + 3 == 5
+fn main() {
+    let a: i32 = 2;
+    let b: i32 = 3;
+    let sum: i32 = a + b;
+    exit(sum - 5);
+}

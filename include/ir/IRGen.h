@@ -37,8 +37,6 @@ struct FunctionContext {
 
     std::unordered_map<LetDecl_ptr, IRValue_ptr> local_slots;
     std::vector<LoopContext> loop_stack;
-    std::unordered_map<size_t, IRValue_ptr> expr_value_map;
-    std::unordered_map<size_t, IRValue_ptr> expr_address_map;
 };
 
 class IRGenVisitor : public AST_Walker {
@@ -113,6 +111,8 @@ class IRGenVisitor : public AST_Walker {
     std::map<size_t, ValueDecl_ptr> &identifier_expr_to_decl_map_;
     std::map<size_t, LetDecl_ptr> &let_stmt_to_decl_map_;
     std::unique_ptr<FunctionContext> fn_ctx_;
+    std::unordered_map<size_t, IRValue_ptr> expr_value_map_;
+    std::unordered_map<size_t, IRValue_ptr> expr_address_map_;
 };
 
 class IRGenerator {

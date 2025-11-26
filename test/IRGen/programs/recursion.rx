@@ -8,5 +8,5 @@ fn fac(n: u32) -> u32 {
 
 fn main() {
     let code : u32 = fac(5) - 120;
-    exit(code);
+    exit(code as i32);
 }

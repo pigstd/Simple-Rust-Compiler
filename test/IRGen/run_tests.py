@@ -14,7 +14,9 @@ CXX_TEST_BINARIES = [
     "function_context_default_state_test",
 ]
 
-PROGRAM_SENTINEL = "IRGEN_NOT_IMPLEMENTED"
+PASS_MARK = "✅"
+FAIL_MARK = "❌"
+
 EXPECTED_EXIT_PREFIX = "// EXPECT_EXIT:"
 
 
@@ -27,10 +29,11 @@ def run_binary(target: Path) -> bool:
     try:
         subprocess.run([str(target)], check=True, capture_output=True, text=True)
     except subprocess.CalledProcessError as exc:
-        fail(f"[FAIL] {target.name} exited with status {exc.returncode}")
+        fail(f"{FAIL_MARK} [FAIL] {target.name} exited with status {exc.returncode}")
         if exc.stderr:
             fail(exc.stderr)
         return False
+    print(f"   {PASS_MARK} {target.name} passed")
     return True
 
 
@@ -66,20 +69,20 @@ def compile_and_run_ir(ir_text: str, clang_bin: str, expected_exit: int) -> bool
             capture_output=True,
         )
         if compile_proc.returncode != 0:
-            fail("[FAIL] clang failed to compile IR snippet")
+            fail(f"{FAIL_MARK} [FAIL] clang failed to compile IR snippet")
             fail(compile_proc.stderr)
             return False
         run_proc = subprocess.run([str(exe_path)])
         if run_proc.returncode != expected_exit:
             fail(
-                f"[FAIL] Program exited with {run_proc.returncode}, "
+                f"{FAIL_MARK} [FAIL] Program exited with {run_proc.returncode}, "
                 f"expected {expected_exit}"
             )
             return False
     return True
 
 
-def run_program_case(driver: Path, clang_bin: str, case_path: Path) -> bool | None:
+def run_program_case(driver: Path, clang_bin: str, case_path: Path) -> tuple[bool, str]:
     source_text = case_path.read_text()
     expected_exit = parse_expected_exit(source_text)
     print(f"[CASE] {case_path.name} (expect exit {expected_exit})")
@@ -90,16 +93,17 @@ def run_program_case(driver: Path, clang_bin: str, case_path: Path) -> bool | No
         capture_output=True,
     )
     if proc.returncode != 0:
-        fail(f"[FAIL] Driver failed for {case_path.name}")
+        fail(f"{FAIL_MARK} [FAIL] Driver failed for {case_path.name}")
         fail(proc.stderr)
-        return False
+        return False, proc.stdout
 
-    stdout = proc.stdout
-    if PROGRAM_SENTINEL in stdout:
-        print("[SKIP] IRGen not implemented yet; skipping execution.")
-        return None
-
-    return compile_and_run_ir(stdout, clang_bin, expected_exit)
+    ir_text = proc.stdout
+    result = compile_and_run_ir(ir_text, clang_bin, expected_exit)
+    if result:
+        print(f"   {PASS_MARK} Program matched expected exit")
+    else:
+        print(f"   {FAIL_MARK} Program exit mismatch")
+    return result, ir_text
 
 
 def run_program_tests(bin_dir: Path, repo_root: Path) -> bool:
@@ -120,15 +124,15 @@ def run_program_tests(bin_dir: Path, repo_root: Path) -> bool:
         return False
 
     overall_ok = True
-    skipped_all = True
+    first_failure_output = False
     for case in cases:
-        result = run_program_case(driver, clang_bin, case)
-        if result is False:
+        ok, ir_text = run_program_case(driver, clang_bin, case)
+        if ok is False:
             overall_ok = False
-        if result is not None:
-            skipped_all = False
-    if skipped_all:
-        print("[INFO] Program execution tests skipped (IRGen unavailable).")
+            if not first_failure_output:
+                print(f"{FAIL_MARK} [IR] First failing test emitted IR:")
+                print(ir_text.strip())
+                first_failure_output = True
     return overall_ok
 
 
@@ -144,8 +148,9 @@ def main() -> int:
     ok = run_cpp_tests(bin_dir)
     prog_ok = run_program_tests(bin_dir, repo_root)
     if ok and prog_ok:
-        print("[OK] All IRGen tests completed.")
+        print(f"{PASS_MARK} [OK] All IRGen tests completed.")
         return 0
+    print(f"{FAIL_MARK} IRGen tests encountered failures.")
     return 1
 
 

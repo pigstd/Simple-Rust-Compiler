@@ -899,6 +899,12 @@ IRValue_ptr IRBuilder::create_gep(IRValue_ptr base_ptr, IRType_ptr element_type,
                                   const std::vector<IRValue_ptr> &indices,
                                   const std::string &name_hint) {
     auto pointee = deduce_gep_pointee(element_type, indices);
+    if (!pointee) {
+        throw std::runtime_error("Could not deduce GEP pointee type");
+    } else {
+        // std::cerr << "GEP deduced pointee type: " << pointee->to_string()
+        //           << '\n';
+    }
     auto result_type =
         std::make_shared<PointerType>(pointee ? pointee : element_type);
     auto result = create_temp(result_type, name_hint);

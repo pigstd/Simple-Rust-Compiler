@@ -1,0 +1,9 @@
+// Minimal reference test: mutate through &mut and read via &.
+fn main() {
+    let mut x: i32 = 2;
+    let y: i32 = 3;
+    let ref_x: &mut i32 = &mut x;
+    *ref_x = *ref_x + y;
+    let view: &i32 = &x;
+    exit(*view - 5);
+}

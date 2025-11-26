@@ -12,7 +12,7 @@ fn make_point(base: i32) -> Point {
 fn main() {
     let p: Point = make_point(5);
     let arr: [i32; 3] = [1, 2, 3];
-    let mut idx: i32 = 0;
+    let mut idx: usize = 0;
     let mut sum: i32 = 0;
     while (idx < 3) {
         sum = sum + arr[idx];

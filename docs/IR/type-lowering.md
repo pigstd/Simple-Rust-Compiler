@@ -51,10 +51,11 @@ private:
 - **数组 (`ARRAY`)**：调用 `lower` 递归得到元素类型，再读取 `ArrayRealType::size` 创建 `ir::ArrayType(elem_ir, size)`。若 `size` 仍为 0 说明语义阶段未填回数组长度，应抛出 `std::runtime_error("array size missing")`。该类型仅用于静态分配的栈槽/全局常量，动态数组（`String`/`Vec`）仍走结构体。
 - **字符串切片 (`STR`)**：固定返回结构 `{ ptr(i8*), i32 }`。TypeLowering 应在初始化时调用 `declare_struct` 注册 `%Str = type { ptr, i32 }` 并缓存，后续 `lower(StrRealType)` 直接复用。不要依赖 `IRModule::ensure_runtime_builtins` 来插入这些类型，避免初始化顺序错乱。
 - **`String`**：同 `IRBuilder` 设定 `{ ptr(i8*), i32, i32 }`（指针、长度、容量）。同样在 TypeLowering 初始化时通过 `declare_struct` 注册 `%String = type { ... }` 并缓存，`lower(StringRealType)` 必须命中缓存，否则抛错。
-- **结构体 (`STRUCT`)**：读取 `StructDecl_ptr decl = struct_type->decl.lock()`，若缓存中尚未存在则调用 `declare_struct(decl)` 生成并注册 `%StructName = type { ... }`（会同步更新 `IRModule` 的类型表）。若结构体出现在引用上下文（`StructRealType::is_ref != NO_REF`），优先把结构体类型缓存下来，再在上一条规则应用后返回 `ptr`。若 `decl.lock()` 失败（语义阶段未绑定），TypeLowering 抛出 `std::runtime_error("StructDecl missing")`。
+- **结构体 (`STRUCT`)**：读取 `StructDecl_ptr decl = struct_type->decl.lock()`，若缓存中尚未存在则调用 `declare_struct(decl)` 生成并注册 `%StructName = type { ... }`（会同步更新 `IRModule` 的类型表）。当语义层用 `Self` 等别名描述该类型时，也必须始终取 `decl->name` 作为 `%Name`，避免把函数名或别名写进 IR。若结构体出现在引用上下文（`StructRealType::is_ref != NO_REF`），优先把结构体类型缓存下来，再在上一条规则应用后返回 `ptr`。若 `decl.lock()` 失败（语义阶段未绑定），TypeLowering 抛出 `std::runtime_error("StructDecl missing")`。
 - **枚举 (`ENUM`)**：当前语义阶段把 enum 当 C-like 枚举处理：`EnumDecl::variants` 只有离散值，因此直接下降为 `i32`。若未来支持带负载的 enum，再扩展为 `{ i32, [payload] }`。
 - **函数 (`FUNCTION`)**：`lower_function` 中构造：对参数逐个 `lower`（引用参数直接得到 `ptr`），返回类型 `()` → `void`，其余交给 `lower`。
-  * 若函数带有 `self` 形参，`FnDecl::receiver_type` 会指明是 `self` / `&self` / `&mut self`，`self_struct` 指向所属结构体。`lower_function` 必须把 `self` 作为参数列表第一项并按对应 `RealType` 降级：按值 `self` → `%StructName`，`&self`/`&mut self` → `ptr`，其他类型（如 `String`）则复用 TypeLowering 既有规则，确保 IR 签名与语义一致。
+  * 若函数带有 `self` 形参，`FnDecl::receiver_type` 会指明是 `self` / `&self` / `&mut self`，`self_struct` 指向所属结构体。`lower_function` 必须把 `self` 作为参数列表第一项并按对应 `RealType` 降级：按值 `self` → `%StructName`（始终读取 `self_struct->name`，即便语义层把类型写成 `Self`），`&self`/`&mut self` → `ptr`，其他类型（如 `String`）则复用 TypeLowering 既有规则，确保 IR 签名与语义一致。
+  * 入口 `main` 函数强制返回 `i32`：即便语义层未显式声明返回类型或写成 `()`, `lower_function` 也会把 `ret_type` 改为 `i32`，与运行时预期的 `main` ABI 对齐。
 
 #### 常量值桥接
 - `lower_const(ConstValue_ptr value, RealType_ptr expected_type)` 的行为：

@@ -13,6 +13,6 @@ impl point {
 }
 
 fn main() {
-    let p = point::new(2, 3);
+    let p : point = point::new(2, 3);
     exit(p.x + p.y - 5);
 }

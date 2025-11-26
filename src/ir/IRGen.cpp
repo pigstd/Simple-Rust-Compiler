@@ -10,6 +10,7 @@
 #include <cassert>
 #include <cassert>
 #include <cstddef>
+#include <iostream>
 #include <memory>
 #include <stdexcept>
 #include <unordered_map>
@@ -120,17 +121,22 @@ void IRGenVisitor::visit(FnItem &node) {
     builder_.set_insertion_point(ctx.entry_block);
 
     const auto &params = ir_function->params();
-    assert(decl->parameter_let_decls.size() == params.size());
-    for (std::size_t idx = 0; idx < params.size(); ++idx) {
-        auto let_decl = decl->parameter_let_decls[idx];
-        auto slot = ensure_slot_for_decl(let_decl);
-        auto [name, type] = params[idx];
+    size_t param_idx = 0;
+    // 将 self 参数存入槽。
+    if (node.receiver_type != fn_reciever_type::NO_RECEIVER) {
+        param_idx = 1;
+        auto [name, type] = params[0];
+        auto slot = builder_.create_alloca(type, "self.slot");
         auto arg = std::make_shared<RegisterValue>(name, type);
         builder_.create_store(arg, slot);
-        if (idx == 0 &&
-            decl->receiver_type != fn_reciever_type::NO_RECEIVER) {
-            ctx.self_slot = slot;
-        }
+        ctx.self_slot = slot;
+    }
+    for (std::size_t idx = 0; param_idx < params.size(); ++idx, ++param_idx) {
+        auto let_decl = decl->parameter_let_decls[idx];
+        auto slot = ensure_slot_for_decl(let_decl);
+        auto [name, type] = params[param_idx];
+        auto arg = std::make_shared<RegisterValue>(name, type);
+        builder_.create_store(arg, slot);
     }
 
     bool needs_return_slot = false;
@@ -157,7 +163,8 @@ void IRGenVisitor::visit(FnItem &node) {
         node.body->accept(*this);
     }
 
-    if (needs_return_slot && current_block_has_next(node.body->NodeId)) {
+    if (needs_return_slot && !decl->is_main &&
+        current_block_has_next(node.body->NodeId)) {
         // 有返回值且函数体非终止，那么这个 block 的值结尾就是返回值。
         builder_.create_store(get_rvalue(node.body->NodeId),
                              ctx.return_slot);
@@ -199,12 +206,22 @@ void IRGenVisitor::visit(LetStmt &node) {
     builder_.create_store(get_rvalue(node.initializer->NodeId), slot);
 }
 
-// 表达式语句，忽略结果。
+// 表达式语句，如果没有 ; 并且有值，则保存其值。
 void IRGenVisitor::visit(ExprStmt &node) {
     if (!node.expr) {
         return;
     }
     node.expr->accept(*this);
+    if (!node.is_semi) {
+        auto type_iter =
+            node_type_and_place_kind_map_.find(node.expr->NodeId);
+        if (type_iter != node_type_and_place_kind_map_.end() &&
+            type_iter->second.first &&
+            type_iter->second.first->kind != RealTypeKind::UNIT &&
+            type_iter->second.first->kind != RealTypeKind::NEVER) {
+            expr_value_map_[node.NodeId] = get_rvalue(node.expr->NodeId);
+        }
+    }
 }
 
 // return。
@@ -344,7 +361,7 @@ void IRGenVisitor::visit(BinaryExpr &node) {
             }
         }
         builder_.create_store(result, addr);
-        ctx.expr_value_map[node.NodeId] = result;
+        expr_value_map_[node.NodeId] = result;
         return;
     }
     case Binary_Operator::ADD:
@@ -401,8 +418,9 @@ void IRGenVisitor::visit(BinaryExpr &node) {
         default:
             throw std::runtime_error("Unsupported arithmetic operator in BinaryExpr");
         }
+        // std::cerr << node.NodeId << ' ' << (result != nullptr) << '\n';
         if (result) {
-            ctx.expr_value_map[node.NodeId] = result;
+            expr_value_map_[node.NodeId] = result;
         }
         return;
     }
@@ -446,12 +464,55 @@ void IRGenVisitor::visit(BinaryExpr &node) {
             throw std::runtime_error("Unsupported comparison operator in BinaryExpr");
         }
         if (result) {
-            ctx.expr_value_map[node.NodeId] = result;
+        expr_value_map_[node.NodeId] = result;
         }
         return;
     }
+    // && ||，要短路
+    case Binary_Operator::AND_AND:
+    case Binary_Operator::OR_OR: {
+        auto result_slot = builder_.create_temp_alloca(
+            type_lowering_.lower(
+                std::make_shared<BoolRealType>(ReferenceType::NO_REF)));
+        node.left->accept(*this);
+        auto right_block = builder_.create_block("logical.rhs");
+        auto merge_block = builder_.create_block("logical.merge");
+        ensure_current_insertion();
+        auto lhs_value = get_rvalue(node.left->NodeId);
+        // && 先把结果填成 false, || 先把结果填成 true
+        if (node.op == Binary_Operator::AND_AND) {
+            builder_.create_store(
+                std::make_shared<ConstantValue>(
+                    type_lowering_.lower(
+                        std::make_shared<BoolRealType>(ReferenceType::NO_REF)),
+                    0),
+                result_slot);
+            builder_.create_cond_br(lhs_value, right_block, merge_block);
+        } else {
+            builder_.create_store(
+                std::make_shared<ConstantValue>(
+                    type_lowering_.lower(
+                        std::make_shared<BoolRealType>(ReferenceType::NO_REF)),
+                    1),
+                result_slot);
+            builder_.create_cond_br(lhs_value, merge_block, right_block);
+        }
+        ctx.current_block = right_block;
+        builder_.set_insertion_point(right_block);
+        ctx.block_sealed = false;
+        node.right->accept(*this);
+        ensure_current_insertion();
+        auto rhs_value = get_rvalue(node.right->NodeId);
+        builder_.create_store(rhs_value, result_slot);
+        branch_if_needed(merge_block);
+        ctx.current_block = merge_block;
+        builder_.set_insertion_point(merge_block);
+        ctx.block_sealed = false;
+        expr_address_map_[node.NodeId] = result_slot;
+        return;
+    }
     default:
-        break;
+        throw std::runtime_error("Unsupported BinaryExpr operator");
     }
 }
 
@@ -479,25 +540,25 @@ void IRGenVisitor::visit(UnaryExpr &node) {
         auto lowered_type = type_lowering_.lower(type);
         auto zero = std::make_shared<ConstantValue>(lowered_type, 0);
         auto result = builder_.create_sub(zero, rhs);
-        ctx.expr_value_map[node.NodeId] = result;
+        expr_value_map_[node.NodeId] = result;
         return;
     }
     case Unary_Operator::NOT: {
         auto rhs = get_rvalue(node.right->NodeId);
         ensure_current_insertion();
         auto result = builder_.create_not(rhs);
-        ctx.expr_value_map[node.NodeId] = result;
+        expr_value_map_[node.NodeId] = result;
         return;
     }
     case Unary_Operator::REF:
     case Unary_Operator::REF_MUT: {
         auto addr = get_lvalue(node.right->NodeId);
-        ctx.expr_value_map[node.NodeId] = addr;
+        expr_value_map_[node.NodeId] = addr;
         return;
     }
     case Unary_Operator::DEREF: {
         auto ptr = get_rvalue(node.right->NodeId);
-        ctx.expr_address_map[node.NodeId] = ptr;
+        expr_address_map_[node.NodeId] = ptr;
         return;
     }
     default:
@@ -534,11 +595,13 @@ void IRGenVisitor::visit(CallExpr &node) {
         ensure_current_insertion();
         builder_.create_store(exit_code, ctx.return_slot);
         builder_.create_br(ctx.return_block);
-        ctx.expr_value_map[node.NodeId] = nullptr;
+        expr_value_map_[node.NodeId] = nullptr;
+        ctx.block_sealed = true;
         return;
     }
 
-    if (node.callee) {
+    // 只有有 self 才需要 visit callee，否则我已经知道函数是什么了
+    if (node.callee && fn_decl->receiver_type != fn_reciever_type::NO_RECEIVER) {
         node.callee->accept(*this);
     }
     for (const auto &arg : node.arguments) {
@@ -587,7 +650,7 @@ void IRGenVisitor::visit(CallExpr &node) {
     auto call_result =
         builder_.create_call(fn_decl->name, call_args, ret_ir_type, "call.tmp");
     if (call_result) {
-        ctx.expr_value_map[node.NodeId] = call_result;
+        expr_value_map_[node.NodeId] = call_result;
     }
 }
 
@@ -625,6 +688,7 @@ void IRGenVisitor::visit(IfExpr &node) {
 
     builder_.set_insertion_point(then_block);
     ctx.current_block = then_block;
+    ctx.block_sealed = false;
     node.then_branch->accept(*this);
     if (ctx.current_block && !ctx.block_sealed) {
         if (need_result) {
@@ -633,9 +697,9 @@ void IRGenVisitor::visit(IfExpr &node) {
         }
         builder_.create_br(merge_block);
     }
-    ctx.block_sealed = false;
-
+    
     builder_.set_insertion_point(else_block);
+    ctx.block_sealed = false;
     if (node.else_branch) {
         ctx.current_block = else_block;
         node.else_branch->accept(*this);
@@ -653,9 +717,10 @@ void IRGenVisitor::visit(IfExpr &node) {
 
     builder_.set_insertion_point(merge_block);
     ctx.current_block = merge_block;
+    ctx.block_sealed = false;
 
     if (need_result) {
-        ctx.expr_address_map[node.NodeId] = result_slot;
+        expr_address_map_[node.NodeId] = result_slot;
     }
 }
 
@@ -672,6 +737,7 @@ void IRGenVisitor::visit(WhileExpr &node) {
     branch_if_needed(cond_block);
     builder_.set_insertion_point(cond_block);
     ctx.current_block = cond_block;
+    ctx.block_sealed = false;
     node.condition->accept(*this);
     auto cond_value = get_rvalue(node.condition->NodeId);
     builder_.create_cond_br(cond_value, body_block, exit_block);
@@ -685,7 +751,9 @@ void IRGenVisitor::visit(WhileExpr &node) {
 
     builder_.set_insertion_point(body_block);
     ctx.current_block = body_block;
+    ctx.block_sealed = false;
     node.body->accept(*this);
+
     if (ctx.current_block && !ctx.block_sealed) {
         builder_.create_br(cond_block);
     }
@@ -694,6 +762,7 @@ void IRGenVisitor::visit(WhileExpr &node) {
 
     builder_.set_insertion_point(exit_block);
     ctx.current_block = exit_block;
+    ctx.block_sealed = false;
 }
 
 // loop。
@@ -708,6 +777,7 @@ void IRGenVisitor::visit(LoopExpr &node) {
     branch_if_needed(body_block);
     builder_.set_insertion_point(body_block);
     ctx.current_block = body_block;
+    ctx.block_sealed = false;
 
     LoopContext loop_ctx;
     loop_ctx.header_block = body_block;
@@ -735,8 +805,9 @@ void IRGenVisitor::visit(LoopExpr &node) {
     }
     builder_.set_insertion_point(break_block);
     ctx.current_block = break_block;
+    ctx.block_sealed = false;
     if (loop_ctx.break_slot) {
-        ctx.expr_address_map[node.NodeId] = loop_ctx.break_slot;
+        expr_address_map_[node.NodeId] = loop_ctx.break_slot;
     }
     ctx.loop_stack.pop_back();
 }
@@ -748,20 +819,28 @@ void IRGenVisitor::visit(BlockExpr &node) {
     }
     auto &ctx = current_fn();
 
+    // std::cerr << "Visiting BlockExpr with NodeId = "
+    //           << node.NodeId << " \n";
+
     for (const auto &stmt : node.statements) {
         if (!ctx.current_block || ctx.block_sealed) {
+            // std::cerr << "break!\n";
             break;
         }
+        // std::cerr << "visite stmt \n";
         stmt->accept(*this);
         if (!current_block_has_next(stmt->NodeId)) {
             ctx.current_block = nullptr;
+            // std::cerr << "break! Node id = " << stmt->NodeId << "\n";
             break;
         }
     }
     if (node.tail_statement) {
+        // std::cerr << "visit tail, NodeId = " << node.tail_statement->NodeId << "\n";
         node.tail_statement->accept(*this);
         if (current_block_has_next(node.tail_statement->NodeId)) {
-            ctx.expr_value_map[node.NodeId] =
+            // std::cerr << "visit tail, NodeId = " << node.tail_statement->NodeId << "\n";
+            expr_value_map_[node.NodeId] =
                 get_rvalue(node.tail_statement->NodeId);
         }
     }
@@ -811,12 +890,11 @@ void IRGenVisitor::visit(StructExpr &node) {
         ensure_current_insertion();
         auto field_gep = builder_.create_gep(
             slot, ir_struct_type,
-            {zero, builder_.create_i32_constant(static_cast<int64_t>(idx))},
-            field_name + ".addr");
+            {zero, builder_.create_i32_constant(static_cast<int64_t>(idx))});
         builder_.create_store(get_rvalue(expr->NodeId), field_gep);
     }
 
-    current_fn().expr_address_map[node.NodeId] = slot;
+    expr_address_map_[node.NodeId] = slot;
 }
 
 // 数组字面量。
@@ -849,12 +927,11 @@ void IRGenVisitor::visit(ArrayExpr &node) {
         ensure_current_insertion();
         auto element_addr =
             builder_.create_gep(slot, ir_array_type,
-                                {zero, builder_.create_i32_constant(static_cast<int64_t>(idx))},
-                                "array.elem.addr");
+                                {zero, builder_.create_i32_constant(static_cast<int64_t>(idx))});
         builder_.create_store(get_rvalue(elem->NodeId), element_addr);
     }
 
-    current_fn().expr_address_map[node.NodeId] = slot;
+    expr_address_map_[node.NodeId] = slot;
 }
 
 // repeat 数组。
@@ -883,12 +960,11 @@ void IRGenVisitor::visit(RepeatArrayExpr &node) {
     ensure_current_insertion();
     auto element_addr = builder_.create_gep(
             slot, ir_array_type,
-            {zero, builder_.create_i32_constant(static_cast<int64_t>(idx))},
-            "repeat.elem.addr");
+            {zero, builder_.create_i32_constant(static_cast<int64_t>(idx))});
         builder_.create_store(element_value, element_addr);
     }
 
-    current_fn().expr_address_map[node.NodeId] = slot;
+    expr_address_map_[node.NodeId] = slot;
 }
 
 // 字段访问。
@@ -906,17 +982,17 @@ void IRGenVisitor::visit(FieldExpr &node) {
     auto &ctx = current_fn();
     if (type->kind == RealTypeKind::FUNCTION) {
         node.base->accept(*this);
-        if (ctx.expr_value_map.find(node.base->NodeId) !=
-            ctx.expr_value_map.end()) {
-            ctx.expr_value_map[node.NodeId] =
-                ctx.expr_value_map[node.base->NodeId];
-        } else if (ctx.expr_address_map.find(node.base->NodeId) !=
-                   ctx.expr_address_map.end()) {
-            ctx.expr_address_map[node.NodeId] =
-                ctx.expr_address_map[node.base->NodeId];
-        } else {
-            throw std::runtime_error("FieldExpr function base has no value");
+        auto value_it = expr_value_map_.find(node.base->NodeId);
+        if (value_it != expr_value_map_.end()) {
+            expr_value_map_[node.NodeId] = value_it->second;
+            return;
         }
+        auto addr_it = expr_address_map_.find(node.base->NodeId);
+        if (addr_it != expr_address_map_.end()) {
+            expr_address_map_[node.NodeId] = addr_it->second;
+            return;
+        }
+        throw std::runtime_error("FieldExpr function base has no value");
     } else {
         node.base->accept(*this);
         auto base_addr = get_lvalue(node.base->NodeId);
@@ -944,13 +1020,20 @@ void IRGenVisitor::visit(FieldExpr &node) {
             throw std::runtime_error("FieldExpr field not found: " + node.field_name);
         }
         ensure_current_insertion();
+        // 需要考虑自动解引用
+        // 如果 base 是引用类型，那么取它的底层类型
         auto ir_struct_type = type_lowering_.lower(struct_type);
+        if (base_type->is_ref != ReferenceType::NO_REF) {
+            // std::cerr << "auto deref in FieldExpr\n";
+            base_addr = builder_.create_load(base_addr);
+            ir_struct_type = std::dynamic_pointer_cast<PointerType>(
+                ir_struct_type)->pointee_type();
+        }
         auto zero = builder_.create_i32_constant(0);
         auto field_addr = builder_.create_gep(
             base_addr, ir_struct_type,
-            {zero, builder_.create_i32_constant(static_cast<int64_t>(field_index))},
-            node.field_name + ".addr");
-        ctx.expr_address_map[node.NodeId] = field_addr;
+            {zero, builder_.create_i32_constant(static_cast<int64_t>(field_index))});
+        expr_address_map_[node.NodeId] = field_addr;
     }
 }
 
@@ -977,9 +1060,8 @@ void IRGenVisitor::visit(IndexExpr &node) {
         node_type_and_place_kind_map_[node.base->NodeId].first);
     auto element_addr = builder_.create_gep(
         base_addr, ir_base_type,
-        {zero, index_value},
-        "index.elem.addr");
-    ctx.expr_address_map[node.NodeId] = element_addr;
+        {zero, index_value});
+    expr_address_map_[node.NodeId] = element_addr;
 }
 
 void IRGenVisitor::visit(LiteralExpr &node) {
@@ -1020,10 +1102,10 @@ void IRGenVisitor::visit(LiteralExpr &node) {
         ensure_current_insertion();
         auto ptr_field = 
             builder_.create_gep(constant, str_type,
-            {zero, zero}, "str.ptr.addr");
+            {zero, zero});
         auto len_field =
             builder_.create_gep(constant, str_type,
-            {zero, one}, "str.len.addr");
+            {zero, one});
         auto data_global = builder_.create_string_literal(node.value);
         builder_.create_store(data_global, ptr_field);
         builder_.create_store(builder_.create_i32_constant(node.value.size()), len_field);
@@ -1032,7 +1114,7 @@ void IRGenVisitor::visit(LiteralExpr &node) {
     default:
         throw std::runtime_error("Unsupported LiteralType in LiteralExpr");
     }
-    ctx.expr_value_map[node.NodeId] = constant;
+    expr_value_map_[node.NodeId] = constant;
 }
 
 // 标识符访问：let -> 地址，const -> 常量或全局。
@@ -1050,7 +1132,7 @@ void IRGenVisitor::visit(IdentifierExpr &node) {
             return;
         }
         auto slot = ensure_slot_for_decl(let_decl);
-        ctx.expr_address_map[node.NodeId] = slot;
+        expr_address_map_[node.NodeId] = slot;
         return;
     }
 
@@ -1063,7 +1145,7 @@ void IRGenVisitor::visit(IdentifierExpr &node) {
             auto ir_type = type_lowering_.lower(const_decl->const_type);
             auto global =
                 std::make_shared<GlobalValue>(const_decl->name, ir_type, "");
-            ctx.expr_address_map[node.NodeId] = global;
+            expr_address_map_[node.NodeId] = global;
             return;
         }
         auto const_value = const_value_map_[const_decl];
@@ -1074,7 +1156,7 @@ void IRGenVisitor::visit(IdentifierExpr &node) {
             type_lowering_.lower_const(const_value,
                                         const_decl->const_type);
         if (lowered) {
-            ctx.expr_value_map[node.NodeId] = lowered;
+            expr_value_map_[node.NodeId] = lowered;
         }
     }
 }
@@ -1144,7 +1226,7 @@ void IRGenVisitor::visit(CastExpr &node) {
         throw std::runtime_error("Unsupported CastExpr combination");
     }
 
-    ctx.expr_value_map[node.NodeId] = result;
+    expr_value_map_[node.NodeId] = result;
 }
 
 // Path 表达式：处理结构体关联常量与枚举变体。
@@ -1174,7 +1256,7 @@ void IRGenVisitor::visit(PathExpr &node) {
             auto ir_type = type_lowering_.lower(const_decl->const_type);
             auto global =
                 std::make_shared<GlobalValue>(const_decl->name, ir_type, "");
-            ctx.expr_address_map[node.NodeId] = global;
+            expr_address_map_[node.NodeId] = global;
             return;
         }
         auto const_value_iter = const_value_map_.find(const_decl);
@@ -1187,7 +1269,7 @@ void IRGenVisitor::visit(PathExpr &node) {
         if (!lowered) {
             throw std::runtime_error("Failed to lower associated const value");
         }
-        ctx.expr_value_map[node.NodeId] = lowered;
+        expr_value_map_[node.NodeId] = lowered;
         return;
     }
     if (type_decl->kind == TypeDeclKind::Enum) {
@@ -1207,7 +1289,7 @@ void IRGenVisitor::visit(PathExpr &node) {
         auto lowered_type = type_lowering_.lower(type_iter->second.first);
         auto constant = std::make_shared<ConstantValue>(
             lowered_type, static_cast<int64_t>(variant_iter->second));
-        ctx.expr_value_map[node.NodeId] = constant;
+        expr_value_map_[node.NodeId] = constant;
         return;
     }
     throw std::runtime_error("PathExpr supports only struct or enum bases");
@@ -1237,7 +1319,7 @@ void IRGenVisitor::visit(SelfExpr &node) {
     if (!ctx.self_slot) {
         throw std::runtime_error("SelfExpr missing self slot");
     }
-    ctx.expr_address_map[node.NodeId] = ctx.self_slot;
+    expr_address_map_[node.NodeId] = ctx.self_slot;
 }
 
 // ()。
@@ -1311,27 +1393,28 @@ void IRGenVisitor::ensure_current_insertion() {
 }
 
 IRValue_ptr IRGenVisitor::get_rvalue(size_t node_id) {
-    auto &ctx = current_fn();
-    auto iter = ctx.expr_value_map.find(node_id);
-    if (iter != ctx.expr_value_map.end()) {
+    auto iter = expr_value_map_.find(node_id);
+    if (iter != expr_value_map_.end()) {
         return iter->second;
     }
-    auto addr_iter = ctx.expr_address_map.find(node_id);
-    if (addr_iter == ctx.expr_address_map.end()) {
-        throw std::runtime_error("IRGenVisitor::get_rvalue missing address");
+    auto addr_iter = expr_address_map_.find(node_id);
+    if (addr_iter == expr_address_map_.end()) {
+        throw std::runtime_error(
+            "IRGenVisitor::get_rvalue missing address for node " +
+            std::to_string(node_id));
     }
     auto value = builder_.create_load(addr_iter->second);
     return value;
 }
 
 IRValue_ptr IRGenVisitor::get_lvalue(size_t node_id) {
+    auto addr_iter = expr_address_map_.find(node_id);
     auto &ctx = current_fn();
-    auto addr_iter = ctx.expr_address_map.find(node_id);
-    if (addr_iter != ctx.expr_address_map.end()) {    
+    if (addr_iter != expr_address_map_.end()) {    
         return addr_iter->second;
     } else {
-        auto value_iter = ctx.expr_value_map.find(node_id);
-        if (value_iter == ctx.expr_value_map.end()) {
+        auto value_iter = expr_value_map_.find(node_id);
+        if (value_iter == expr_value_map_.end()) {
             throw std::runtime_error("IRGenVisitor::get_lvalue missing value");
         }
         auto previous_block = builder_.insertion_block();

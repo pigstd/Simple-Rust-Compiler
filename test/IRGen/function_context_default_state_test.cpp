@@ -15,8 +15,6 @@ int main() {
     assert(!ctx.block_sealed);
     assert(ctx.local_slots.empty());
     assert(ctx.loop_stack.empty());
-    assert(ctx.expr_value_map.empty());
-    assert(ctx.expr_address_map.empty());
 
     LoopContext loop;
     assert(loop.header_block == nullptr);

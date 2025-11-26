@@ -2,7 +2,7 @@
 // Generator: Codex
 fn main() {
     let arr: [i32; 4] = [7; 4];
-    let mut i: i32 = 0;
+    let mut i: usize = 0;
     let mut sum: i32 = 0;
     while (i < 4) {
         sum = sum + arr[i];
