@@ -1,7 +1,7 @@
 %Str = type { ptr, i32 }
 %String = type { ptr, i32, i32 }
 
-declare void @main()
+declare i32 @main()
 
 declare void @outer()
 

@@ -4,4 +4,4 @@
 @const.BASE = private constant [1 x i32] [ i32 0 ]
 @const.MIRROR = private constant [1 x i32] [ i32 0 ]
 
-declare void @main()
+declare i32 @main()
