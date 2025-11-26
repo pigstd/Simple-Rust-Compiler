@@ -1,4 +1,5 @@
 #include "ir/type_lowering.h"
+#include <iostream>
 #include <string>
 
 using std::string;
@@ -151,7 +152,8 @@ IRType_ptr TypeLowering::lower(RealType_ptr type) {
         if (!decl) {
             throw std::runtime_error("StructDecl missing");
         }
-        auto name = struct_type->name;
+        auto name = struct_type->decl.lock()->name;
+        // std::cerr << "struct name = " << name << '\n';
         auto cached = struct_cache_.find(name);
         if (cached == struct_cache_.end()) {
             throw std::runtime_error("struct not declared");
@@ -198,7 +200,7 @@ std::shared_ptr<FunctionType> TypeLowering::lower_function(FnDecl_ptr decl) {
         if (!self_decl) {
             throw std::runtime_error("method missing self struct");
         }
-        std::string self_name = decl->name;
+        std::string self_name = decl->self_struct.lock()->name;
         ReferenceType ref = receiver_to_ref(decl->receiver_type);
         auto self_real =
             std::make_shared<StructRealType>(self_name, ref, self_decl);
@@ -209,6 +211,10 @@ std::shared_ptr<FunctionType> TypeLowering::lower_function(FnDecl_ptr decl) {
     }
     IRType_ptr ret_type =
         decl->return_type ? lower(decl->return_type) : void_type_;
+    // 如果是 main 函数要特判成 i32 返回类型
+    if (decl->is_main) {
+        ret_type = i32_type_;
+    }
     return std::make_shared<FunctionType>(ret_type, params);
 }
 
