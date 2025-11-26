@@ -10,21 +10,29 @@ static_assert(std::is_constructible_v<
               IRGenerator, IRModule &, IRBuilder &, TypeLowering &,
               std::map<size_t, Scope_ptr> &,
               std::map<Scope_ptr, Local_Variable_map> &,
+              std::map<size_t, RealType_ptr> &,
               std::map<size_t, std::pair<RealType_ptr, PlaceKind>> &,
               std::map<size_t, OutcomeState> &,
               std::map<size_t, FnDecl_ptr> &,
-              std::map<ConstDecl_ptr, ConstValue_ptr> &>);
+              std::map<ConstDecl_ptr, ConstValue_ptr> &,
+              std::map<size_t, FnDecl_ptr> &,
+              std::map<size_t, ValueDecl_ptr> &,
+              std::map<size_t, LetDecl_ptr> &>);
 
 static_assert(std::is_same_v<void (IRGenerator::*)(const std::vector<Item_ptr> &),
                              decltype(&IRGenerator::generate)>);
 
 static_assert(std::is_constructible_v<
-              IRGenVisitor, FunctionContext &, IRBuilder &, TypeLowering &,
+              IRGenVisitor, IRModule &, IRBuilder &, TypeLowering &,
               std::map<size_t, Scope_ptr> &,
+              std::map<size_t, RealType_ptr> &,
               std::map<size_t, std::pair<RealType_ptr, PlaceKind>> &,
               std::map<size_t, OutcomeState> &,
               std::map<size_t, FnDecl_ptr> &,
-              std::map<ConstDecl_ptr, ConstValue_ptr> &>);
+              std::map<ConstDecl_ptr, ConstValue_ptr> &,
+              std::map<size_t, FnDecl_ptr> &,
+              std::map<size_t, ValueDecl_ptr> &,
+              std::map<size_t, LetDecl_ptr> &>);
 
 static_assert(std::is_default_constructible_v<LoopContext>);
 static_assert(std::is_default_constructible_v<FunctionContext>);

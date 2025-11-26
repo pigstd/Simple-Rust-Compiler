@@ -1,4 +1,5 @@
 #include "ir/IRBuilder.h"
+#include "ir/IRGen.h"
 #include "ir/global_lowering.h"
 #include "ir/type_lowering.h"
 #include "lexer/lexer.h"
@@ -9,11 +10,7 @@
 #include <stdexcept>
 #include <string>
 
-namespace {
-
-constexpr const char *kNotImplementedSentinel = "IRGEN_NOT_IMPLEMENTED";
-
-void drain_stdin_and_run_semantic_checks() {
+std::string run_full_pipeline() {
     Lexer lexer;
     lexer.read_and_get_tokens();
     Parser parser(lexer);
@@ -28,14 +25,22 @@ void drain_stdin_and_run_semantic_checks() {
     ir::GlobalLoweringDriver global_driver(module, builder, type_lowering,
                                            checker.const_value_map);
     global_driver.emit_scope_tree(checker.root_scope);
-}
 
-} // namespace
+    ir::IRGenerator generator(
+        module, builder, type_lowering, checker.node_scope_map,
+        checker.scope_local_variable_map, checker.type_map,
+        checker.node_type_and_place_kind_map, checker.node_outcome_state_map,
+        checker.call_expr_to_decl_map, checker.const_value_map,
+        checker.fn_item_to_decl_map, checker.identifier_expr_to_decl_map,
+        checker.let_stmt_to_decl_map);
+    generator.generate(items);
+    module.ensure_runtime_builtins();
+    return module.to_string();
+}
 
 int main() {
     try {
-        drain_stdin_and_run_semantic_checks();
-        std::cout << kNotImplementedSentinel << std::endl;
+        std::cout << run_full_pipeline();
         return 0;
     } catch (const std::runtime_error &err) {
         std::cerr << err.what() << std::endl;

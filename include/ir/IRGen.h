@@ -8,6 +8,7 @@
 #include "semantic/decl.h"
 #include "semantic/typecheck.h"
 #include <map>
+#include <memory>
 #include <unordered_map>
 #include <vector>
 
@@ -42,16 +43,25 @@ struct FunctionContext {
 
 class IRGenVisitor : public AST_Walker {
   public:
-    IRGenVisitor(FunctionContext &fn_ctx, IRBuilder &builder,
+    IRGenVisitor(IRModule &module, IRBuilder &builder,
                  TypeLowering &type_lowering,
                  std::map<size_t, Scope_ptr> &node_scope_map,
+                 std::map<size_t, RealType_ptr> &type_map,
                  std::map<size_t, std::pair<RealType_ptr, PlaceKind>>
                      &node_type_and_place_kind_map,
                  std::map<size_t, OutcomeState> &node_outcome_state_map,
                  std::map<size_t, FnDecl_ptr> &call_expr_to_decl_map,
-                 std::map<ConstDecl_ptr, ConstValue_ptr> &const_value_map);
+                 std::map<ConstDecl_ptr, ConstValue_ptr> &const_value_map,
+                 std::map<size_t, FnDecl_ptr> &fn_item_to_decl_map,
+                 std::map<size_t, ValueDecl_ptr> &identifier_expr_to_decl_map,
+                 std::map<size_t, LetDecl_ptr> &let_stmt_to_decl_map);
 
     void visit(FnItem &node) override;
+    void visit(StructItem &node) override;
+    void visit(EnumItem &node) override;
+    void visit(ImplItem &node) override;
+    void visit(ConstItem &node) override;
+    void visit(ItemStmt &node) override;
     void visit(LetStmt &node) override;
     void visit(ExprStmt &node) override;
     void visit(ReturnExpr &node) override;
@@ -84,17 +94,25 @@ class IRGenVisitor : public AST_Walker {
     IRValue_ptr get_lvalue(size_t node_id);
     LoopContext *current_loop();
     const LoopContext *current_loop() const;
+    void ensure_current_insertion();
+    FunctionContext &current_fn();
+    const FunctionContext &current_fn() const;
+    TypeDecl_ptr resolve_type_decl(Type_ptr type_node) const;
 
-    FunctionContext &fn_ctx_;
+    IRModule &module_;
     IRBuilder &builder_;
     TypeLowering &type_lowering_;
     std::map<size_t, Scope_ptr> &node_scope_map_;
+    std::map<size_t, RealType_ptr> &type_map_;
     std::map<size_t, std::pair<RealType_ptr, PlaceKind>>
         &node_type_and_place_kind_map_;
     std::map<size_t, OutcomeState> &node_outcome_state_map_;
     std::map<size_t, FnDecl_ptr> &call_expr_to_decl_map_;
     std::map<ConstDecl_ptr, ConstValue_ptr> &const_value_map_;
-    IRValue_ptr current_result_slot_ = nullptr;
+    std::map<size_t, FnDecl_ptr> &fn_item_to_decl_map_;
+    std::map<size_t, ValueDecl_ptr> &identifier_expr_to_decl_map_;
+    std::map<size_t, LetDecl_ptr> &let_stmt_to_decl_map_;
+    std::unique_ptr<FunctionContext> fn_ctx_;
 };
 
 class IRGenerator {
@@ -104,28 +122,33 @@ class IRGenerator {
                 std::map<size_t, Scope_ptr> &node_scope_map,
                 std::map<Scope_ptr, Local_Variable_map>
                     &scope_local_variable_map,
+                std::map<size_t, RealType_ptr> &type_map,
                 std::map<size_t, std::pair<RealType_ptr, PlaceKind>>
                     &node_type_and_place_kind_map,
                 std::map<size_t, OutcomeState> &node_outcome_state_map,
                 std::map<size_t, FnDecl_ptr> &call_expr_to_decl_map,
-                std::map<ConstDecl_ptr, ConstValue_ptr> &const_value_map);
+                std::map<ConstDecl_ptr, ConstValue_ptr> &const_value_map,
+                std::map<size_t, FnDecl_ptr> &fn_item_to_decl_map,
+                std::map<size_t, ValueDecl_ptr> &identifier_expr_to_decl_map,
+                std::map<size_t, LetDecl_ptr> &let_stmt_to_decl_map);
 
     void generate(const std::vector<Item_ptr> &ast_items);
 
   private:
-    void visit_item(Item_ptr item);
-    void lower_function(FnDecl_ptr decl);
-
     IRModule &module_;
     IRBuilder &builder_;
     TypeLowering &type_lowering_;
     std::map<size_t, Scope_ptr> &node_scope_map_;
     std::map<Scope_ptr, Local_Variable_map> &scope_local_variable_map_;
+    std::map<size_t, RealType_ptr> &type_map_;
     std::map<size_t, std::pair<RealType_ptr, PlaceKind>>
         &node_type_and_place_kind_map_;
     std::map<size_t, OutcomeState> &node_outcome_state_map_;
     std::map<size_t, FnDecl_ptr> &call_expr_to_decl_map_;
     std::map<ConstDecl_ptr, ConstValue_ptr> &const_value_map_;
+    std::map<size_t, FnDecl_ptr> &fn_item_to_decl_map_;
+    std::map<size_t, ValueDecl_ptr> &identifier_expr_to_decl_map_;
+    std::map<size_t, LetDecl_ptr> &let_stmt_to_decl_map_;
 };
 
 } // namespace ir

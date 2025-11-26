@@ -33,12 +33,9 @@
                   map<ConstDecl_ptr, ConstValue_ptr> &const_value_map);
 
       void generate(const std::vector<Item_ptr> &ast_items);
-
-  private:
-      void visit_item(Item_ptr item);
   };
   ```
-  - `generate` 顺序遍历 AST Item：遇到 `FnItem` 就创建 `IRGenVisitor` 并直接对该函数体调用 `accept(visitor)`；`FunctionContext` 的初始化（entry/return 块、参数槽等）在 `visit(FnItem)` 内完成。非函数 Item 则交由既有模块处理或跳过。
+  - `generate` 先构造 IRGenVisitor，然后对于每个 item 都用 vistor 去跑即可。
 
 #### 函数级上下文
 为避免将全局状态塞进 visitor，本阶段引入以下辅助结构：
@@ -58,6 +55,12 @@
 - `RealType_ptr result_type`：`loop { break expr; }` 推断出的类型，供 `TypeLowering` 把 break 值映射成 IRType。
 - `unordered_map<size_t, IRValue_ptr> expr_value_map`：记录每个表达式（按 `NodeId`）当前生成的寄存器值或指针值（都是 `IRValue_ptr`），二次使用时无需重新生成。
 - `unordered_map<size_t, IRValue_ptr> expr_address_map`：左值或需要地址的表达式（标识符、字段、索引、`SelfExpr` 等）在求值时把“写入位置”的 `IRValue_ptr` 写入此表，赋值/引用时直接取用。
+
+#### 辅助工具
+- `ensure_current_insertion()`：所有需要发射 IR 指令的 `visit` 在 `store/load/br` 等操作前都调用此函数，确保 `ctx.current_block` 非空并同步到 `IRBuilder` 的插入点。这样可避免分支/循环更改插入点后把指令插到错误的基本块里。
+- `IRValue_ptr get_rvalue(size_t node_id)` / `IRValue_ptr get_lvalue(size_t node_id)`：统一的寄存器/地址查询入口：
+  - `get_rvalue` 优先从 `expr_value_map` 取右值，若没有缓存则根据 `expr_address_map` 里的真实地址执行一次 `load` 并返回；这意味着每个表达式都会产生一个寄存器值，父节点在需要时可以随时读取。
+  - `get_lvalue` 只返回真实可寻址表达式的地址（identifier/field/index/deref 等在各自的 `visit` 中写入），如果缺失则直接抛错，帮助我们尽早发现漏填地址的节点。右值引用仍由 `&expr` 等语法在自身 `visit` 中显式分配临时槽并把地址写入 `expr_address_map`，而不是在 `get_lvalue` 内部构造副本。
 
 
 #### AST 遍历策略
@@ -103,7 +106,6 @@ private:
     IRValue_ptr ensure_slot_for_decl(LetDecl_ptr decl);
     void branch_if_needed(BasicBlock_ptr target);
     bool current_block_has_next(size_t node_id) const;
-    IRValue_ptr current_result_slot_ = nullptr; // 父节点提供的“结果槽”地址，没有需求时保持 nullptr
     // 右值采用“现用现取”的策略：如果 expr_value_map 中已有缓存可直接返回；
     // 否则从 expr_address_map[node] 拿到地址后再 load，避免左值修改后返回陈旧寄存器。
     IRValue_ptr get_rvalue(size_t node_id);
@@ -117,28 +119,29 @@ private:
 - **表达式访问信约**：
   1. `visit(IdentifierExpr)`、`visit(FieldExpr)`、`visit(IndexExpr)` 等左值表达式在访问时把地址写入 `expr_address_map`；若上层请求右值，则在当下 `load` 并把寄存器写入 `expr_value_map`。读取某个表达式的结果时应优先查 `expr_value_map`（右值），若缺失再从 `expr_address_map` 获取地址并现用现 load。
   2. 若表达式为 `RealTypeKind::NEVER` 或 `OutcomeState` 不含 `NEXT`，在对应的 visit 中立即标记“当前块终止”，阻止继续生成指令。
-  3. 当调用方希望子表达式写入已有的地址（例如共享的 break 槽、`if` 结果槽、BlockExpr 尾随表达式），在访问前把 `current_result_slot_` 设为该地址，子表达式结束后再把它复位为 `nullptr`。
+  3. 父节点通过 `get_rvalue`/`get_lvalue` 主动读取子表达式结果，再自行决定是否把结果写入特定槽位；IRGen 不再维护全局 `current_result_slot`。
   4. 纯右值表达式（算术、函数调用等）在 visit 完成后把寄存器写入 `expr_value_map`，供上层复用。
 - `ensure_slot_for_decl`：若 `LetDecl` 尚未映射到 `alloca`，则调用 `TypeLowering::lower(decl->let_type)` 并在入口块创建栈槽。所有局部槽均在入口块分配，符合 LLVM 的 `mem2reg` 预期。
 - `current_block_has_next(node_id)` 查询 `node_outcome_state_map[node_id]` 中是否含 `OutcomeType::NEXT`；若缺失，则当前块在语义上已经终止（return/break），visitor 应将 `current_block` 标记为终结状态，阻止追加指令。
 
 #### visit 行为速查
 - **FnItem**：创建/清空 `entry` 与 `return_block`，为全部 `parameter_let_decls` 分配栈槽并 `store` 形参值，`alloca` `return_slot`（若返回非 void），处理 main/exit 特判，然后继续访问函数体 `BlockExpr`。
-- **LetStmt**：确保目标 `LetDecl` 已有 `alloca`，若有初始化表达式则在 `current_result_slot_ = local_slot` 情况下访问并 `store`。语义阶段已保证类型匹配。
+- **LetStmt**：确保目标 `LetDecl` 已有 `alloca`。若有初始化表达式则先访问该表达式、通过 `get_rvalue` 拿到寄存器，再写入局部槽；语义阶段已保证类型匹配，因此无需额外 result slot。
 - **ExprStmt**：访问表达式但忽略结果；若 `OutcomeState` 无 `NEXT`，立刻把 `current_block` 置空。
 - **ReturnExpr**：若带值则写入 `return_slot`，随后 `br return_block` 并设置 `block_sealed = true`。
 - **BreakExpr/ContinueExpr**：Break 将值写入 `LoopContext.break_slot`（若存在）并 `br break_target`；Continue 直接 `br continue_target`。
+- **BlockExpr / 其它表达式返回值**：函数隐式返回、`if`/`loop` 结果等场景由 `get_rvalue(node_id)` 取寄存器值再写回父节点指定的槽位，完全由父节点掌控。只有 `ReturnExpr`、`BreakExpr` 等语义上固定的终止语句会直接写入 `FunctionContext::return_slot` 或 `LoopContext::break_slot`。
 - **BinaryExpr**：
   - 算术/位运算：读取左右寄存器，调用 `IRBuilder::create_*` 生成 `%tmp` 写入 `expr_value_map`。
   - 比较：同样调用 `create_compare`，结果为 `i1`。
   - 赋值/复合赋值：读取左值地址（`expr_address_map`），必要时 `load` 原值，与右值组合后写回地址并更新 `expr_value_map[node]`。
-  - `&&`/`||`：构建 `lhs_block`/`rhs_block`/合流块，按短路规则跳转；将布尔结果写入 `current_result_slot_`（或临时 `alloca`），合流处 `load` 后写入 `expr_value_map[node]`。
+  - `&&`/`||`：构建 `lhs_block`/`rhs_block`/合流块，按短路规则跳转；为该表达式单独 `alloca` 一个布尔槽，分支将结果写入后在合流处 `load` 并放入 `expr_value_map[node]`。
 - **UnaryExpr**：`NEG/NOT` 直接对右值寄存器做算术；`REF/REF_MUT` 将右值地址写入 `expr_value_map[node]`；`DEREF` 把右值指针写入 `expr_address_map[node]`。
 - **CallExpr**：根据 `call_expr_to_decl_map` 找到目标 `FnDecl`，收集实参寄存器后调用 `create_call`。  
   若 `callee` 是 `FieldExpr` 且 `FnDecl::receiver_type != NO_RECEIVER`，则先获取 base 表达式的地址/右值并作为 `self` 插到参数列表最前面：`&mut self` 传地址、`&self` 传地址并标记只读、`self` 传右值。  
   main 中的 `exit` 特判为“写入 `return_slot` + `br return_block`”。
-- **IfExpr**：若需要结果但上层未提供地址，则 `alloca` 临时槽设为 `current_result_slot_`，构建 `then/else/merge`，按 `OutcomeState` 控制跳转，merge 处 `load` 结果写入 `expr_value_map[node]`。
-- **BlockExpr**：顺序访问语句；若存在尾随表达式且上层提供地址，则设置 `current_result_slot_` 再访问尾随表达式，最后 `load` 结果写入 `expr_value_map[node]`。
+- **IfExpr**：若表达式结果会被后续使用，则在当前函数中 `alloca` 临时槽承载该值；`then/else` 块根据 OutcomeState 选择性写入该槽，merge 处 `load` 并写入 `expr_value_map[node]`，父节点随后用 `get_rvalue` 读取即可。
+- **BlockExpr**：顺序访问语句；若存在尾随表达式则访问它、把寄存器写入 `expr_value_map[node]`，由父节点自行决定是否 `store` 到其它地址。
 - **WhileExpr/LoopExpr**：创建 `cond`/`body`/`exit`（loop 的 `cond` 直接跳 body），更新 `LoopContext`，在 cond 中生成比较并据此跳转；loop 若需要返回值则在 `break_slot` 分配槽，break 时写入。
 - **StructExpr/ArrayExpr/RepeatArrayExpr**：若存在目标地址则就地写入，否则 `alloca` 临时槽，再逐字段/元素访问并写入；Repeat array 在写入首元素后用循环复制其余元素。
 - **FieldExpr/IndexExpr/IdentifierExpr/SelfExpr**：把可寻址结果写入 `expr_address_map[node]`；若需要右值则 `load`。字段/索引使用 `create_gep` 计算偏移，SelfExpr 直接返回 `self_slot`。
@@ -152,13 +155,13 @@ private:
 - **ItemStmt**：函数体中的 `Item` 在语义阶段已展开，此处直接忽略或转交 `AST_Walker`（无副作用）。
 
 #### 控制流与块
-- **BlockExpr**：按顺序处理内部语句。若 `node.tail_statement` 存在且调用方提供了目标地址，则把该地址传给尾随表达式，让其直接写入；遍历途中若某条语句的 OutcomeState 不含 `NEXT`，立刻停止并把 `current_block` 设为 `nullptr`。
+- **BlockExpr**：按顺序处理内部语句。若 `node.tail_statement` 存在，则访问尾随表达式并把其结果写入 `expr_value_map[node]`；遍历途中若某条语句的 OutcomeState 不含 `NEXT`，立刻停止并把 `current_block` 设为 `nullptr`。
 - **IfExpr**：
-  1. 若 `if` 表达式的结果会被使用并且调用方还没有目标地址，则在当前函数里申请一个临时 `alloca` 作为 result slot，并把地址传给两个分支（即 if 的“返回值”以地址形式共享）。
+  1. 若 `if` 表达式的结果会被使用（类型既非 `()` 也非 `Never`），则在当前函数里申请一个临时 `alloca` 作为分支共享的结果槽。
   2. 创建 `then_block`、`else_block`（若缺省则直接跳到 merge）与“合流块”。这个合流块可以是专门的 `if.merge`，也可以复用下一个自然块（例如 `loop.cont`），只要所有 `NEXT` 分支都跳到同一个 label 即可；实现上只需在 `FunctionContext` 里记录一个 `merge_target` 指针。
   3. 对每个分支分别设置 `current_block` 与插入点。若 `node_outcome_state_map` 表明某分支不会落入 `NEXT`，则无需显式跳转至合流块。
-  4. 只有 `OutcomeState` 包含 `NEXT` 的分支才会把 `result_slot` 写满并在末尾 `br merge_target`。
-  5. 合流块若 `result_slot` 非空，则对其执行 `load` 并返回给调用方。
+  4. 只有 `OutcomeState` 包含 `NEXT` 的分支才会把该槽写满并在末尾 `br merge_target`。
+  5. 合流块若槽非空，则对其执行 `load` 并写入 `expr_value_map[node]`，父节点后续通过 `get_rvalue` 获取寄存器即可。
 - **WhileExpr**：构建 `cond_block`、`body_block`、`exit_block`。`LoopContext` 栈在进入 `body` 前压入 {continue_target=cond_block, break_target=exit_block}。条件表达式只在 `cond_block` 中执行一次，若 `OutcomeState` 表示条件发散，则直接落入 exit。
 - **LoopExpr**：类似 while，但无条件回到 body。若 `node.must_return_unit == false` 且外部需要其结果，则 `LoopContext.break_slot` 指向一块 `alloca`（即 loop 表达式的返回地址），每个 `break expr` 先写入此槽再跳转到 `break_target`。若 loop 没有 `break` 且推断类型为 `Never`，则 `lower_expr` 返回 `is_never = true`。
 - **Break/Continue**：读取 `loop_stack.back()`，对 `break`：
@@ -198,7 +201,7 @@ private:
   - `DEREF`：右操作数必须是指针类型；结果为该指针的 pointee 地址。
 - **BinaryExpr**：
   - 算术/位运算直接调用 `IRBuilder` 对应 helper。
-  - `AND_AND`、`OR_OR` 使用短路语义：创建 `lhs_block`/`rhs_block`/最终合流块，将布尔结果写入调用方提供的地址或新的临时槽，再在 merge 处 `load`。
+  - `AND_AND`、`OR_OR` 使用短路语义：创建 `lhs_block`/`rhs_block`/最终合流块，并在本函数内分配临时槽承载布尔结果；merge 处 `load` 后写入 `expr_value_map[node]`。
   - 比较运算使用 `create_compare` + 语义阶段提供的类型信息区分有符/无符（`RealTypeKind::I32/ISIZE` → signed，`U32/USIZE` → unsigned）。
   - 赋值类运算参考“语句 lowering”部分。
 - **CallExpr**：
@@ -285,7 +288,7 @@ private:
        }
    }
    ```
-   关键 IR 片段（`if` 仍会生成 `then/else` 两个分支；then 分支直接 `break`，else 分支继续执行；`continue` 通过 `br loop.body` 实现。此处的 `loop.cont` 就是该 `if` 的“merge” 块——因为循环本身的“继续分支”只有一个，因此不额外命名 `if.merge`，而是直接复用 `loop.cont`。）：
+   关键 IR 片段（`if` 仍会生成 `then/else` 两个分支；then 分支直接 `break`，else 分支继续执行；`continue` 可以直接 `br loop.body`。每个 `if/else` 自己维护 merge 块，循环结构只包含 `loop.body` 与 `loop.break` 两种出口。）：
    ```llvm
    entry:
      %acc = alloca i32
@@ -302,10 +305,10 @@ private:
      store i32 %acc.val, ptr %ret.slot
      br label %loop.break
    if.else:
-     br label %loop.cont
+     br label %if.merge
    loop.break:
      br label %return
-   loop.cont:
+   if.merge:
      %next.i = add i32 %cur.i, 1
      store i32 %next.i, ptr %i
      %acc.next = load i32, ptr %acc
