@@ -48,7 +48,7 @@ int main() {
         {"function_multiple_returns.ir.expected", {"ret i32 %min", "ret i32 %max", "ret i32 %value"}},
         {"loop_with_function_call.ir.expected", {"call i32 @helper", "br label %loop.cond", "ret i32 %result"}},
         {"call_auto_name.ir.expected",
-         {"%0 = call i32 @helper", "%1 = call i32 @helper", "ret i32 %1"}},
+         {"%tmp.0 = call i32 @helper", "%tmp.1 = call i32 @helper", "ret i32 %tmp.1"}},
         {"runtime_builtins.ir.expected",
          {"%Str = type", "%String = type", "declare void @print",
           "declare %String @String_from", "declare i32 @Array_len"}},
