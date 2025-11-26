@@ -501,10 +501,10 @@ class IRBuilder {
     BasicBlock_ptr create_block(const std::string &label);
     IRValue_ptr create_temp(IRType_ptr type, const std::string &name_hint = "");
     IRValue_ptr create_temp_alloca(IRType_ptr type,
-                                   const std::string &name_hint = "tmp");
+                                   const std::string &name_hint = "");
 
     IRValue_ptr create_alloca(IRType_ptr type,
-                              const std::string &name_hint = "slot");
+                              const std::string &name_hint = "");
     IRValue_ptr create_load(IRValue_ptr address,
                             const std::string &name_hint = "");
     void create_store(IRValue_ptr value, IRValue_ptr address);
