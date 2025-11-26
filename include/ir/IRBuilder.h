@@ -571,6 +571,8 @@ class IRBuilder {
 
     // 创建字符串字面量全局并返回其引用。
     GlobalValue_ptr create_string_literal(const std::string &text);
+    // 创建 i32 常量。
+    IRValue_ptr create_i32_constant(int64_t value);
 
   private:
     // 在当前块插入指令。

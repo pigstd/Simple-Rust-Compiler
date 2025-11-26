@@ -114,6 +114,7 @@ IR 相关的所有类型、builder、上下文统一置于 `namespace ir` 下：
     - `void create_ret(IRValue_ptr value = nullptr)`（`nullptr` 表示 `ret void`）
   - **调用**：`IRValue_ptr create_call(string callee, vector<IRValue_ptr> args, IRType_ptr ret_type, string name_hint = "")`——生成函数调用指令，若 `ret_type` 不是 `void` 则返回结果寄存器。
   - **字符串字面量**：`create_string_literal(text)`——生成 `[len x i8]` 全局常量并返回指向它的 `GlobalValue`/`RegisterValue`。
+  - **常量便捷接口**：`IRValue_ptr create_i32_constant(int64_t value)`——包装 `ConstantValue` 的常用形式，直接返回一个 `i32` 常量寄存器，供循环索引、GEP 偏移等频繁场景复用，避免在调用点反复手写 `std::make_shared<ConstantValue>(i32_type, value)`。
 
 #### 序列化与调试
 - `IRSerializer`：负责 `IRModule::to_string()`，确保缩进、换行与 LLVM 语法一致；类型定义通过遍历 `type_definitions` 中的 `pair<string, vector<string>>` 拼出 `%TypeName = type { ... }` 格式；所有 IR 文本统一带 `target triple = ...` 与 `target datalayout = ...` 头部，fixture/runner 也据此比对。实现上会借助若干内部工具：

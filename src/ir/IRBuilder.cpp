@@ -1088,6 +1088,11 @@ GlobalValue_ptr IRBuilder::create_string_literal(const std::string &text) {
     return module_.create_global(name, array_type, init_text, true, "private");
 }
 
+IRValue_ptr IRBuilder::create_i32_constant(int64_t value) {
+    auto i32_type = std::make_shared<IntegerType>(32);
+    return std::make_shared<ConstantValue>(i32_type, value);
+}
+
 IRInstruction_ptr IRBuilder::insert_instruction(IRInstruction_ptr inst) {
     if (!insertion_block_) {
         throw std::runtime_error("Insertion block is not set");
