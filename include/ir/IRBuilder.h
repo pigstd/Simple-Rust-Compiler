@@ -74,6 +74,9 @@ enum class Opcode {
     Shl,
     AShr,
     LShr,
+    ZExt,
+    SExt,
+    Trunc,
     ICmp,
     Call,
     Alloca,
@@ -535,6 +538,12 @@ class IRBuilder {
                             const std::string &name_hint = "");
     IRValue_ptr create_ashr(IRValue_ptr lhs, IRValue_ptr rhs,
                             const std::string &name_hint = "");
+    IRValue_ptr create_zext(IRValue_ptr value, IRType_ptr target_type,
+                            const std::string &name_hint = "");
+    IRValue_ptr create_sext(IRValue_ptr value, IRType_ptr target_type,
+                            const std::string &name_hint = "");
+    IRValue_ptr create_trunc(IRValue_ptr value, IRType_ptr target_type,
+                             const std::string &name_hint = "");
 
     IRValue_ptr create_icmp_eq(IRValue_ptr lhs, IRValue_ptr rhs,
                                const std::string &name_hint = "");
@@ -584,6 +593,9 @@ class IRBuilder {
     // 统一处理整数比较。
     IRValue_ptr create_compare(ICmpPredicate predicate, IRValue_ptr lhs,
                                IRValue_ptr rhs, const std::string &name_hint);
+    IRValue_ptr create_cast(Opcode opcode, IRValue_ptr value,
+                            IRType_ptr target_type,
+                            const std::string &name_hint);
 
     IRModule &module_;
     IRFunction_ptr current_function_;

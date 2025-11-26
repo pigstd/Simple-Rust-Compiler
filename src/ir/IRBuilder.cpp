@@ -369,6 +369,33 @@ std::string IRInstruction::to_string() const {
         }
         emit_binary(opcode_to_string(opcode_));
         break;
+    case Opcode::ZExt:
+    case Opcode::SExt:
+    case Opcode::Trunc: {
+        if (!result_) {
+            throw std::runtime_error("Cast instruction missing result");
+        }
+        const char *mnemonic = nullptr;
+        switch (opcode_) {
+        case Opcode::ZExt:
+            mnemonic = "zext";
+            break;
+        case Opcode::SExt:
+            mnemonic = "sext";
+            break;
+        case Opcode::Trunc:
+            mnemonic = "trunc";
+            break;
+        default:
+            mnemonic = "";
+            break;
+        }
+        oss << result_->repr() << " = " << mnemonic << " "
+            << operands_[0]->type()->to_string() << " "
+            << operands_[0]->repr() << " to "
+            << result_->type()->to_string();
+        break;
+    }
     case Opcode::ICmp:
         if (result_) {
             oss << result_->repr() << " = ";
@@ -960,6 +987,21 @@ IRValue_ptr IRBuilder::create_ashr(IRValue_ptr lhs, IRValue_ptr rhs,
     return create_simple_arith(Opcode::AShr, lhs, rhs, name_hint);
 }
 
+IRValue_ptr IRBuilder::create_zext(IRValue_ptr value, IRType_ptr target_type,
+                                   const std::string &name_hint) {
+    return create_cast(Opcode::ZExt, value, target_type, name_hint);
+}
+
+IRValue_ptr IRBuilder::create_sext(IRValue_ptr value, IRType_ptr target_type,
+                                   const std::string &name_hint) {
+    return create_cast(Opcode::SExt, value, target_type, name_hint);
+}
+
+IRValue_ptr IRBuilder::create_trunc(IRValue_ptr value, IRType_ptr target_type,
+                                    const std::string &name_hint) {
+    return create_cast(Opcode::Trunc, value, target_type, name_hint);
+}
+
 IRValue_ptr IRBuilder::create_compare(ICmpPredicate predicate, IRValue_ptr lhs,
                                       IRValue_ptr rhs,
                                       const std::string &name_hint) {
@@ -967,6 +1009,19 @@ IRValue_ptr IRBuilder::create_compare(ICmpPredicate predicate, IRValue_ptr lhs,
     auto inst = std::make_shared<IRInstruction>(
         Opcode::ICmp, std::vector<IRValue_ptr>{lhs, rhs}, result);
     inst->set_predicate(predicate);
+    insert_instruction(inst);
+    return result;
+}
+
+IRValue_ptr IRBuilder::create_cast(Opcode opcode, IRValue_ptr value,
+                                   IRType_ptr target_type,
+                                   const std::string &name_hint) {
+    if (!value || !target_type) {
+        throw std::runtime_error("Cast requires value and target type");
+    }
+    auto result = create_temp(target_type, name_hint);
+    auto inst = std::make_shared<IRInstruction>(
+        opcode, std::vector<IRValue_ptr>{value}, result);
     insert_instruction(inst);
     return result;
 }
