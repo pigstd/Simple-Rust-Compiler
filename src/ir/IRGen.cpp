@@ -10,7 +10,6 @@
 #include <cassert>
 #include <cassert>
 #include <cstddef>
-#include <iostream>
 #include <memory>
 #include <stdexcept>
 #include <unordered_map>
@@ -601,7 +600,11 @@ void IRGenVisitor::visit(CallExpr &node) {
     }
 
     // 只有有 self 才需要 visit callee，否则我已经知道函数是什么了
-    if (node.callee && fn_decl->receiver_type != fn_reciever_type::NO_RECEIVER) {
+    bool need_struct = false;
+    if (fn_decl->receiver_type != fn_reciever_type::NO_RECEIVER) {
+        need_struct = true;
+    }
+    if (need_struct) {
         node.callee->accept(*this);
     }
     for (const auto &arg : node.arguments) {
@@ -611,7 +614,7 @@ void IRGenVisitor::visit(CallExpr &node) {
     }
 
     std::vector<IRValue_ptr> call_args;
-    if (fn_decl->receiver_type != fn_reciever_type::NO_RECEIVER) {
+    if (need_struct) {
         auto method_callee = std::dynamic_pointer_cast<FieldExpr>(node.callee);
         if (!method_callee || !method_callee->base) {
             throw std::runtime_error("Method call missing base expression");
@@ -838,7 +841,9 @@ void IRGenVisitor::visit(BlockExpr &node) {
     if (node.tail_statement) {
         // std::cerr << "visit tail, NodeId = " << node.tail_statement->NodeId << "\n";
         node.tail_statement->accept(*this);
-        if (current_block_has_next(node.tail_statement->NodeId)) {
+        // 如果返回值不是 void 才有值
+        if (current_block_has_next(node.tail_statement->NodeId) &&
+            node_type_and_place_kind_map_[node.tail_statement->NodeId].first->kind != RealTypeKind::UNIT) {
             // std::cerr << "visit tail, NodeId = " << node.tail_statement->NodeId << "\n";
             expr_value_map_[node.NodeId] =
                 get_rvalue(node.tail_statement->NodeId);
@@ -1050,14 +1055,24 @@ void IRGenVisitor::visit(IndexExpr &node) {
     node.base->accept(*this);
     node.index->accept(*this);
     auto base_addr = get_lvalue(node.base->NodeId);
+    // 如果 base 是引用类型，那么取它的底层类型
+    auto [base_type, base_placekind] =
+        node_type_and_place_kind_map_[node.base->NodeId];
+    auto ir_base_type = type_lowering_.lower(base_type);
+    if (base_type->is_ref != ReferenceType::NO_REF) {
+        base_addr = builder_.create_load(base_addr);
+        auto ir_base_ptr_type = std::dynamic_pointer_cast<PointerType>(ir_base_type);
+        if (!ir_base_ptr_type) {
+            throw std::runtime_error("Expected pointer type after dereferencing reference");
+        }
+        ir_base_type = ir_base_ptr_type->pointee_type();
+    }
     auto &ctx = current_fn();
     ensure_current_insertion();
     auto zero = builder_.create_i32_constant(0);
     auto index_value = get_rvalue(node.index->NodeId);
     auto element_type =
         std::dynamic_pointer_cast<ArrayRealType>(type);
-    auto ir_base_type = type_lowering_.lower(
-        node_type_and_place_kind_map_[node.base->NodeId].first);
     auto element_addr = builder_.create_gep(
         base_addr, ir_base_type,
         {zero, index_value});

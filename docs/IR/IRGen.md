@@ -176,11 +176,12 @@ private:
   - 若未找到，视情况处理 `ConstDecl`（利用 `const_value_map` + `TypeLowering::lower_const` 得到 `ConstantValue` 或数组全局符号）与 `FnDecl`（函数指针调用场景）。
   - 对关联常量 `Type::CONST`，借助 `Scope::type_namespace` 定位结构体，再取其 `associated_const`。
 - **FieldExpr**：
-  - 对于结构体左值，先调用 `lower_place_expr(node.base)` 获取指针，再根据 `StructDecl::field_order` 计算字段序号，构建 `gep` (`{0, field_idx}`)。
+  - 若 `node.base` 是 `FieldExpr` 返回的函数（关联/实例方法），遵循语义层的“自动借用/解引用”规则：当方法声明为 `fn foo(&self)`/`fn foo(&mut self)` 时，即使调用方只有值，也会在 IRGen 中临时获取地址后把它当作引用传递；反过来，若方法要求按值 `self` 但调用方手上是 `&T`，会自动 `load` 成值再传递。
+  - 对于实际字段访问，先调用 `get_lvalue(node.base)` 获取指针（若 base 是 `&struct` 会先解引用），再根据 `StructDecl::field_order` 计算字段序号，构建 `gep` (`{0, field_idx}`)。
   - 若 base 为 `&str`/`String` 这类命名结构体，同样根据布局缓存偏移。
 - **IndexExpr**：两类情况：
   1. 基础是数组值：`lower_place_expr(base)` 后，用 `builder.create_gep` 连续应用 `[0, index]`。
-  2. 基础是 slice/指针：index 以 `i32` 保存，调用 `create_gep`（element_type = 数组元素类型）。
+  2. 基础是数组/切片引用：IRGen 会自动对 `&[T; N]` / `&mut [T; N]` 做一次解引用，再按照值数组的逻辑执行 `gep`；若 `base` 是裸指针，则直接把指针和 `index` 交给 `create_gep`（element_type = 数组元素类型）。
 - **StructExpr / ArrayExpr / RepeatArrayExpr**：
   - 聚合构造统一遵循“调用方决定目标地址”的规则：若上层提供了地址（`let foo = Struct { ... }`），就在该地址上就地写入；否则先在本函数里 `alloca` 一个临时槽再写入，最后 `load` 成寄存器值。
   - `StructExpr` 遍历 `node.fields`，对每个字段调用 `lower_expr(field_expr, /*dest=*/field_gep_address)`。
