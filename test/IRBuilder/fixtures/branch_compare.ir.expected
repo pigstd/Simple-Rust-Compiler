@@ -4,8 +4,8 @@ target datalayout = ""
 
 define i32 @max(i32 %a, i32 %b) {
 entry.0:
-    %cmp.0 = icmp sgt i32 %a, %b
-    br i1 %cmp.0, label %then.0, label %else.0
+    %cmp.0.0 = icmp sgt i32 %a, %b
+    br i1 %cmp.0.0, label %then.0, label %else.0
 
 then.0:
     ret i32 %a

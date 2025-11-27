@@ -6,27 +6,27 @@ declare i32 @helper(i32)
 
 define i32 @loop_with_call(i32 %limit) {
 entry.0:
-    %i.addr = alloca i32
-    %acc.addr = alloca i32
-    store i32 0, ptr %i.addr
-    store i32 0, ptr %acc.addr
+    %i.addr.0 = alloca i32
+    %acc.addr.0 = alloca i32
+    store i32 0, ptr %i.addr.0
+    store i32 0, ptr %acc.addr.0
     br label %loop.cond.0
 
 loop.cond.0:
-    %i.val = load i32, ptr %i.addr
-    %has_next = icmp slt i32 %i.val, %limit
-    br i1 %has_next, label %loop.body.0, label %loop.exit.0
+    %i.val.0 = load i32, ptr %i.addr.0
+    %has_next.0 = icmp slt i32 %i.val.0, %limit
+    br i1 %has_next.0, label %loop.body.0, label %loop.exit.0
 
 loop.body.0:
-    %call = call i32 @helper(i32 %i.val)
-    %acc = load i32, ptr %acc.addr
-    %new.acc = add i32 %acc, %call
-    store i32 %new.acc, ptr %acc.addr
-    %inc = add i32 %i.val, 1
-    store i32 %inc, ptr %i.addr
+    %call.0 = call i32 @helper(i32 %i.val.0)
+    %acc.0 = load i32, ptr %acc.addr.0
+    %new.acc.0 = add i32 %acc.0, %call.0
+    store i32 %new.acc.0, ptr %acc.addr.0
+    %inc.0 = add i32 %i.val.0, 1
+    store i32 %inc.0, ptr %i.addr.0
     br label %loop.cond.0
 
 loop.exit.0:
-    %result = load i32, ptr %acc.addr
-    ret i32 %result
+    %result.0 = load i32, ptr %acc.addr.0
+    ret i32 %result.0
 }

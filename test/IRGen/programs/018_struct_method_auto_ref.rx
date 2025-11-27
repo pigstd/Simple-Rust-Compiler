@@ -1,5 +1,6 @@
 // Test automatic referencing when invoking struct methods.
 // Covers plain variables, array indexing, and temporary values.
+// Generator: Codex
 
 struct boxy {
     value: i32,

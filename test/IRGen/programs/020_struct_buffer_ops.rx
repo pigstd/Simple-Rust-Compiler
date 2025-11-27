@@ -1,0 +1,59 @@
+// Struct method coverage mixing array indexing, loop control, and bool returns.
+// Generator: Codex
+
+struct buffer {
+    data: [i32; 4],
+    len: usize,
+}
+
+impl buffer {
+    fn push(&mut self, value: i32) -> bool {
+        if (self.len >= 4) {
+            return false;
+        }
+        self.data[self.len] = value;
+        self.len = self.len + 1;
+        true
+    }
+
+    fn sum(&self) -> i32 {
+        let mut total: i32 = 0;
+        let mut idx: usize = 0;
+        while (idx < self.len) {
+            total = total + self.data[idx];
+            idx = idx + 1;
+        }
+        total
+    }
+}
+
+fn build_buffer() -> buffer {
+    buffer { data: [0, 0, 0, 0], len: 0 }
+}
+
+fn main() {
+    let mut code: i32 = 0;
+    let mut buf: buffer = build_buffer();
+    let mut next_value: i32 = 1;
+
+    loop {
+        let pushed: bool = buf.push(next_value);
+        if (pushed == false) {
+            break;
+        }
+        next_value = next_value + 1;
+        if (next_value == 6) {
+            break;
+        }
+    }
+
+    let total: i32 = buf.sum();
+    if (total != 10) {
+        code = 1;
+    }
+    let expected_len: usize = 4;
+    if (buf.len != expected_len) {
+        code = 2;
+    }
+    exit(code);
+}

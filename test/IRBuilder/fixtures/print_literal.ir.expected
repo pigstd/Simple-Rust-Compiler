@@ -10,13 +10,13 @@ declare void @print(%StrLiteral)
 
 define i32 @main() {
 entry.0:
-    %tmp.0 = alloca %StrLiteral
-    %ptr.field = getelementptr %StrLiteral, ptr %tmp.0, i32 0, i32 0
-    %len.field = getelementptr %StrLiteral, ptr %tmp.0, i32 0, i32 1
-    %msg.ptr = getelementptr [3 x i8], ptr @.str.0, i32 0, i32 0
-    store ptr %msg.ptr, ptr %ptr.field
-    store i32 2, ptr %len.field
-    %tmp.1 = load %StrLiteral, ptr %tmp.0
-    call void @print(%StrLiteral %tmp.1)
+    %tmp.0.0 = alloca %StrLiteral
+    %ptr.field.0 = getelementptr %StrLiteral, ptr %tmp.0.0, i32 0, i32 0
+    %len.field.0 = getelementptr %StrLiteral, ptr %tmp.0.0, i32 0, i32 1
+    %msg.ptr.0 = getelementptr [3 x i8], ptr @.str.0, i32 0, i32 0
+    store ptr %msg.ptr.0, ptr %ptr.field.0
+    store i32 2, ptr %len.field.0
+    %tmp.1.0 = load %StrLiteral, ptr %tmp.0.0
+    call void @print(%StrLiteral %tmp.1.0)
     ret i32 0
 }

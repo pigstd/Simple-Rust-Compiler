@@ -4,15 +4,15 @@ target datalayout = ""
 
 define i32 @clamp(i32 %value, i32 %min, i32 %max) {
 entry.0:
-    %lt_min = icmp slt i32 %value, %min
-    br i1 %lt_min, label %ret.min.0, label %check.max.0
+    %lt_min.0 = icmp slt i32 %value, %min
+    br i1 %lt_min.0, label %ret.min.0, label %check.max.0
 
 ret.min.0:
     ret i32 %min
 
 check.max.0:
-    %gt_max = icmp sgt i32 %value, %max
-    br i1 %gt_max, label %ret.max.0, label %ret.value.0
+    %gt_max.0 = icmp sgt i32 %value, %max
+    br i1 %gt_max.0, label %ret.max.0, label %ret.value.0
 
 ret.max.0:
     ret i32 %max

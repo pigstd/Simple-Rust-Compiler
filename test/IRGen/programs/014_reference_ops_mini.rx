@@ -1,5 +1,6 @@
 // Reduced-size variant of reference_ops focusing on a single mutable alias
 // and an immutable observer reference.
+// Generator: Codex
 
 fn main() {
     let mut code: i32 = 0;

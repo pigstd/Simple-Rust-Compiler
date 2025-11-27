@@ -10,26 +10,26 @@ declare void @print(%LoopMsg)
 
 define i32 @main() {
 entry.0:
-    %i.addr = alloca i32
-    %msg.alloca = alloca %LoopMsg
-    %ptr.field = getelementptr %LoopMsg, ptr %msg.alloca, i32 0, i32 0
-    %len.field = getelementptr %LoopMsg, ptr %msg.alloca, i32 0, i32 1
-    %msg.ptr = getelementptr [4 x i8], ptr @.str.loop, i32 0, i32 0
-    store ptr %msg.ptr, ptr %ptr.field
-    store i32 3, ptr %len.field
-    store i32 0, ptr %i.addr
+    %i.addr.0 = alloca i32
+    %msg.alloca.0 = alloca %LoopMsg
+    %ptr.field.0 = getelementptr %LoopMsg, ptr %msg.alloca.0, i32 0, i32 0
+    %len.field.0 = getelementptr %LoopMsg, ptr %msg.alloca.0, i32 0, i32 1
+    %msg.ptr.0 = getelementptr [4 x i8], ptr @.str.loop, i32 0, i32 0
+    store ptr %msg.ptr.0, ptr %ptr.field.0
+    store i32 3, ptr %len.field.0
+    store i32 0, ptr %i.addr.0
     br label %loop.cond.0
 
 loop.cond.0:
-    %i.val = load i32, ptr %i.addr
-    %cmp = icmp slt i32 %i.val, 5
-    br i1 %cmp, label %loop.body.0, label %loop.end.0
+    %i.val.0 = load i32, ptr %i.addr.0
+    %cmp.0 = icmp slt i32 %i.val.0, 5
+    br i1 %cmp.0, label %loop.body.0, label %loop.end.0
 
 loop.body.0:
-    %msg.value = load %LoopMsg, ptr %msg.alloca
-    call void @print(%LoopMsg %msg.value)
-    %next = add i32 %i.val, 1
-    store i32 %next, ptr %i.addr
+    %msg.value.0 = load %LoopMsg, ptr %msg.alloca.0
+    call void @print(%LoopMsg %msg.value.0)
+    %next.0 = add i32 %i.val.0, 1
+    store i32 %next.0, ptr %i.addr.0
     br label %loop.cond.0
 
 loop.end.0:

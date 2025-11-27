@@ -6,13 +6,13 @@ target datalayout = ""
 
 define i32 @use_point() {
 entry.0:
-    %p = alloca %Point
-    %x.ptr = getelementptr %Point, ptr %p, i32 0, i32 0
-    %y.ptr = getelementptr %Point, ptr %p, i32 0, i32 1
-    store i32 10, ptr %x.ptr
-    store i32 20, ptr %y.ptr
-    %x = load i32, ptr %x.ptr
-    %y = load i32, ptr %y.ptr
-    %sum = add i32 %x, %y
-    ret i32 %sum
+    %p.0 = alloca %Point
+    %x.ptr.0 = getelementptr %Point, ptr %p.0, i32 0, i32 0
+    %y.ptr.0 = getelementptr %Point, ptr %p.0, i32 0, i32 1
+    store i32 10, ptr %x.ptr.0
+    store i32 20, ptr %y.ptr.0
+    %x.0 = load i32, ptr %x.ptr.0
+    %y.0 = load i32, ptr %y.ptr.0
+    %sum.0 = add i32 %x.0, %y.0
+    ret i32 %sum.0
 }

@@ -1,0 +1,30 @@
+// Exercise loop expressions with break values plus early returns.
+// Generator: Codex
+
+fn inspect(n: i32) -> i32 {
+    if (n < 0) {
+        return 10;
+    }
+
+    let mut sum: i32 = 0;
+    let mut i: i32 = 0;
+    let rolled: i32 = loop {
+        if (i == n) {
+            break sum;
+        }
+        sum = sum + i;
+        i = i + 1;
+    };
+    rolled
+}
+
+fn main() {
+    let mut code: i32 = 0;
+    if (inspect(-3) != 10) {
+        code = 1;
+    }
+    if (inspect(4) != 6) {
+        code = 2;
+    }
+    exit(code);
+}
