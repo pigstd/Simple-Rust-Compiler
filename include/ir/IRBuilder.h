@@ -601,6 +601,7 @@ class IRBuilder {
     IRFunction_ptr current_function_;
     BasicBlock_ptr insertion_block_;
     std::size_t next_reg_index_;
+    std::unordered_map<std::string, std::size_t> name_hint_counters_;
 };
 
 } // namespace ir

@@ -86,7 +86,7 @@ IR 相关的所有类型、builder、上下文统一置于 `namespace ir` 下：
 - **关键接口**：
   - `void set_insertion_point(block)`：指定后续指令插入的基本块。
   - `BasicBlock_ptr create_block(label)`：在当前函数中新建基本块并返回。`IRFunction::create_block` 会为同名标签在函数内部维护一个计数器，自动拼接 `.N` 后缀（如 `then` 申请两次得到 `then.0/then.1`），因此调用者无需关心命名冲突。
-  - `IRValue_ptr create_temp(IRType_ptr type, string name_hint = "")`：分配新的 SSA 寄存器；若 `name_hint` 非空且未冲突则使用 `%name_hint`，否则按 `%0/%1/...` 递增。
+  - `IRValue_ptr create_temp(IRType_ptr type, string name_hint = "")`：分配新的 SSA 寄存器；当 `name_hint` 非空时会在内部维护的计数器上追加 `.<N>`（如 `%cond.0/%cond.1`），保证相同 hint 永不重名；`name_hint` 为空则采用全局 `tmp.N` 递增序列。
 - `IRValue_ptr create_temp_alloca(IRType_ptr type, string name_hint = "")`：在入口块生成 `alloca`，为表达式结果或局部变量申请栈空间，返回指向该栈槽的 `RegisterValue`。未显式指定名称时，保持 LLVM 的匿名寄存器命名规则，避免在大规模生成时产生重复名称。
   - **算术接口**：
     - `IRValue_ptr create_add(IRValue_ptr lhs, IRValue_ptr rhs, string name_hint = "")`

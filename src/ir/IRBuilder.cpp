@@ -841,10 +841,12 @@ IRValue_ptr IRBuilder::create_temp(IRType_ptr type,
     if (!type) {
         throw std::runtime_error("Temporary requires a valid type");
     }
-    // std::cerr << "create_temp with hint " << name_hint << '\n';
-    std::string name = name_hint;
-    if (name.empty()) {
+    std::string name;
+    if (name_hint.empty()) {
         name = "tmp." + std::to_string(next_reg_index_++);
+    } else {
+        auto &counter = name_hint_counters_[name_hint];
+        name = name_hint + "." + std::to_string(counter++);
     }
     return std::make_shared<RegisterValue>(name, std::move(type));
 }
