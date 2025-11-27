@@ -1,5 +1,41 @@
-实现 PLAN.md 中的第四步：**函数体、语句与表达式的 IR 生成**  
+实现 PLAN.md 中的第五步：**整合编译驱动与外部接口**  
 
-接下来你需要根据 IRGen.md 文档的说明，以及别的文档的接口，实现 IRGen 模块的代码，并且通过 test/IRGen 目录下的测试用例。通过该用例不一定正确，但是这些是一定要通过的。
+我现在需要实现 builtin 的函数，包括：
 
-你先实现 IRGen.h 头文件，给出接口，然后给 test/IRGen 目录下编写测试代码和脚本，最后实现 IRGen.cpp 文件中的代码，并且跑通测试。
+- fn print(s: &str) -> ()
+- fn println(s: &str) -> ()
+- fn printInt(n: i32) -> ()
+- fn printlnInt(n: i32) -> ()
+- fn getString() -> String
+- fn getInt() -> i32
+- exit(code: i32) -> !
+
+注意，exit 已经在 IRGen 里面被特殊处理过了，所以不用生成。
+
+Builtin methods:
+
+- fn to_string(&self) -> String
+
+available for u32, usize
+
+- fn as_str(&self) -> &str
+- fn as_mut_str(&mut self) -> &mut str
+
+available for String
+
+- fn len(&self) -> usize
+
+available for &str, String, [T; N]
+
+关于 [T; N] 这样子的数组，由于都是编译期确定的，所以计划在 IR 期间遇到这个直接返回常量。未实现。
+
+其他两个，就参考 Str 和 String 的布局，就可以分别实现返回值。
+
+- fn append(&mut self, s: &str) -> ()
+
+associated functions for String:
+
+- fn from(&str) -> String
+- fn from(&mut str) -> String
+
+此外，我 TypeLowering 也并没有声明所有需要的函数。所以我还需要在 TypeLowering 里面补充声明这些内建函数。我觉得不应该一下子全部声明，这样子太冗长了，而是用到了再声明。
