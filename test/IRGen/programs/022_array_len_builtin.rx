@@ -1,0 +1,20 @@
+// Ensure array.len() builtin is constant-folded without runtime dependency.
+
+fn main() {
+    let arr: [i32; 4] = [10, 20, 30, 40];
+    let mut code: i32 = 0;
+
+    let len: usize = arr.len();
+    if (len != 4) {
+        code = 1;
+    }
+
+    // len on a reference should behave the same.
+    let arr_ref: &[i32; 4] = &arr;
+    let len_ref: usize = arr_ref.len();
+    if (len_ref != 4) {
+        code = 2;
+    }
+
+    exit(code);
+}

@@ -10,6 +10,7 @@
 #include <cassert>
 #include <cassert>
 #include <cstddef>
+#include <iostream>
 #include <memory>
 #include <stdexcept>
 #include <unordered_map>
@@ -612,7 +613,25 @@ void IRGenVisitor::visit(CallExpr &node) {
             arg->accept(*this);
         }
     }
-
+    // array len 内建函数，直接返回一个值
+    if (fn_decl->is_array_len) {
+        size_t array_size = 0;
+        auto callee_ptr = std::dynamic_pointer_cast<FieldExpr>(node.callee);
+        if (!callee_ptr) {
+            throw std::runtime_error("Array len callee is not FieldExpr");
+        }
+        auto array_type = node_type_and_place_kind_map_[callee_ptr->base->NodeId].first;
+        if (!array_type || array_type->kind != RealTypeKind::ARRAY) {
+            throw std::runtime_error("Array len callee base is not array type");
+        }
+        auto array_real_type = std::dynamic_pointer_cast<ArrayRealType>(array_type);
+        if (!array_real_type) {
+            throw std::runtime_error("Array len callee base is not ArrayRealType");
+        }
+        array_size = array_real_type->size;
+        expr_value_map_[node.NodeId] = builder_.create_i32_constant(static_cast<int32_t>(array_size));
+        return;
+    }
     std::vector<IRValue_ptr> call_args;
     if (need_struct) {
         auto method_callee = std::dynamic_pointer_cast<FieldExpr>(node.callee);
