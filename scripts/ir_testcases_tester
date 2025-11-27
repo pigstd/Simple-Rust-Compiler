@@ -216,7 +216,9 @@ def main() -> int:
     )
     args = parser.parse_args()
 
-    target_dir = ROOT / "testcases" / args.testcases_folder
+    base_dir = ROOT / "testcases" / args.testcases_folder
+    src_dir = base_dir / "src"
+    target_dir = src_dir if src_dir.is_dir() else base_dir
     if not target_dir.is_dir():
         print(f"[ERROR] Folder not found: {target_dir}", file=sys.stderr)
         return 1

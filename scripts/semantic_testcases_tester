@@ -83,9 +83,29 @@ def main():
 
     args = parser.parse_args()
 
-    if args.testcases_folder != None:
-        testcases_folder = f"../testcases/{args.testcases_folder}"
-    elif args.myfolder_path != None:
+    testcase_records = []
+    if args.testcases_folder is not None:
+        base_folder = os.path.normpath(os.path.join("..", "testcases", args.testcases_folder))
+        global_path = os.path.join(base_folder, "global.json")
+        if not os.path.isfile(global_path):
+            log(f"Error: global.json not found under {base_folder}.")
+            sys.exit(1)
+        with open(global_path, "r", encoding="utf-8") as f:
+            try:
+                cases = json.load(f)
+            except json.JSONDecodeError as err:
+                log(f"Error: failed to parse {global_path}: {err}")
+                sys.exit(1)
+        for entry in cases:
+            if not entry.get("active", True):
+                continue
+            name = entry.get("name")
+            source_rel = entry.get("source", ["", ""])[0]
+            testcase_dir = os.path.normpath(os.path.join(base_folder, source_rel))
+            testcase_dir = os.path.dirname(testcase_dir)
+            testcase_records.append((name, entry, testcase_dir))
+        testcases_folder = base_folder
+    elif args.myfolder_path is not None:
         testcases_folder = f"../test/{args.myfolder_path}"
     else:
         print("Error: You must specify either -t <testcases_folder> or -m <myfolder_path>.")
@@ -144,35 +164,22 @@ def main():
     passed_tests = 0
     failed_tests = 0
 
-    # 确定性顺序
-    for testcase in sorted(os.listdir(testcases_folder)):
-        # 如果指定了前缀且不匹配则跳过
+    case_iter = sorted(testcase_records, key=lambda item: item[0])
+    for testcase, entry, directory in case_iter:
         if args.pre is not None and not testcase.startswith(args.pre):
             continue
 
-        testcase_path = os.path.join(testcases_folder, testcase)
-        if not os.path.isdir(testcase_path):
-            continue
-
-        # 找 .rx 和 .json（只允许唯一各 1 个）
-        rx_candidates = [n for n in os.listdir(testcase_path) if n.endswith(".rx")]
-        json_candidates = [n for n in os.listdir(testcase_path) if n.endswith(".json")]
-
         log(f"testing {testcase}...")
-
-        if len(rx_candidates) != 1 or len(json_candidates) != 1:
-            log(f"Warning: {testcase} should contain exactly one .rx and one .json "
-                f"(got {len(rx_candidates)} .rx, {len(json_candidates)} .json). Skipping.")
-            continue
-
-        rs_file = os.path.join(testcase_path, rx_candidates[0])
-        json_file = os.path.join(testcase_path, json_candidates[0])
+        rs_file = os.path.join(directory, os.path.basename(entry["source"][0]))
+        json_file = os.path.join(directory, "case_meta.json")
+        with open(json_file, "w", encoding="utf-8") as meta_out:
+            json.dump(entry, meta_out)
 
         total_tests += 1
 
         try:
             # 读期望值
-            expected_content = load_expected_exitcode(json_file)
+            expected_content = int(entry.get("compileexitcode", 0))
 
             # 运行 checker：stdin= .rx 内容，捕获 stdout/stderr
             with open(rs_file, "rb") as fin:
