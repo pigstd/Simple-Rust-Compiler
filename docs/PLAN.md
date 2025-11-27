@@ -15,7 +15,7 @@
    - Docs：新增 `docs/IR/type-lowering.md`，详细说明各 `RealTypeKind` 如何落到自研 IR 类型，包括字符串/数组/引用的布局选择与原因，并记录 `ConstValue -> ir::ConstantValue` 的桥接约束。
 
 3. **全局项生成**  
-   - 以 `root_scope` 为入口深度优先遍历整棵作用域树：在每个节点先处理结构体（调用 `TypeLowering::declare_struct` 并写入 `IRModule::add_type_definition`），再处理函数/数组常量，最后递归子 scope。  
+   - 以 `root_scope` 为入口深度优先遍历整棵作用域树：在每个节点先对 `StructDecl` 执行“两阶段”注册（调用 `TypeLowering::declare_struct_stub` 建立占位，再调用 `define_struct_fields` 输出最终 `%Struct = type { ... }`），然后处理函数/数组常量，最后递归子 scope。  
    - `GlobalLoweringDriver` 负责在遍历过程中根据 DFS 路径生成唯一化后缀（`scope_suffix_stack_`），并通过 `allocate_symbol` 回写到 `FnDecl`/`ConstDecl` 的 `name` 字段，确保任意作用域下的 `len` 等函数都不会冲突。  
    - 仅为数组 `const` 创建 IR 全局，数值来自语义阶段的 `const_value_map`，其余类型的常量留给下一阶段按需加载；不再引入 `.data/.text` 段概念，直接复用 `IRModule` 现有的类型/全局/函数输出顺序。  
    - Tests：编写若干语言源码，跑到语义阶段后调用 `GlobalLoweringDriver::emit_scope_tree`，对 `IRModule::serialize()` 的文本或结构体数据做断言，覆盖结构体定义、函数声明、数组常量以及命名策略。  

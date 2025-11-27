@@ -8,7 +8,7 @@
 #include <memory>
 #include <string>
 #include <unordered_map>
-#include <stdexcept>
+#include <unordered_set>
 
 namespace ir {
 
@@ -20,7 +20,8 @@ class TypeLowering {
     std::shared_ptr<FunctionType> lower_function(FnDecl_ptr decl);
     std::shared_ptr<ConstantValue> lower_const(ConstValue_ptr value,
                                                RealType_ptr expected_type);
-    std::shared_ptr<StructType> declare_struct(StructDecl_ptr decl);
+    std::shared_ptr<StructType> declare_struct_stub(StructDecl_ptr decl);
+    void define_struct_fields(StructDecl_ptr decl);
     void declare_builtin_string_types();
 
   private:
@@ -29,8 +30,8 @@ class TypeLowering {
     IntegerType_ptr i1_type_;
     IntegerType_ptr i8_type_;
     IntegerType_ptr i32_type_;
-    PointerType_ptr ptr_type_;
     std::unordered_map<std::string, std::shared_ptr<StructType>> struct_cache_;
+    std::unordered_set<std::string> pending_struct_defs_;
 };
 
 } // namespace ir

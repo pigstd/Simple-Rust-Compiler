@@ -1,5 +1,5 @@
 #include "ir/type_lowering.h"
-#include <iostream>
+#include <stdexcept>
 #include <string>
 
 using std::string;
@@ -267,7 +267,8 @@ TypeLowering::lower_const(ConstValue_ptr value, RealType_ptr expected_type) {
     return nullptr;
 }
 
-std::shared_ptr<StructType> TypeLowering::declare_struct(StructDecl_ptr decl) {
+std::shared_ptr<StructType>
+TypeLowering::declare_struct_stub(StructDecl_ptr decl) {
     if (!decl) {
         throw std::runtime_error("StructDecl missing");
     }
@@ -278,6 +279,27 @@ std::shared_ptr<StructType> TypeLowering::declare_struct(StructDecl_ptr decl) {
     auto cached = struct_cache_.find(name);
     if (cached != struct_cache_.end()) {
         return cached->second;
+    }
+    auto struct_type = std::make_shared<StructType>(name);
+    struct_cache_[name] = struct_type;
+    pending_struct_defs_.insert(name);
+    return struct_type;
+}
+
+void TypeLowering::define_struct_fields(StructDecl_ptr decl) {
+    if (!decl) {
+        throw std::runtime_error("StructDecl missing");
+    }
+    if (decl->name.empty()) {
+        throw std::runtime_error("StructDecl missing name");
+    }
+    auto name = decl->name;
+    auto cached = struct_cache_.find(name);
+    if (cached == struct_cache_.end()) {
+        throw std::runtime_error("struct stub missing for definition");
+    }
+    if (!pending_struct_defs_.count(name)) {
+        throw std::runtime_error("struct fields already defined: " + name);
     }
     vector<IRType_ptr> field_types;
     vector<string> field_texts;
@@ -293,11 +315,9 @@ std::shared_ptr<StructType> TypeLowering::declare_struct(StructDecl_ptr decl) {
         field_types.push_back(field_ir);
         field_texts.push_back(field_ir->to_string());
     }
-    auto struct_type = std::make_shared<StructType>(name);
-    struct_type->set_fields(field_types);
-    struct_cache_[name] = struct_type;
+    cached->second->set_fields(field_types);
+    pending_struct_defs_.erase(name);
     module_.add_type_definition(name, field_texts);
-    return struct_type;
 }
 
 void TypeLowering::declare_builtin_string_types() {

@@ -31,14 +31,10 @@ void GlobalLoweringDriver::visit_scope(Scope_ptr scope) {
     if (!scope) {
         return;
     }
+    std::vector<StructDecl_ptr> struct_decls;
+    struct_decls.reserve(scope->type_namespace.size());
     for (const auto &entry : scope->type_namespace) {
-        // 这里有一个隐患，因为 struct 可能嵌套，但是我扫 map 的时候是按照字典序的。w
-        // 所以有可能先碰到外层 struct，再碰到内层 struct，从而导致内层 struct 没有被 declare。
-        // 目前先不管这个问题，这个可能的问题先写到文档里面，等整体的写完再来思考这部分怎么调整。
-        if (!entry.second) {
-            continue;
-        }
-        if (entry.second->kind != TypeDeclKind::Struct) {
+        if (!entry.second || entry.second->kind != TypeDeclKind::Struct) {
             continue;
         }
         auto struct_decl =
@@ -46,7 +42,11 @@ void GlobalLoweringDriver::visit_scope(Scope_ptr scope) {
         if (!struct_decl) {
             throw std::runtime_error("Invalid StructDecl in scope");
         }
-        type_lowering_.declare_struct(struct_decl);
+        struct_decls.push_back(struct_decl);
+        type_lowering_.declare_struct_stub(struct_decl);
+    }
+    for (const auto &struct_decl : struct_decls) {
+        type_lowering_.define_struct_fields(struct_decl);
     }
 
     std::size_t local_counter = 0;

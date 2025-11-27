@@ -11,7 +11,9 @@ static_assert(std::is_same_v<std::shared_ptr<FunctionType> (TypeLowering::*)(FnD
 static_assert(std::is_same_v<std::shared_ptr<ConstantValue> (TypeLowering::*)(ConstValue_ptr, RealType_ptr),
                              decltype(&TypeLowering::lower_const)>);
 static_assert(std::is_same_v<std::shared_ptr<StructType> (TypeLowering::*)(StructDecl_ptr),
-                             decltype(&TypeLowering::declare_struct)>);
+                             decltype(&TypeLowering::declare_struct_stub)>);
+static_assert(std::is_same_v<void (TypeLowering::*)(StructDecl_ptr),
+                             decltype(&TypeLowering::define_struct_fields)>);
 static_assert(std::is_same_v<void (TypeLowering::*)(),
                              decltype(&TypeLowering::declare_builtin_string_types)>);
 

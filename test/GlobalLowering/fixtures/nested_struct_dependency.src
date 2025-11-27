@@ -1,0 +1,12 @@
+struct BNode {
+    tail: i32,
+}
+
+struct ANode {
+    next: BNode,
+    head: i32,
+}
+
+fn main() {
+    exit(0);
+}

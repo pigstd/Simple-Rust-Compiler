@@ -55,7 +55,8 @@ int main() {
     expect_type_string(lowering.lower(string_rt), "%String");
 
     auto point_decl = make_point_decl();
-    lowering.declare_struct(point_decl);
+    lowering.declare_struct_stub(point_decl);
+    lowering.define_struct_fields(point_decl);
     auto point_rt =
         std::make_shared<StructRealType>("Point", ReferenceType::NO_REF, point_decl);
     auto point_ref_rt =

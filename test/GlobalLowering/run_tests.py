@@ -14,6 +14,7 @@ CASES = [
     ("nested_functions_unique_names", FIXTURE_DIR / "nested_functions.src", FIXTURE_DIR / "nested_functions.ir"),
     ("two_dim_array_const", FIXTURE_DIR / "two_dim_array.src", FIXTURE_DIR / "two_dim_array.ir"),
     ("function_with_params", FIXTURE_DIR / "function_with_params.src", FIXTURE_DIR / "function_with_params.ir"),
+    ("nested_struct_dependency", FIXTURE_DIR / "nested_struct_dependency.src", FIXTURE_DIR / "nested_struct_dependency.ir"),
 ]
 
 

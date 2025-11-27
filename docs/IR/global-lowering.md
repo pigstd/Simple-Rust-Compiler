@@ -43,12 +43,14 @@ class GlobalLoweringDriver {
   - `unordered_map<string, GlobalValue_ptr> globals_`：按符号名保存已创建的全局变量。
   - `vector<string> scope_suffix_stack_`：DFS 过程中记录“从根到当前 scope 的路径”。只在**进入新的子 scope**前压入 `".N"` 片段（`N` 为该子 scope 在父节点内的计数），退出时弹出，栈内容串联后即为类似 `".0.1"` 的作用域后缀。
 - `emit_scope_tree` 执行顺序：
-  1. 深度优先遍历 `Scope` 树，通过 `visit_scope` 在每个节点先处理 `type_namespace` 中的结构体（`TypeLowering::declare_struct` + `IRModule::add_type_definition`），再处理 `value_namespace` 中的函数/常量，最后递归子 scope。遍历结束后由 `IRModule::serialize()` 负责格式化输出顺序。
+  1. 深度优先遍历 `Scope` 树，通过 `visit_scope` 在每个节点先完成结构体的“两阶段”注册（`declare_struct_stub` + `define_struct_fields`），再处理 `value_namespace` 中的函数/常量，最后递归子 scope。遍历结束后由 `IRModule::serialize()` 负责格式化输出顺序。
 
 #### Item 遍历与符号命名
-`visit_scope` 统一贯穿整个 Scope 树：在进入某个 scope 时，先把 `type_namespace` 里的结构体交给 `TypeLowering::declare_struct` 并立刻 `IRModule::add_type_definition`，确保后续子节点和函数都能引用；再处理 `value_namespace`（函数、常量），最后递归子节点。语义阶段已经把函数/常量按作用域注册好，因此不需要再回到 AST；仅需依据 `Scope` 中的 decl 生成 IR。`scope_suffix_stack_` 只在递归子 scope 时更新：每次进入子 scope 之前先用局部 `local_counter` 分配一个 `"." + counter` 片段压栈，离开时弹栈，于是每个 scope 都拥有一条稳定的 DFS 路径。
-- **结构体**：`visit_scope` 遇到 `StructDecl` 时立即调用 `TypeLowering::declare_struct` 注册 `%StructName` 并 `IRModule::add_type_definition` 写入字段布局，保证后续子作用域可以引用。
-  - **注意**：当前实现直接按 `map` 的字典序遍历 `type_namespace`。若某个结构体在字段里引用了同一作用域内“字典序靠后”的结构体（例如 `Outer` 的字段类型指向 `Inner`，而 `Inner` 在 `map` 中排序更靠后），就可能在 `declare_struct(Outer)` 时查询不到 `Inner`，从而抛出 “struct not declared”。目前阶段暂未处理这种拓扑排序问题，仅在此记录潜在风险，后续若需要支持此类依赖需额外调整遍历顺序或显式声明依赖。
+`visit_scope` 统一贯穿整个 Scope 树：在进入某个 scope 时，先把 `type_namespace` 里的结构体拆成“占位”和“定义”两遍，确保相互引用不会因 `map` 顺序出错；再处理 `value_namespace`（函数、常量），最后递归子节点。语义阶段已经把函数/常量按作用域注册好，因此不需要再回到 AST；仅需依据 `Scope` 中的 decl 生成 IR。`scope_suffix_stack_` 只在递归子 scope 时更新：每次进入子 scope 之前先用局部 `local_counter` 分配一个 `"." + counter` 片段压栈，离开时弹栈，于是每个 scope 都拥有一条稳定的 DFS 路径。
+- **结构体**：为避免 `map` 遍历顺序导致的依赖问题，`visit_scope` 在处理 `type_namespace` 时会分两遍：
+  1. 第一遍调用 `TypeLowering::declare_struct_stub`，只根据 `StructDecl->name` 创建 `%Name = type {}` 占位并写入缓存，确保同一作用域内的结构体即使互相引用也能先拿到 `StructType`。
+  2. 第二遍再调用 `TypeLowering::define_struct_fields`，此时所有依赖的结构体都已经有占位，填充字段顺序与 `StructDecl::field_order` 保持一致。
+  这样就算 `type_namespace` 的 `map` 字典序与声明顺序不同，也不会出现“先处理 Outer 但 Inner 尚未注册”的异常。
 - **枚举**：语义上用 `i32` 表示，本阶段什么都不用做——既无需写出声明，也不再重复登记；TypeLowering 会在需要时把 `RealTypeKind::ENUM` 统一映射为 `i32`。
 - **函数**：`emit_function_decl` 直接调用 `IRModule::define_function` 创建 `define <sig> @symbol(...)` 的函数壳，并为每个形参分配 `%arg.N` 名字；基本块和具体指令在步骤 4 中填充。命名规则：
   1. `scope_suffix_stack_` 代表当前 scope 的 DFS 路径，例如 `{".0", ".1"}` 拼成 `".0.1"`；根作用域路径为空。
