@@ -620,7 +620,7 @@ void IRFunction::dump() const { std::cerr << to_string(); }
 
 IRModule::IRModule(std::string target_triple, std::string data_layout)
     : target_triple_(std::move(target_triple)),
-      data_layout_(std::move(data_layout)), builtins_injected_(false) {}
+      data_layout_(std::move(data_layout)) {}
 
 const std::string &IRModule::target_triple() const { return target_triple_; }
 
@@ -700,42 +700,6 @@ const std::vector<GlobalValue_ptr> &IRModule::globals() const {
 
 const std::vector<IRFunction_ptr> &IRModule::functions() const {
     return functions_;
-}
-
-void IRModule::ensure_runtime_builtins() {
-    if (builtins_injected_) {
-        return;
-    }
-    builtins_injected_ = true;
-    auto void_type = std::make_shared<VoidType>();
-    auto i32_type = std::make_shared<IntegerType>(32);
-    auto i8_type = std::make_shared<IntegerType>(8);
-    auto ptr_type = std::make_shared<PointerType>(i8_type);
-    auto str_struct = std::make_shared<StructType>("Str");
-    str_struct->set_fields({ptr_type, i32_type});
-    auto string_struct = std::make_shared<StructType>("String");
-    string_struct->set_fields({ptr_type, i32_type, i32_type});
-
-    declare_function("print",
-                     std::make_shared<FunctionType>(
-                         void_type, std::vector<IRType_ptr>{str_struct}),
-                     true);
-    declare_function("println",
-                     std::make_shared<FunctionType>(
-                         void_type, std::vector<IRType_ptr>{str_struct}),
-                     true);
-    declare_function("exit",
-                     std::make_shared<FunctionType>(
-                         void_type, std::vector<IRType_ptr>{i32_type}),
-                     true);
-    declare_function("String_from",
-                     std::make_shared<FunctionType>(
-                         string_struct, std::vector<IRType_ptr>{str_struct}),
-                     true);
-    declare_function("Array_len",
-                     std::make_shared<FunctionType>(
-                         i32_type, std::vector<IRType_ptr>{ptr_type}),
-                     true);
 }
 
 std::string IRModule::to_string() const {

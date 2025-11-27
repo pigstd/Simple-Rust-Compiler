@@ -41,7 +41,7 @@ private:
 - `declare_struct_stub` / `define_struct_fields`：为了解决嵌套结构体的声明顺序问题，结构体注册拆成“占位 + 定义”两步：  
   1. `declare_struct_stub` 只根据 `decl->name` 创建空的 `StructType` 并写入缓存（暂不输出到 `IRModule`）。所有 `lower(StructRealType)` 在此之后即可引用该占位类型，哪怕字段尚未就绪。若多次调用同一结构体，只返回缓存结果。  
   2. `define_struct_fields` 在占位存在时才会执行：按 `decl->fields` 顺序调用 `lower` 得到各字段 `IRType`，通过 `StructType::set_fields` 与 `IRModule::add_type_definition(name, field_texts)` 真正输出 `%Name = type { ... }`。若 `declare_struct_stub` 尚未执行或字段重复定义，直接抛出错误。
-- `declare_builtin_string_types()`：由编译驱动在 TypeLowering 初始化后立即调用，将 `%Str = { ptr(i8*), i32 }` 与 `%String = { ptr(i8*), i32, i32 }` 注册到 `IRModule` 并写入缓存。之后 `lower(StrRealType)`/`lower(StringRealType)` 只查缓存（命中即返回，未命中直接抛错）。这样 runtime 内建声明 (`IRModule::ensure_runtime_builtins`) 就可以专注于函数签名，不再重复生成这些结构。
+- `declare_builtin_string_types()`：由编译驱动在 TypeLowering 初始化后立即调用，将 `%Str = { ptr(i8*), i32 }` 与 `%String = { ptr(i8*), i32, i32 }` 注册到 `IRModule` 并写入缓存。之后 `lower(StrRealType)`/`lower(StringRealType)` 只查缓存（命中即返回，未命中直接抛错）。这样 runtime 内建函数只需关注具体实现，IRGen 在使用到某个 builtin 时再声明对应符号即可。
 - 结构体缓存策略：假设编译驱动会在结构体声明阶段调用 `declare_struct_stub` 并把所有 `%StructName` 先写入 `struct_cache_`，再在依赖满足时调用 `define_struct_fields`。若 `lower` 遇到某个结构体时缓存未命中，视为初始化顺序错误，直接抛出 `std::runtime_error("struct not declared")`。
 
 #### 内部 helper
@@ -57,7 +57,7 @@ private:
 - **`()` (`UNIT`)**：统一映射为 `ir::VoidType`；若某表达式需要物理槽位，则由 IRBuilder 创建零字节栈槽。
 - **`!` (`NEVER`)**：理论上没有值，但 IR 层仍以 `void` 表示；调用者负责在控制流级别插入 `unreachable`。
 - **数组 (`ARRAY`)**：调用 `lower` 递归得到元素类型，再读取 `ArrayRealType::size` 创建 `ir::ArrayType(elem_ir, size)`。若 `size` 仍为 0 说明语义阶段未填回数组长度，应抛出 `std::runtime_error("array size missing")`。该类型仅用于静态分配的栈槽/全局常量，动态数组（`String`/`Vec`）仍走结构体。
-- **字符串切片 (`STR`)**：固定返回结构 `{ ptr(i8*), i32 }`。TypeLowering 在初始化时通过 `declare_builtin_string_types()` 注册 `%Str = type { ptr, i32 }` 并缓存，后续 `lower(StrRealType)` 直接复用。不要依赖 `IRModule::ensure_runtime_builtins` 来插入这些类型，避免初始化顺序错乱。
+- **字符串切片 (`STR`)**：固定返回结构 `{ ptr(i8*), i32 }`。TypeLowering 在初始化时通过 `declare_builtin_string_types()` 注册 `%Str = type { ptr, i32 }` 并缓存，后续 `lower(StrRealType)` 直接复用，避免在声明 builtin 函数时再次定义该结构。
 - **`String`**：同 `IRBuilder` 设定 `{ ptr(i8*), i32, i32 }`（指针、长度、容量）。同样在 TypeLowering 初始化时通过 `declare_builtin_string_types()` 注册 `%String = type { ... }` 并缓存，`lower(StringRealType)` 必须命中缓存，否则抛错。
 - **结构体 (`STRUCT`)**：读取 `StructDecl_ptr decl = struct_type->decl.lock()`。调用者须确保在 `lower` 之前已经执行过一次 `declare_struct_stub(decl)`，否则缓存缺失会直接抛出 `std::runtime_error("struct not declared")`。当 `define_struct_fields` 完成字段填充后，`lower` 即可通过缓存拿到 `%StructName`。语义层若用 `Self` 等别名描述该类型，也必须始终取 `decl->name` 作为 `%Name`，避免把函数名或别名写进 IR。若结构体出现在引用上下文（`StructRealType::is_ref != NO_REF`），先使用缓存返回 `%StructName`，再构造 `ptr`。若 `decl.lock()` 失败，TypeLowering 抛出 `std::runtime_error("StructDecl missing")`。
 - **枚举 (`ENUM`)**：当前语义阶段把 enum 当 C-like 枚举处理：`EnumDecl::variants` 只有离散值，因此直接下降为 `i32`。若未来支持带负载的 enum，再扩展为 `{ i32, [payload] }`。

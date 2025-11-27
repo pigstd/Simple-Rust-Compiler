@@ -452,9 +452,6 @@ class IRModule : public std::enable_shared_from_this<IRModule> {
     // 返回所有函数。
     const std::vector<IRFunction_ptr> &functions() const;
 
-    // 确保模块中注入内建声明。
-    void ensure_runtime_builtins();
-
     // 序列化整个模块。
     std::string to_string() const;
     // 打印模块信息用于调试。
@@ -468,7 +465,6 @@ class IRModule : public std::enable_shared_from_this<IRModule> {
     std::vector<std::string> module_comments_;
     std::vector<GlobalValue_ptr> globals_;
     std::vector<IRFunction_ptr> functions_;
-    bool builtins_injected_;
 };
 
 class IRSerializer {

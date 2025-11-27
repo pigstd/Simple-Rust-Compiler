@@ -650,6 +650,10 @@ void IRGenVisitor::visit(CallExpr &node) {
                              : std::make_shared<UnitRealType>(
                                    ReferenceType::NO_REF);
     auto ret_ir_type = type_lowering_.lower(ret_real_type);
+    if (fn_decl->is_builtin) {
+        auto fn_type = type_lowering_.lower_function(fn_decl);
+        module_.declare_function(fn_decl->name, fn_type, true);
+    }
     auto call_result =
         builder_.create_call(fn_decl->name, call_args, ret_ir_type, "call.tmp");
     if (call_result) {

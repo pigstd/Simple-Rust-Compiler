@@ -461,17 +461,6 @@ std::string build_call_auto_name() {
     return env.module.to_string();
 }
 
-std::string build_runtime_builtins() {
-    BuilderEnv env;
-    env.module.add_module_comment(
-        "; EXPECT: ensure_runtime_builtins injects builtin declarations");
-    auto ptr_type = std::make_shared<ir::PointerType>(env.i8_type);
-    env.register_struct("Str", {ptr_type, env.i32_type});
-    env.register_struct("String", {ptr_type, env.i32_type, env.i32_type});
-    env.module.ensure_runtime_builtins();
-    return env.module.to_string();
-}
-
 int main() {
     const auto fixtures_dir = find_fixtures_dir();
     if (fixtures_dir.empty()) {
@@ -493,7 +482,6 @@ int main() {
         {"loop_with_continue.ir.expected", build_loop_with_continue},
         {"loop_with_function_call.ir.expected", build_loop_with_function_call},
         {"call_auto_name.ir.expected", build_call_auto_name},
-        {"runtime_builtins.ir.expected", build_runtime_builtins},
     };
 
     bool failed = false;

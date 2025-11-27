@@ -49,9 +49,6 @@ int main() {
         {"loop_with_function_call.ir.expected", {"call i32 @helper", "br label %loop.cond", "ret i32 %result"}},
         {"call_auto_name.ir.expected",
          {"%tmp.0 = call i32 @helper", "%tmp.1 = call i32 @helper", "ret i32 %tmp.1"}},
-        {"runtime_builtins.ir.expected",
-         {"%Str = type", "%String = type", "declare void @print",
-          "declare %String @String_from", "declare i32 @Array_len"}},
     };
 
     for (const auto &fixture : expectations) {

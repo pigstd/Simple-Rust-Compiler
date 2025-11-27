@@ -34,7 +34,6 @@ std::string run_full_pipeline() {
         checker.fn_item_to_decl_map, checker.identifier_expr_to_decl_map,
         checker.let_stmt_to_decl_map);
     generator.generate(items);
-    module.ensure_runtime_builtins();
     return module.to_string();
 }
 

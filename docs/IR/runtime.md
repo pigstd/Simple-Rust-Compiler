@@ -55,7 +55,7 @@ TypeLowering 在初始化时会调用 `declare_builtin_string_types()` 注册 `%
 3. **线程安全**：运行时时刻假设单线程；若未来支持多线程，需要引入锁或原子操作。
 
 #### TypeLowering 与 runtime 的衔接
-- `TypeLowering::declare_builtin_string_types()` 必须在编译流程早期调用，以便 runtime 函数能引用 `%Str`/`%String`。当运行时新增其它结构（例如 `Vec`），也需要在 TypeLowering 中注册对应布局，并在 `IRModule::ensure_runtime_builtins()` 内声明符号。
+- `TypeLowering::declare_builtin_string_types()` 必须在编译流程早期调用，以便 runtime 函数能引用 `%Str`/`%String`。当运行时新增其它结构（例如 `Vec`），也需要在 TypeLowering 中注册对应布局，IRGen 在第一次遇到某个 builtin 调用时会主动通过 `IRModule::declare_function` 声明对应符号。
 - 对于 `len(&[T; N])` 等完全可静态求值的内建，优先由 IRGen 直接生成常量，避免 runtime 调用。本文档只描述 runtime 真正需要实现的符号。
 
 #### 构建与交付
