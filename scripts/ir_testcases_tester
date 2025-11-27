@@ -1,0 +1,285 @@
+#!/usr/bin/env python3
+"""Integration tester for IRGen + runtime.
+
+Features:
+- `-t <folder>`: run cases under `testcases/<folder>` (required)
+- `-n <num>`: limit to first `num` cases (after filtering)
+- `-o [file]`: write output to file (default stdout). If flag is provided without value, defaults to `<folder>-ir-result.txt`.
+- `-c <list>`: comma-separated numeric IDs to run (matches suffix numbers in folder names)
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import subprocess
+import sys
+import tempfile
+from pathlib import Path
+from typing import TextIO, List
+
+ROOT = Path(__file__).resolve().parents[1]
+DRIVER = ROOT / "test" / "build" / "IRGen" / "ir_program_driver"
+RUNTIME_LL = ROOT / "runtime" / "runtime.ll"
+PASS_MARK = "✅"
+FAIL_MARK = "❌"
+TMP_BASE = ROOT / "tmp" / "ir_tests"
+
+
+def fail(msg: str, out: TextIO) -> None:
+    print(msg, file=out)
+
+
+def ensure_driver_available(out: TextIO) -> bool:
+    if not DRIVER.exists():
+        fail(f"[ERROR] Missing driver binary: {DRIVER}", out)
+        fail("Please run `cmake --build build` before executing this tester.", out)
+        return False
+    if not RUNTIME_LL.exists():
+        fail(f"[ERROR] Missing runtime IR file: {RUNTIME_LL}", out)
+        fail("Please generate runtime.ll (clang -emit-llvm -S runtime/runtime.c -o runtime/runtime.ll).", out)
+        return False
+    return True
+
+
+def discover_case_files(case_dir: Path) -> tuple[Path, Path, Path] | None:
+    rx = next(case_dir.glob("*.rx"), None)
+    inp = next(case_dir.glob("*.in"), None)
+    out = next(case_dir.glob("*.out"), None)
+    if not rx or not inp or not out:
+        return None
+    return rx, inp, out
+
+
+def load_case_info(case_dir: Path) -> dict:
+    info_path = case_dir / "testcase_info.json"
+    if not info_path.exists():
+        return {}
+    with info_path.open("r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+def run_with_timeout(cmd: list[str], *, input_text: str | None, timeout: float) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        cmd,
+        input=input_text,
+        text=True,
+        capture_output=True,
+        timeout=timeout,
+    )
+
+
+def create_tempdir() -> tempfile.TemporaryDirectory[str]:
+    try:
+        TMP_BASE.mkdir(parents=True, exist_ok=True)
+        return tempfile.TemporaryDirectory(dir=TMP_BASE)
+    except Exception:
+        return tempfile.TemporaryDirectory()
+
+
+def compile_program(ir_text: str, timeout: float) -> tuple[bool, str, Path | None, tempfile.TemporaryDirectory[str] | None]:
+    try:
+        tmp_manager = create_tempdir()
+    except Exception as exc:
+        return False, f"{FAIL_MARK} Failed to create temporary directory: {exc}", None, None
+
+    tmp_path = Path(tmp_manager.name)
+    ir_path = tmp_path / "program.ll"
+    exe_path = tmp_path / "prog.out"
+    ir_path.write_text(ir_text)
+    try:
+        proc = run_with_timeout(
+            ["clang", str(ir_path), str(RUNTIME_LL), "-o", str(exe_path)],
+            input_text=None,
+            timeout=timeout,
+        )
+    except subprocess.TimeoutExpired:
+        tmp_manager.cleanup()
+        return False, f"{FAIL_MARK} clang linking timed out", None, None
+    if proc.returncode != 0:
+        tmp_manager.cleanup()
+        return False, f"{FAIL_MARK} clang failed:\n{proc.stderr.strip()}", None, None
+    return True, "", exe_path, tmp_manager
+
+
+def run_program(exe_path: Path, stdin_data: str, timeout: float) -> tuple[bool, str, str]:
+    try:
+        proc = run_with_timeout(
+            [str(exe_path)],
+            input_text=stdin_data,
+            timeout=timeout,
+        )
+    except subprocess.TimeoutExpired:
+        return False, f"{FAIL_MARK} program execution timed out", ""
+    return True, proc.stdout, proc.stderr
+
+
+def run_case(case_dir: Path, out_stream: TextIO, case_limit: int) -> bool:
+    files = discover_case_files(case_dir)
+    if not files:
+        fail(f"{FAIL_MARK} Missing .rx/.in/.out under {case_dir}", out_stream)
+        return False
+    rx_path, in_path, out_path = files
+    info = load_case_info(case_dir)
+    expected_compile = info.get("compileexitcode", 0)
+    compile_limit = info.get("compiletimelimit", 15)
+    if compile_limit is None or compile_limit <= 0:
+        compile_limit = 15
+    run_limit = info.get("runtimelimit", 5)
+    if run_limit is None or run_limit <= 0:
+        run_limit = 10
+
+    fail(f"[INFO] {case_dir.name}: semantic checking...", out_stream)
+    source_text = rx_path.read_text()
+    try:
+        driver_proc = run_with_timeout(
+            [str(DRIVER)],
+            input_text=source_text,
+            timeout=compile_limit,
+        )
+    except subprocess.TimeoutExpired:
+        fail(f"{FAIL_MARK} {case_dir.name}: IR generation timed out", out_stream)
+        return False
+
+    if driver_proc.returncode != expected_compile:
+        fail(
+            f"{FAIL_MARK} {case_dir.name}: compile exit {driver_proc.returncode}, expected {expected_compile}",
+            out_stream,
+        )
+        fail(driver_proc.stderr.strip(), out_stream)
+        return False
+
+    if expected_compile != 0:
+        fail(f"{PASS_MARK} {case_dir.name}: compile exit matched (expected failure)", out_stream)
+        return True
+
+    fail(f"[INFO] {case_dir.name}: lowering & linking...", out_stream)
+    success, message, exe_path, tmp_manager = compile_program(driver_proc.stdout, compile_limit)
+    if not success:
+        fail(f"{FAIL_MARK} {case_dir.name}: {message}", out_stream)
+        return False
+
+    stdin_data = in_path.read_text()
+    fail(f"[INFO] {case_dir.name}: running...", out_stream)
+    ok, stdout_text, stderr_text = run_program(exe_path, stdin_data, run_limit)
+    if tmp_manager:
+        tmp_manager.cleanup()
+
+    if not ok:
+        fail(f"{FAIL_MARK} {case_dir.name}: {stdout_text}", out_stream)
+        return False
+
+    expected_output = out_path.read_text()
+    if stdout_text.rstrip() != expected_output.rstrip():
+        fail(f"{FAIL_MARK} {case_dir.name}: output mismatch", out_stream)
+        fail("--- expected ---", out_stream)
+        fail(expected_output, out_stream)
+        fail("--- actual ---", out_stream)
+        fail(stdout_text, out_stream)
+        if stderr_text:
+            fail("--- stderr ---", out_stream)
+            fail(stderr_text, out_stream)
+        return False
+
+    fail(f"{PASS_MARK} {case_dir.name}", out_stream)
+    return True
+
+
+def natural_key(path: Path) -> List:
+    import re
+
+    def convert(text: str):
+        return int(text) if text.isdigit() else text.lower()
+
+    parts = re.split(r"(\d+)", path.name)
+    return [convert(part) for part in parts]
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="IR testcases tester")
+    parser.add_argument("-t", "--testcases_folder", required=True, help="Folder under testcases/ to run (e.g. semantic-2)")
+    parser.add_argument("-n", "--max_test_num", type=int, default=-1, help="Maximum number of cases to run")
+    parser.add_argument(
+        "-o",
+        "--outputfile",
+        nargs="?",
+        const="",
+        default=None,
+        help="Write output to file (default: stdout). If flag provided without value, defaults to <folder>-ir-result.txt",
+    )
+    parser.add_argument(
+        "-c",
+        "--cases",
+        type=str,
+        default="",
+        help="Comma-separated numeric case IDs to run (matches suffix numbers in folder names). Example: 1,2,10",
+    )
+    args = parser.parse_args()
+
+    target_dir = ROOT / "testcases" / args.testcases_folder
+    if not target_dir.is_dir():
+        print(f"[ERROR] Folder not found: {target_dir}", file=sys.stderr)
+        return 1
+
+    if not ensure_driver_available(sys.stderr):
+        return 1
+
+    output_path = None
+    if args.outputfile is None:
+        out_stream: TextIO = sys.stdout
+    else:
+        output_path = args.outputfile or f"{args.testcases_folder}-ir-result.txt"
+        out_stream = open(output_path, "w", encoding="utf-8")
+
+    case_dirs = sorted(
+        [p for p in target_dir.iterdir() if p.is_dir()], key=natural_key
+    )
+    requested_ids: set[str] | None = None
+    if args.cases:
+        requested_ids = {item.strip() for item in args.cases.split(",") if item.strip()}
+        if not requested_ids:
+            requested_ids = None
+    if not case_dirs:
+        fail(f"[ERROR] No cases found under {target_dir}", out_stream)
+        if output_path:
+            out_stream.close()
+        return 1
+
+    total = 0
+    passed = 0
+    max_cases = args.max_test_num if args.max_test_num is not None else -1
+
+    def case_matches(path: Path) -> bool:
+        if not requested_ids:
+            return True
+        import re
+
+        match = re.search(r"(\d+)$", path.name)
+        suffix = match.group(1) if match else path.name
+        return suffix in requested_ids
+
+    for case in case_dirs:
+        if not case_matches(case):
+            continue
+        if max_cases != -1 and total >= max_cases:
+            break
+        total += 1
+        if run_case(case, out_stream, total):
+            passed += 1
+
+    summary = f"Total: {total}, Passed: {passed}, Failed: {total - passed}"
+    if passed == total:
+        fail(f"{PASS_MARK} {summary}", out_stream)
+        result = 0
+    else:
+        fail(f"{FAIL_MARK} {summary}", out_stream)
+        result = 1
+
+    if output_path:
+        out_stream.close()
+        print(f"Wrote results to {output_path}")
+    return result
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
