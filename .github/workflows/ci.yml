@@ -13,7 +13,7 @@ jobs:
           fetch-depth: 0          # 可选：需要完整历史时
 
       - name: Install dependencies
-        run: sudo apt-get update && sudo apt-get install -y cmake g++
+        run: sudo apt-get update && sudo apt-get install -y cmake g++ clang
 
       - name: Create build dir
         run: mkdir -p build
@@ -30,6 +30,12 @@ jobs:
       - name: Run TypeLowering tests
         run: python3 test/TypeLowering/run_tests.py
 
+      - name: Run IRGen tests
+        run: python3 test/IRGen/run_tests.py
+        env:
+          TMPDIR: /tmp
+          TEMP: /tmp
+          TMP: /tmp
         
       - name: Run GlobalLowering tests
         run: python3 test/GlobalLowering/run_tests.py
