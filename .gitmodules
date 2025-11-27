@@ -1,3 +1,0 @@
-[submodule "testcases"]
-	path = testcases
-	url = https://github.com/RayZh-hs/RCompiler-Testcases
