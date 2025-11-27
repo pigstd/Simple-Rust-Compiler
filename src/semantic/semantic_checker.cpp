@@ -251,6 +251,7 @@ void Semantic_Checker::add_builtin_methods_and_associated_funcs() {
             fn_reciever_type::NO_RECEIVER,
             "print"
         );
+        print_fn_decl->is_builtin = true;
         IdentifierPattern_ptr id_pattern = std::make_shared<IdentifierPattern>("s", Mutibility::IMMUTABLE, ReferenceType::NO_REF);
         print_fn_decl->parameters.push_back({id_pattern, std::make_shared<StrRealType>(ReferenceType::REF)});
         print_fn_decl->return_type = std::make_shared<UnitRealType>(ReferenceType::NO_REF);
@@ -268,6 +269,7 @@ void Semantic_Checker::add_builtin_methods_and_associated_funcs() {
             fn_reciever_type::NO_RECEIVER,
             "println"
         );
+        println_fn_decl->is_builtin = true;
         IdentifierPattern_ptr id_pattern = std::make_shared<IdentifierPattern>("s", Mutibility::IMMUTABLE, ReferenceType::NO_REF);
         println_fn_decl->parameters.push_back({id_pattern, std::make_shared<StrRealType>(ReferenceType::REF)});
         println_fn_decl->return_type = std::make_shared<UnitRealType>(ReferenceType::NO_REF);
@@ -285,6 +287,7 @@ void Semantic_Checker::add_builtin_methods_and_associated_funcs() {
             fn_reciever_type::NO_RECEIVER,
             "printInt"
         );
+        printint_fn_decl->is_builtin = true;
         IdentifierPattern_ptr id_pattern = std::make_shared<IdentifierPattern>("n", Mutibility::IMMUTABLE, ReferenceType::NO_REF);
         printint_fn_decl->parameters.push_back({id_pattern, std::make_shared<I32RealType>(ReferenceType::NO_REF)});
         printint_fn_decl->return_type = std::make_shared<UnitRealType>(ReferenceType::NO_REF);
@@ -302,6 +305,7 @@ void Semantic_Checker::add_builtin_methods_and_associated_funcs() {
             fn_reciever_type::NO_RECEIVER,
             "printlnInt"
         );
+        printlnint_fn_decl->is_builtin = true;
         IdentifierPattern_ptr id_pattern = std::make_shared<IdentifierPattern>("n", Mutibility::IMMUTABLE, ReferenceType::NO_REF);
         printlnint_fn_decl->parameters.push_back({id_pattern, std::make_shared<I32RealType>(ReferenceType::NO_REF)});
         printlnint_fn_decl->return_type = std::make_shared<UnitRealType>(ReferenceType::NO_REF);
@@ -319,6 +323,7 @@ void Semantic_Checker::add_builtin_methods_and_associated_funcs() {
             fn_reciever_type::NO_RECEIVER,
             "getString"
         );
+        getstring_fn_decl->is_builtin = true;
         getstring_fn_decl->return_type = std::make_shared<StringRealType>(ReferenceType::NO_REF);
         string fn_name = "getString";
         if (root_scope->value_namespace.find(fn_name) != root_scope->value_namespace.end()) {
@@ -334,6 +339,7 @@ void Semantic_Checker::add_builtin_methods_and_associated_funcs() {
             fn_reciever_type::NO_RECEIVER,
             "getInt"
         );
+        getint_fn_decl->is_builtin = true;
         getint_fn_decl->return_type = std::make_shared<I32RealType>(ReferenceType::NO_REF);
         string fn_name = "getInt";
         if (root_scope->value_namespace.find(fn_name) != root_scope->value_namespace.end()) {
@@ -351,6 +357,7 @@ void Semantic_Checker::add_builtin_methods_and_associated_funcs() {
             "exit"
         );
         exit_fn_decl->is_exit = true;
+        exit_fn_decl->is_builtin = true;
         IdentifierPattern_ptr id_pattern = std::make_shared<IdentifierPattern>("code", Mutibility::IMMUTABLE, ReferenceType::NO_REF);
         exit_fn_decl->parameters.push_back({id_pattern, std::make_shared<I32RealType>(ReferenceType::NO_REF)});
         exit_fn_decl->return_type = std::make_shared<UnitRealType>(ReferenceType::NO_REF);
@@ -372,6 +379,7 @@ void Semantic_Checker::add_builtin_methods_and_associated_funcs() {
             fn_reciever_type::SELF_REF,
             "to_string"
         );
+        to_string_fn_decl->is_builtin = true;
         to_string_fn_decl->return_type = std::make_shared<StringRealType>(ReferenceType::NO_REF);
         builtin_method_funcs.push_back({RealTypeKind::U32, "to_string", to_string_fn_decl});
         builtin_method_funcs.push_back({RealTypeKind::USIZE, "to_string", to_string_fn_decl});
@@ -392,6 +400,7 @@ void Semantic_Checker::add_builtin_methods_and_associated_funcs() {
             fn_reciever_type::SELF_REF,
             "as_str"
         );
+        as_str_fn_decl->is_builtin = true;
         as_str_fn_decl->return_type = std::make_shared<StrRealType>(ReferenceType::REF);
         builtin_method_funcs.push_back({RealTypeKind::STRING, "as_str", as_str_fn_decl});
         auto as_mut_str_fn_decl = std::make_shared<FnDecl>(
@@ -400,6 +409,7 @@ void Semantic_Checker::add_builtin_methods_and_associated_funcs() {
             fn_reciever_type::SELF_REF_MUT,
             "as_mut_str"
         );
+        as_mut_str_fn_decl->is_builtin = true;
         as_mut_str_fn_decl->return_type = std::make_shared<StrRealType>(ReferenceType::REF_MUT);
         builtin_method_funcs.push_back({RealTypeKind::STRING, "as_mut_str", as_mut_str_fn_decl});
     }
@@ -409,16 +419,36 @@ void Semantic_Checker::add_builtin_methods_and_associated_funcs() {
     Available on: [T; N], String, &str
     */
     {
-        auto len_fn_decl = std::make_shared<FnDecl>(
+        auto arr_len_fn_decl = std::make_shared<FnDecl>(
             nullptr,
             nullptr,
             fn_reciever_type::SELF_REF,
-            "len"
+            "array_len"
         );
-        len_fn_decl->return_type = std::make_shared<UsizeRealType>(ReferenceType::NO_REF);
-        builtin_method_funcs.push_back({RealTypeKind::ARRAY, "len", len_fn_decl});
-        builtin_method_funcs.push_back({RealTypeKind::STRING, "len", len_fn_decl});
-        builtin_method_funcs.push_back({RealTypeKind::STR, "len", len_fn_decl});
+        arr_len_fn_decl->is_builtin = true;
+        arr_len_fn_decl->is_array_len = true;
+        arr_len_fn_decl->return_type = std::make_shared<UsizeRealType>(ReferenceType::NO_REF);
+        builtin_method_funcs.push_back({RealTypeKind::ARRAY, "len", arr_len_fn_decl});
+
+        auto string_len_fn_decl = std::make_shared<FnDecl>(
+            nullptr,
+            nullptr,
+            fn_reciever_type::SELF_REF,
+            "string_len"
+        );
+        string_len_fn_decl->is_builtin = true;
+        string_len_fn_decl->return_type = std::make_shared<UsizeRealType>(ReferenceType::NO_REF);
+        builtin_method_funcs.push_back({RealTypeKind::STRING, "len", string_len_fn_decl});
+
+        auto str_len_fn_decl = std::make_shared<FnDecl>(
+            nullptr,
+            nullptr,
+            fn_reciever_type::SELF_REF,
+            "str_len"
+        );
+        str_len_fn_decl->is_builtin = true;
+        str_len_fn_decl->return_type = std::make_shared<UsizeRealType>(ReferenceType::NO_REF);
+        builtin_method_funcs.push_back({RealTypeKind::STR, "len", str_len_fn_decl});
     }
     /*
     from
@@ -434,6 +464,7 @@ void Semantic_Checker::add_builtin_methods_and_associated_funcs() {
         );
         IdentifierPattern_ptr from_id_pattern = std::make_shared<IdentifierPattern>("s", Mutibility::IMMUTABLE, ReferenceType::NO_REF);
         from_fn_decl->parameters.push_back({from_id_pattern, std::make_shared<StrRealType>(ReferenceType::REF)});
+        from_fn_decl->is_builtin = true;
         from_fn_decl->return_type = std::make_shared<StringRealType>(ReferenceType::NO_REF);
         builtin_associated_funcs.push_back({RealTypeKind::STRING, "from", from_fn_decl});
         auto from_mut_fn_decl = std::make_shared<FnDecl>(
@@ -444,6 +475,7 @@ void Semantic_Checker::add_builtin_methods_and_associated_funcs() {
         );
         IdentifierPattern_ptr from_mut_id_pattern = std::make_shared<IdentifierPattern>("s", Mutibility::IMMUTABLE, ReferenceType::NO_REF);
         from_mut_fn_decl->parameters.push_back({from_mut_id_pattern, std::make_shared<StrRealType>(ReferenceType::REF_MUT)});
+        from_mut_fn_decl->is_builtin = true;
         from_mut_fn_decl->return_type = std::make_shared<StringRealType>(ReferenceType::NO_REF);
         builtin_associated_funcs.push_back({RealTypeKind::STRING, "from", from_mut_fn_decl});
     }
@@ -461,6 +493,7 @@ void Semantic_Checker::add_builtin_methods_and_associated_funcs() {
         );
         IdentifierPattern_ptr append_id_pattern = std::make_shared<IdentifierPattern>("s", Mutibility::IMMUTABLE, ReferenceType::NO_REF);
         append_fn_decl->parameters.push_back({append_id_pattern, std::make_shared<StrRealType>(ReferenceType::REF)});
+        append_fn_decl->is_builtin = true;
         append_fn_decl->return_type = std::make_shared<UnitRealType>(ReferenceType::NO_REF);
         builtin_method_funcs.push_back({RealTypeKind::STRING, "append", append_fn_decl});
     }

@@ -18,7 +18,7 @@
   * `FnItem_ptr ast_node` 与 `weak_ptr<Scope> function_scope` 关联到函数体所在作用域。
   * `vector<pair<Pattern_ptr, RealType_ptr>> parameters`、`RealType_ptr return_type` 在第二阶段解析类型后填充。
   * `fn_reciever_type receiver_type` 标记是否有 `self` 形参，`weak_ptr<StructDecl> self_struct` 指明所属结构体。
-  * `is_main`、`is_exit` 供语义检查特判。
+  * `is_main`、`is_exit`、`is_builtin`、`is_array_len`：分别表示是否是入口函数、`exit`、编译器注入的内建函数，以及“数组 `len`”这种在 IR 阶段可当常量处理的特殊内建。
 - `ConstDecl`：保存常量 AST 节点与求值后类型 `const_type`。
 - `LetDecl`：表示 `let` 引入的局部变量，基类中的 `name` 保存展开模式后的绑定名（对 `_` 或解构可置空），并记录真实类型 `let_type` 与可变性 `is_mut`。
 
