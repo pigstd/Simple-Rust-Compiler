@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import argparse
 import shutil
 import subprocess
 import sys
@@ -106,7 +107,7 @@ def run_program_case(driver: Path, clang_bin: str, case_path: Path) -> tuple[boo
     return result, ir_text
 
 
-def run_program_tests(bin_dir: Path, repo_root: Path) -> bool:
+def run_program_tests(bin_dir: Path, repo_root: Path, prefix: str) -> bool:
     driver = bin_dir / "ir_program_driver"
     if not driver.exists():
         fail(f"[WARN] Missing program driver binary: {driver}")
@@ -114,8 +115,15 @@ def run_program_tests(bin_dir: Path, repo_root: Path) -> bool:
 
     program_dir = repo_root / "test" / "IRGen" / "programs"
     cases = sorted(program_dir.glob("*.rx"))
+    if prefix:
+        cases = [case for case in cases if case.stem.startswith(prefix)]
     if not cases:
-        fail(f"[WARN] No program cases found under {program_dir}")
+        if prefix:
+            fail(
+                f"[WARN] No program cases under {program_dir} match prefix {prefix!r}"
+            )
+        else:
+            fail(f"[WARN] No program cases found under {program_dir}")
         return False
 
     clang_bin = shutil.which("clang")
@@ -137,6 +145,15 @@ def run_program_tests(bin_dir: Path, repo_root: Path) -> bool:
 
 
 def main() -> int:
+    parser = argparse.ArgumentParser(description="Run IRGen unit tests/programs")
+    parser.add_argument(
+        "-p",
+        "--prefix",
+        default="",
+        help="Only run program cases whose filenames start with this prefix",
+    )
+    args = parser.parse_args()
+
     repo_root = Path(__file__).resolve().parents[2]
     bin_dir = repo_root / "test" / "build" / "IRGen"
 
@@ -146,7 +163,7 @@ def main() -> int:
         return 1
 
     ok = run_cpp_tests(bin_dir)
-    prog_ok = run_program_tests(bin_dir, repo_root)
+    prog_ok = run_program_tests(bin_dir, repo_root, args.prefix or "")
     if ok and prog_ok:
         print(f"{PASS_MARK} [OK] All IRGen tests completed.")
         return 0

@@ -1,0 +1,43 @@
+// Test automatic referencing when invoking struct methods.
+// Covers plain variables, array indexing, and temporary values.
+
+struct boxy {
+    value: i32,
+}
+
+impl boxy {
+    fn bump(&mut self) -> () {
+        self.value = self.value + 1;
+    }
+
+    fn expose(&self) -> i32 {
+        self.value
+    }
+}
+
+fn build(x: i32) -> boxy {
+    boxy { value: x }
+}
+
+fn main() {
+    let mut code: i32 = 0;
+
+    let mut direct: boxy = build(1);
+    direct.bump();
+    if (direct.expose() != 2) {
+        code = 1;
+    }
+
+    let mut arr: [boxy; 1] = [build(10)];
+    arr[0].bump();
+    if (arr[0].expose() != 11) {
+        code = 2;
+    }
+
+    let temp_read: i32 = build(100).expose();
+    if (temp_read != 100) {
+        code = 3;
+    }
+
+    exit(code)
+}

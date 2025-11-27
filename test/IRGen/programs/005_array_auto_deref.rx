@@ -1,0 +1,25 @@
+// Test auto-dereference when indexing through chained array references.
+// Ensures &mut [T; N] and &[T; N] aliases allow indexing assignments/reads.
+
+fn main() {
+    let mut code: i32 = 0;
+    let mut values: [i32; 3] = [1, 2, 3];
+
+    let write_view: &mut [i32; 3] = &mut values;
+    write_view[0] = write_view[0] + 4; // expect 5
+
+    let alias_write: &mut [i32; 3] = write_view;
+    alias_write[1] = alias_write[0] - 1; // expect 4
+
+    if (values[0] != 5 || values[1] != 4 || values[2] != 3) {
+        code = 1;
+    }
+
+    let read_view: &[i32; 3] = &values;
+    let alias_read: &[i32; 3] = read_view;
+    if (alias_read[2] != 3) {
+        code = 1;
+    }
+
+    exit(code)
+}

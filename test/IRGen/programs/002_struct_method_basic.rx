@@ -4,19 +4,17 @@ struct counter {
 }
 
 impl counter {
-    /*
     fn inc(&mut self, delta: i32) -> () {
         self.value = self.value + delta;
-    }*/
+    }
     fn get(&self) -> i32 {
         self.value
     }
 }
 
 fn main() {
-    /*
     let mut c: counter = counter { value: 1 };
     c.inc(4);
-    let result: i32 = c.get();*/
-    exit(5 - 5);
+    let result: i32 = c.get();
+    exit(result - 5);
 }

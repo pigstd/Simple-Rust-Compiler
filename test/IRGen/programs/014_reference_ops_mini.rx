@@ -1,0 +1,23 @@
+// Reduced-size variant of reference_ops focusing on a single mutable alias
+// and an immutable observer reference.
+
+fn main() {
+    let mut code: i32 = 0;
+    let mut data: i32 = 3;
+
+    {
+        let data_alias: &mut i32 = &mut data;
+        *data_alias = *data_alias + 4; // data becomes 7
+
+        let view: &i32 = &data;
+        if (*view != 7) {
+            code = 1;
+        }
+    }
+
+    if (data != 7) {
+        code = 1;
+    }
+
+    exit(code)
+}
