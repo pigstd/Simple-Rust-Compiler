@@ -1,0 +1,11 @@
+// Read two integers, print their sum and the difference.
+
+fn main() {
+    let first: i32 = getInt();
+    let second: i32 = getInt();
+
+    printInt(first + second);
+    printlnInt(second - first);
+
+    exit(0);
+}
