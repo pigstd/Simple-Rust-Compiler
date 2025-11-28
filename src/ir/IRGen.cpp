@@ -545,10 +545,25 @@ void IRGenVisitor::visit(UnaryExpr &node) {
     }
     case Unary_Operator::NOT: {
         auto rhs = get_rvalue(node.right->NodeId);
+        auto kind = operand_type_kind(node.right->NodeId);
         ensure_current_insertion();
-        auto result = builder_.create_not(rhs);
-        expr_value_map_[node.NodeId] = result;
-        return;
+        if (kind == RealTypeKind::BOOL) {
+            auto result = builder_.create_not(rhs);
+            expr_value_map_[node.NodeId] = result;
+            return;
+        }
+        if (kind == RealTypeKind::I32 || kind == RealTypeKind::ISIZE ||
+            kind == RealTypeKind::U32 || kind == RealTypeKind::USIZE ||
+            kind == RealTypeKind::ANYINT) {
+            auto [operand_type, pk] =
+                node_type_and_place_kind_map_[node.right->NodeId];
+            auto lowered_type = type_lowering_.lower(operand_type);
+            auto ones = std::make_shared<ConstantValue>(lowered_type, -1);
+            auto result = builder_.create_xor(rhs, ones);
+            expr_value_map_[node.NodeId] = result;
+            return;
+        }
+        throw std::runtime_error("Unary NOT only supports bool or integer operands");
     }
     case Unary_Operator::REF:
     case Unary_Operator::REF_MUT: {

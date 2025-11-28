@@ -136,7 +136,7 @@ private:
   - 比较：同样调用 `create_compare`，结果为 `i1`。
   - 赋值/复合赋值：读取左值地址（`expr_address_map`），必要时 `load` 原值，与右值组合后写回地址并更新 `expr_value_map[node]`。
   - `&&`/`||`：构建 `lhs_block`/`rhs_block`/合流块，按短路规则跳转；为该表达式单独 `alloca` 一个布尔槽，分支将结果写入后在合流处 `load` 并放入 `expr_value_map[node]`。
-- **UnaryExpr**：`NEG/NOT` 直接对右值寄存器做算术；`REF/REF_MUT` 将右值地址写入 `expr_value_map[node]`；`DEREF` 把右值指针写入 `expr_address_map[node]`。
+- **UnaryExpr**：`NEG/NOT` 直接对右值寄存器做算术：`!bool` 生成 `xor i1 %value, true`，整型 `!` 通过与全 1 常量 `xor` 实现按位取反；`REF/REF_MUT` 将右值地址写入 `expr_value_map[node]`；`DEREF` 把右值指针写入 `expr_address_map[node]`。
 - **CallExpr**：根据 `call_expr_to_decl_map` 找到目标 `FnDecl`，收集实参寄存器后调用 `create_call`。  
   若 `callee` 是 `FieldExpr` 且 `FnDecl::receiver_type != NO_RECEIVER`，则先获取 base 表达式的地址/右值并作为 `self` 插到参数列表最前面：`&mut self` 传地址、`&self` 传地址并标记只读、`self` 传右值。  
   main 中的 `exit` 特判为“写入 `return_slot` + `br return_block`”。
@@ -197,7 +197,7 @@ private:
 #### 表达式分类策略
 - **LiteralExpr**：根据 `LiteralType` 生成 `ir::ConstantValue`。字符串字面量借助 `IRBuilder::create_string_literal` 分配 `[len+1 x i8]` 全局，返回 `{ ptr, i32 }` 聚合。
 - **UnaryExpr**：
-  - `NEG`/`NOT`：使用 `create_sub` / `create_xor`。
+  - `NEG` 使用 `create_sub`；`NOT` 根据操作数类型决定：布尔使用 `create_not`，整数使用与全 1 常量的 `create_xor` 完成按位取反。
   - `REF`/`REF_MUT`：调用 `lower_place_expr`，直接返回地址（并将表达式类型置为指针）。
   - `DEREF`：右操作数必须是指针类型；结果为该指针的 pointee 地址。
 - **BinaryExpr**：

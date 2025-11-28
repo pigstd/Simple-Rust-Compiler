@@ -1,0 +1,18 @@
+// Verify unary NOT for bool and integer operands.
+
+fn main() {
+    let cond: bool = true;
+    let flipped: bool = !cond;
+
+    let value: i32 = 15;
+    let inverted: i32 = !value;
+
+    let mut code: i32 = 0;
+    if (flipped != false) {
+        code = 1;
+    }
+    if (inverted != -16) {
+        code = 2;
+    }
+    exit(code);
+}
