@@ -1107,7 +1107,7 @@ void IRGenVisitor::visit(LiteralExpr &node) {
     auto &ctx = current_fn();
     switch (node.literal_type) {
     case LiteralType::NUMBER: {
-        constant = builder_.create_i32_constant(safe_stoll(node.value, LONG_LONG_MAX));
+        constant = builder_.create_i32_constant(safe_stoll(node.value));
         break;
     }
     case LiteralType::BOOL: {

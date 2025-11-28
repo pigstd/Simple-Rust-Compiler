@@ -12,19 +12,20 @@
   if (value == -1) { /* 非法输入 */ }
   ```
 
-#### `long long safe_stoll(const string &s, long long max_value)`
-- **作用**：带溢出检查的字符串转整数函数，支持以 `0x`/`0X` 前缀表示的十六进制，其余情况视为十进制。
+#### `long long safe_stoll(const string &s)`
+- **作用**：带溢出检查的字符串转整数函数，支持十进制/十六进制字面量及 Rust 风格整数后缀（`i32/u32/isize/usize`，无后缀默认允许 64 位范围）。
 - **流程**：
-  1. 若检测到十六进制前缀则调整进制，跳过前缀部分。
-  2. 逐字符调用 `ch_to_digit` 校验当前字符是否属于目标进制；出现非法字符或数字超出进制范围即抛出 `CE` 字符串异常。
-  3. 在累乘加和前执行溢出检查，若超过 `max_value` 也抛出 `CE` 异常。
+  1. 解析字面量是否包含 `_suffix`。根据后缀决定允许的最大值：`i32/isize` 对应 `INT32_MAX`、`u32/usize` 对应 `UINT32_MAX`、无后缀对应 `LLONG_MAX`。遇到未知后缀抛出 `CE`。
+  2. 检查是否为十六进制前缀（`0x`/`0X`）并调整进制。
+  3. 逐字符调用 `ch_to_digit` 校验当前字符是否属于目标进制；出现非法字符或数字超出进制范围即抛 `CE` 异常。
+  4. 在累乘加和前执行溢出检查，超过对应上限时抛 `CE`。
 - **返回值**：成功解析后的 `long long` 数值。
 - **典型用法**：
   ```cpp
   try {
-      auto value = safe_stoll("0x1F", UINT32_MAX);
+      auto value = safe_stoll("0x1F_u32");
   } catch (const string &err) {
       // 处理 "CE, invalid digit..." 或 "CE, number too large..." 错误
   }
   ```
-- **注意事项**：函数不处理 Rust 风格的类型后缀（如 `_i32`），需上层在调用前剥离 suffix。
+- **注意事项**：函数仅接受非负整数字面量（如需处理负数由语义阶段拆分成一元负号 + 正数）。

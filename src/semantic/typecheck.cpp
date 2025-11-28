@@ -169,23 +169,23 @@ RealType_ptr type_of_literal(LiteralType type, string value) {
         // 看后缀，以及要 check 是否是合法的数字
         if (value.size() >= 3 && value.substr(value.size() - 3) == "i32") {
             // i32
-            safe_stoll(value.substr(0, value.size() - 3), INT32_MAX);
+            safe_stoll(value);
             return std::make_shared<I32RealType>(ReferenceType::NO_REF);
         } else if (value.size() >= 3 && value.substr(value.size() - 3) == "u32") {
             // u32
-            safe_stoll(value.substr(0, value.size() - 3), UINT32_MAX);
+            safe_stoll(value);
             return std::make_shared<U32RealType>(ReferenceType::NO_REF);
         } else if (value.size() >= 5 && value.substr(value.size() - 5) == "isize") {
             // isize
-            safe_stoll(value.substr(0, value.size() - 5), INT32_MAX);
+            safe_stoll(value);
             return std::make_shared<IsizeRealType>(ReferenceType::NO_REF);
         } else if (value.size() >= 5 && value.substr(value.size() - 5) == "usize") {
             // usize
-            safe_stoll(value.substr(0, value.size() - 5), UINT32_MAX);
+            safe_stoll(value);
             return std::make_shared<UsizeRealType>(ReferenceType::NO_REF);
         } else {
             // anyint
-            safe_stoll(value, LLONG_MAX);
+            safe_stoll(value);
             return std::make_shared<AnyIntRealType>(ReferenceType::NO_REF);
         }
     } else {
@@ -995,12 +995,17 @@ void ExprTypeAndLetStmtVisitor::check_let_stmt(Pattern_ptr let_pattern, RealType
         auto literal_type = type_of_literal(literal_expr->literal_type, literal_expr->value);
         // 只需要考虑是 anyint 的情况，其他情况早已被检查掉了
         if (literal_type->kind == RealTypeKind::ANYINT) {
+            long long literal_value = safe_stoll(literal_expr->value);
             if (target_type->kind == RealTypeKind::USIZE ||
                 target_type->kind == RealTypeKind::U32) {
-                safe_stoll(literal_expr->value, UINT32_MAX);
+                if (literal_value > static_cast<long long>(UINT32_MAX)) {
+                    throw string("CE, anyint literal too large for unsigned 32-bit type");
+                }
             } else if (target_type->kind == RealTypeKind::ISIZE ||
                        target_type->kind == RealTypeKind::I32) {
-                safe_stoll(literal_expr->value, INT32_MAX);
+                if (literal_value > static_cast<long long>(INT32_MAX)) {
+                    throw string("CE, anyint literal too large for signed 32-bit type");
+                }
             } else {
                 throw string("CE, cannot assign anyint literal to non-integer type");
             }
