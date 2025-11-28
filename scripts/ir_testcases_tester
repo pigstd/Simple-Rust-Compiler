@@ -125,6 +125,9 @@ def run_case(case_dir: Path, out_stream: TextIO, case_limit: int) -> bool:
     compile_limit = info.get("compiletimelimit", 15)
     if compile_limit is None or compile_limit <= 0:
         compile_limit = 15
+    link_limit = info.get("linktimelimit", max(compile_limit * 2, 180))
+    if link_limit is None or link_limit <= 0:
+        link_limit = max(compile_limit * 2, 30)
     run_limit = info.get("runtimelimit", 5)
     if run_limit is None or run_limit <= 0:
         run_limit = 10
@@ -153,8 +156,8 @@ def run_case(case_dir: Path, out_stream: TextIO, case_limit: int) -> bool:
         fail(f"{PASS_MARK} {case_dir.name}: compile exit matched (expected failure)", out_stream)
         return True
 
-    fail(f"[INFO] {case_dir.name}: lowering & linking...", out_stream)
-    success, message, exe_path, tmp_manager = compile_program(driver_proc.stdout, compile_limit)
+    fail(f"[INFO] {case_dir.name}: lowering & linking (limit {link_limit}s)...", out_stream)
+    success, message, exe_path, tmp_manager = compile_program(driver_proc.stdout, link_limit)
     if not success:
         fail(f"{FAIL_MARK} {case_dir.name}: {message}", out_stream)
         return False
