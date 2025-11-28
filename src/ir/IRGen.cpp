@@ -653,6 +653,15 @@ void IRGenVisitor::visit(CallExpr &node) {
         if (!self_operand) {
             throw std::runtime_error("Failed to prepare self argument");
         }
+        auto base_type_it =
+            node_type_and_place_kind_map_.find(method_callee->base->NodeId);
+        if (base_type_it != node_type_and_place_kind_map_.end()) {
+            auto base_type = base_type_it->second.first;
+            if (base_type && base_type->is_ref != ReferenceType::NO_REF) {
+                ensure_current_insertion();
+                self_operand = builder_.create_load(self_operand);
+            }
+        }
         call_args.push_back(self_operand);
     }
 

@@ -1,0 +1,36 @@
+// EXPECT_EXIT: 0
+// Minimal reproduction: a struct method that calls another method on `self`.
+// Current IRGen passes `self` slots incorrectly, causing the generated binary
+// to dereference bogus pointers and crash before reaching the final exit.
+
+struct counter {
+    value: i32,
+}
+
+impl counter {
+    fn inc(&mut self) -> () {
+        self.value = self.value + 1;
+    }
+
+    fn bump(&mut self) -> () {
+        self.inc();
+        self.inc();
+    }
+}
+
+fn consume_counter(c: &mut counter) -> () {
+    c.bump();
+}
+
+fn main() {
+    let mut c: counter = counter { value: 0 };
+    c.bump(); // first nested call on `self`
+    consume_counter(&mut c); // pass through a &mut parameter to trigger the same bug
+    let mut code: i32 = 0;
+    if (c.value != 4) {
+        code = 1;
+    } else {
+        code = 0;
+    }
+    exit(code);
+}
