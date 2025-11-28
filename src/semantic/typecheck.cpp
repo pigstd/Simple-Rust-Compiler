@@ -628,6 +628,18 @@ void ExprTypeAndLetStmtVisitor::visit(IndexExpr &node) {
     if (base_type->kind != RealTypeKind::ARRAY) {
         throw string("CE, index expression requires array type base");
     }
+    // 特判：如果 index 是 LiteralExpr，检查是否越界
+    if (auto index_literal = 
+        std::dynamic_pointer_cast<LiteralExpr>(node.index)) {
+        if (index_literal->literal_type == LiteralType::NUMBER) {
+            size_t index_value = safe_stoll(index_literal->value);
+            auto array_type =
+                std::dynamic_pointer_cast<ArrayRealType>(base_type);
+            if (index_value >= array_type->size) {
+                throw string("CE, index out of bounds");
+            }
+        }
+    }
     auto array_type = std::dynamic_pointer_cast<ArrayRealType>(base_type);
     PlaceKind place_kind;
     if (base_type->is_ref == ReferenceType::NO_REF) {
