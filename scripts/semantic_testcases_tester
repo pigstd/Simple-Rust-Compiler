@@ -171,9 +171,6 @@ def main():
 
         log(f"testing {testcase}...")
         rs_file = os.path.join(directory, os.path.basename(entry["source"][0]))
-        json_file = os.path.join(directory, "case_meta.json")
-        with open(json_file, "w", encoding="utf-8") as meta_out:
-            json.dump(entry, meta_out)
 
         total_tests += 1
 
