@@ -984,13 +984,36 @@ void IRGenVisitor::visit(RepeatArrayExpr &node) {
     node.element->accept(*this);
     auto element_value = get_rvalue(node.element->NodeId);
     auto zero = builder_.create_i32_constant(0);
-    for (size_t idx = 0; idx < arr_len; ++idx) {
-    ensure_current_insertion();
+    // 改成手动写一个 while 循环来赋值，避免生成过大的 IR。
+    auto idx = builder_.create_temp_alloca(
+        type_lowering_.lower(std::make_shared<UsizeRealType>(ReferenceType::NO_REF)),
+        "repeat.array.idx");
+    builder_.create_store(zero, idx);
+    auto cond = builder_.create_block("repeatarray.while.cond");
+    auto body = builder_.create_block("repeatarray.while.body");
+    auto after = builder_.create_block("repeatarray.while.after");
+    builder_.create_br(cond);
+    current_fn().current_block = cond;
+    builder_.set_insertion_point(cond);
+
+    auto current_idx_cond = builder_.create_load(idx);
+    auto len_const = builder_.create_i32_constant(static_cast<int64_t>(arr_len));
+    auto cmp = builder_.create_icmp_slt(current_idx_cond, len_const);
+    builder_.create_cond_br(cmp, body, after);
+
+    current_fn().current_block = body;
+    builder_.set_insertion_point(body);
+    auto current_idx_body = builder_.create_load(idx);
     auto element_addr = builder_.create_gep(
-            slot, ir_array_type,
-            {zero, builder_.create_i32_constant(static_cast<int64_t>(idx))});
-        builder_.create_store(element_value, element_addr);
-    }
+        slot, ir_array_type,
+        {zero, current_idx_body});;
+    builder_.create_store(element_value, element_addr);
+    auto one_const = builder_.create_i32_constant(1);
+    auto next_idx = builder_.create_add(current_idx_body, one_const);
+    builder_.create_store(next_idx, idx);
+    builder_.create_br(cond);
+    current_fn().current_block = after;
+    builder_.set_insertion_point(after);
 
     expr_address_map_[node.NodeId] = slot;
 }
