@@ -1,0 +1,42 @@
+struct Matrix {
+    data: [[i32; 3]; 4],
+    bias: [i32; 2],
+}
+
+struct Inner {
+    flag: bool,
+    numbers: [i32; 2],
+    matrix: Matrix,
+}
+
+struct Wrapper {
+    left: Inner,
+    right: Inner,
+    extra: [bool; 5],
+}
+
+fn main() {
+    let mut wrapper: Wrapper = Wrapper {
+        left: Inner {
+            flag: true,
+            numbers: [1, 2],
+            matrix: Matrix {
+                data: [[0; 3]; 4],
+                bias: [0; 2],
+            },
+        },
+        right: Inner {
+            flag: false,
+            numbers: [3, 4],
+            matrix: Matrix {
+                data: [[0; 3]; 4],
+                bias: [0; 2],
+            },
+        },
+        extra: [false; 5],
+    };
+    if (wrapper.left.flag) {
+        wrapper.extra[0] = true;
+    }
+    exit(0);
+}

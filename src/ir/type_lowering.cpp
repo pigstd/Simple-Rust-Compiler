@@ -9,6 +9,8 @@ namespace ir {
 
 namespace {
 
+constexpr std::size_t kPointerSizeBytes = 4;
+
 ReferenceType receiver_to_ref(fn_reciever_type receiver) {
     switch (receiver) {
     case fn_reciever_type::SELF:
@@ -326,8 +328,8 @@ void TypeLowering::declare_builtin_string_types() {
         auto byte_ptr = std::make_shared<PointerType>(i8_type_);
         str_struct->set_fields({byte_ptr, i32_type_});
         struct_cache_["Str"] = str_struct;
-        module_.add_type_definition(
-            "Str", {byte_ptr->to_string(), i32_type_->to_string()});
+    module_.add_type_definition(
+        "Str", {byte_ptr->to_string(), i32_type_->to_string()});
     }
     if (!struct_cache_.count("String")) {
         auto string_struct = std::make_shared<StructType>("String");
@@ -338,6 +340,129 @@ void TypeLowering::declare_builtin_string_types() {
                                     {byte_ptr->to_string(), i32_type_->to_string(),
                                      i32_type_->to_string()});
     }
+}
+
+std::size_t TypeLowering::size_in_bytes(RealType_ptr type) {
+    if (!type) {
+        throw std::runtime_error("size_in_bytes requires valid type");
+    }
+    if (type->is_ref != ReferenceType::NO_REF) {
+        return kPointerSizeBytes;
+    }
+    switch (type->kind) {
+    case RealTypeKind::BOOL:
+    case RealTypeKind::CHAR:
+        return 1;
+    case RealTypeKind::UNIT:
+    case RealTypeKind::NEVER:
+        return 0;
+    case RealTypeKind::I32:
+    case RealTypeKind::ISIZE:
+    case RealTypeKind::U32:
+    case RealTypeKind::USIZE:
+    case RealTypeKind::ANYINT:
+    case RealTypeKind::ENUM:
+        return 4;
+    case RealTypeKind::ARRAY: {
+        auto array_type = std::dynamic_pointer_cast<ArrayRealType>(type);
+        if (!array_type) {
+            throw std::runtime_error("invalid ArrayRealType for size");
+        }
+        if (array_type->size == 0) {
+            throw std::runtime_error("array size missing");
+        }
+        auto elem_size = size_in_bytes(array_type->element_type);
+        return elem_size * array_type->size;
+    }
+    case RealTypeKind::STRUCT: {
+        auto struct_type = std::dynamic_pointer_cast<StructRealType>(type);
+        auto decl = struct_type ? struct_type->decl.lock() : nullptr;
+        if (!decl) {
+            throw std::runtime_error("StructDecl missing for size");
+        }
+        if (pending_struct_defs_.count(decl->name)) {
+            throw std::runtime_error("struct fields not defined: " +
+                                     decl->name);
+        }
+        return size_of_struct(decl->name, decl);
+    }
+    case RealTypeKind::STR:
+        return size_of_builtin_struct("Str");
+    case RealTypeKind::STRING:
+        return size_of_builtin_struct("String");
+    default:
+        break;
+    }
+    throw std::runtime_error("unsupported RealType for size_in_bytes");
+}
+
+std::size_t TypeLowering::size_of_struct(const std::string &name,
+                                         StructDecl_ptr decl) {
+    auto cached = struct_size_cache_.find(name);
+    if (cached != struct_size_cache_.end()) {
+        return cached->second;
+    }
+    if (struct_size_in_progress_.count(name)) {
+        throw std::runtime_error("cyclic struct size dependency: " + name);
+    }
+    struct_size_in_progress_.insert(name);
+    std::size_t total = 0;
+    if (!decl) {
+        total = size_of_builtin_struct(name);
+    } else {
+        for (const auto &field_name : decl->field_order) {
+            auto it = decl->fields.find(field_name);
+            if (it == decl->fields.end()) {
+                throw std::runtime_error("struct field missing type: " +
+                                         field_name);
+            }
+            total += size_in_bytes(it->second);
+        }
+    }
+    struct_size_in_progress_.erase(name);
+    struct_size_cache_[name] = total;
+    return total;
+}
+
+std::size_t TypeLowering::size_of_builtin_struct(const std::string &name) {
+    auto cached = struct_size_cache_.find(name);
+    if (cached != struct_size_cache_.end()) {
+        return cached->second;
+    }
+    auto type_it = struct_cache_.find(name);
+    if (type_it == struct_cache_.end()) {
+        throw std::runtime_error("builtin struct type missing: " + name);
+    }
+    std::size_t total = 0;
+    for (const auto &field : type_it->second->fields()) {
+        total += size_of_ir_type(field);
+    }
+    struct_size_cache_[name] = total;
+    return total;
+}
+
+std::size_t TypeLowering::size_of_ir_type(const IRType_ptr &type) {
+    if (!type) {
+        throw std::runtime_error("invalid IRType when computing size");
+    }
+    if (std::dynamic_pointer_cast<PointerType>(type)) {
+        return kPointerSizeBytes;
+    }
+    if (auto int_type = std::dynamic_pointer_cast<IntegerType>(type)) {
+        auto bits = int_type->bit_width();
+        return static_cast<std::size_t>((bits + 7) / 8);
+    }
+    if (auto array_type = std::dynamic_pointer_cast<ArrayType>(type)) {
+        auto elem_size = size_of_ir_type(array_type->element_type());
+        return elem_size * array_type->element_count();
+    }
+    if (auto struct_type = std::dynamic_pointer_cast<StructType>(type)) {
+        return size_of_builtin_struct(struct_type->name());
+    }
+    if (std::dynamic_pointer_cast<VoidType>(type)) {
+        return 0;
+    }
+    throw std::runtime_error("unsupported IRType for size computation");
 }
 
 } // namespace ir

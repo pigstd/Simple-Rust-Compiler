@@ -27,6 +27,7 @@ public:
     void define_struct_fields(StructDecl_ptr decl);
 
     void declare_builtin_string_types(); // 提前注册 `%Str` / `%String` 等固定布局
+    std::size_t size_in_bytes(RealType_ptr type); // 按当前布局计算聚合/标量占用字节数
 
 private:
     ir::IRModule &module_;
@@ -42,6 +43,7 @@ private:
   1. `declare_struct_stub` 只根据 `decl->name` 创建空的 `StructType` 并写入缓存（暂不输出到 `IRModule`）。所有 `lower(StructRealType)` 在此之后即可引用该占位类型，哪怕字段尚未就绪。若多次调用同一结构体，只返回缓存结果。  
   2. `define_struct_fields` 在占位存在时才会执行：按 `decl->fields` 顺序调用 `lower` 得到各字段 `IRType`，通过 `StructType::set_fields` 与 `IRModule::add_type_definition(name, field_texts)` 真正输出 `%Name = type { ... }`。若 `declare_struct_stub` 尚未执行或字段重复定义，直接抛出错误。
 - `declare_builtin_string_types()`：由编译驱动在 TypeLowering 初始化后立即调用，将 `%Str = { ptr(i8*), i32 }` 与 `%String = { ptr(i8*), i32, i32 }` 注册到 `IRModule` 并写入缓存。之后 `lower(StrRealType)`/`lower(StringRealType)` 只查缓存（命中即返回，未命中直接抛错）。这样 runtime 内建函数只需关注具体实现，IRGen 在使用到某个 builtin 时再声明对应符号即可。
+- `size_in_bytes(RealType_ptr type)`：返回任意 `RealType` 在当前自研 IR 布局下占用的字节数。实现上假定所有标量遵循 `IRBuilder` 的约定：`i1/i8` 视为 1 字节，`i32/u32/isize/usize` 为 4 字节，`ptr` 同样固定为 4 字节，目前**不额外插入对齐/填充**。聚合类型递归处理：数组为 `element_size * length`，结构体按字段顺序做简单求和（无 padding），引用类型一律返回指针大小。函数会在结构体尚未 `define_struct_fields` 完成时抛错，调用者需要在第二阶段结束后再查询。为避免重复计算，TypeLowering 维护一个 `struct_size_cache_` 与 `struct_size_in_progress_`，检测循环依赖的同时缓存结果；内建 `%Str/%String` 则复用它们在模块里已经注册的固定布局。后续 IRGen 生成 `memcpy/memset` 或需要“按值返回”的聚合改写时，都可以通过该接口获取准确的字节数。
 - 结构体缓存策略：假设编译驱动会在结构体声明阶段调用 `declare_struct_stub` 并把所有 `%StructName` 先写入 `struct_cache_`，再在依赖满足时调用 `define_struct_fields`。若 `lower` 遇到某个结构体时缓存未命中，视为初始化顺序错误，直接抛出 `std::runtime_error("struct not declared")`。
 
 #### 内部 helper

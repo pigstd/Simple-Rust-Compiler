@@ -11,6 +11,7 @@ TEST_BINARIES = [
     "type_lowering_api_test",
     "type_lowering_behavior_test",
     "declare_builtin_string_types_test",
+    "type_size_test",
 ]
 
 

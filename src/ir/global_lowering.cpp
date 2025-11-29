@@ -48,6 +48,14 @@ void GlobalLoweringDriver::visit_scope(Scope_ptr scope) {
     for (const auto &struct_decl : struct_decls) {
         type_lowering_.define_struct_fields(struct_decl);
     }
+    for (const auto &struct_decl : struct_decls) {
+        if (!struct_decl) {
+            continue;
+        }
+        auto real_type = std::make_shared<StructRealType>(
+            struct_decl->name, ReferenceType::NO_REF, struct_decl);
+        (void)type_lowering_.size_in_bytes(real_type);
+    }
 
     std::size_t local_counter = 0;
     const std::string scope_suffix = current_scope_suffix();

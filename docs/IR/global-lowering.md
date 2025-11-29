@@ -43,7 +43,8 @@ class GlobalLoweringDriver {
   - `unordered_map<string, GlobalValue_ptr> globals_`：按符号名保存已创建的全局变量。
   - `vector<string> scope_suffix_stack_`：DFS 过程中记录“从根到当前 scope 的路径”。只在**进入新的子 scope**前压入 `".N"` 片段（`N` 为该子 scope 在父节点内的计数），退出时弹出，栈内容串联后即为类似 `".0.1"` 的作用域后缀。
 - `emit_scope_tree` 执行顺序：
-  1. 深度优先遍历 `Scope` 树，通过 `visit_scope` 在每个节点先完成结构体的“两阶段”注册（`declare_struct_stub` + `define_struct_fields`），再处理 `value_namespace` 中的函数/常量，最后递归子 scope。遍历结束后由 `IRModule::serialize()` 负责格式化输出顺序。
+  1. 深度优先遍历 `Scope` 树，通过 `visit_scope` 在每个节点先完成结构体的“三阶段”注册：第一遍 `declare_struct_stub` 建立占位，第二遍 `define_struct_fields` 写入字段，第三遍（新增）针对本节点的所有 `StructDecl` 构造临时 `StructRealType` 并调用 `TypeLowering::size_in_bytes`，把聚合大小预先缓存；这样后续无论是 IRGen 还是测试都能直接命中 `size_in_bytes` 的缓存无需再次递归。
+  2. 在结构体处理完毕后访问 `value_namespace` 中的函数/常量，最后递归子 scope。遍历结束后由 `IRModule::serialize()` 负责格式化输出顺序。
 
 #### Item 遍历与符号命名
 `visit_scope` 统一贯穿整个 Scope 树：在进入某个 scope 时，先把 `type_namespace` 里的结构体拆成“占位”和“定义”两遍，确保相互引用不会因 `map` 顺序出错；再处理 `value_namespace`（函数、常量），最后递归子节点。语义阶段已经把函数/常量按作用域注册好，因此不需要再回到 AST；仅需依据 `Scope` 中的 decl 生成 IR。`scope_suffix_stack_` 只在递归子 scope 时更新：每次进入子 scope 之前先用局部 `local_counter` 分配一个 `"." + counter` 片段压栈，离开时弹栈，于是每个 scope 都拥有一条稳定的 DFS 路径。
