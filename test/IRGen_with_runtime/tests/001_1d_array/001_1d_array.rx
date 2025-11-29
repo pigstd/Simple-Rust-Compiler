@@ -1,0 +1,38 @@
+// EXPECT_EXIT: 0
+// Large 1D array initialization/run through runtime harness.
+
+struct BigArray {
+    data: [i32; 40000],
+}
+
+impl BigArray {
+    fn new() -> BigArray {
+        BigArray { data: [0; 40000] }
+    }
+
+    fn fill_with_indices(&mut self) -> () {
+        let mut i: i32 = 0;
+        while (i < 40000) {
+            self.data[i as usize] = i;
+            i += 1;
+        }
+    }
+
+    fn sum(&self) -> i32 {
+        let mut total: i32 = 0;
+        let mut i: i32 = 0;
+        while (i < 40000) {
+            total += self.data[i as usize];
+            i += 1;
+        }
+        total
+    }
+}
+
+fn main() {
+    let mut arr: BigArray = BigArray::new();
+    arr.fill_with_indices();
+    let answer: i32 = arr.sum();
+    printlnInt(answer);
+    exit(0);
+}
