@@ -84,8 +84,22 @@ FunctionType::~FunctionType() = default;
 
 IRType_ptr FunctionType::return_type() const { return return_type_; }
 
+void FunctionType::set_return_type(IRType_ptr type) {
+    if (!type) {
+        throw std::runtime_error("FunctionType requires valid return type");
+    }
+    return_type_ = type;
+}
+
 const std::vector<IRType_ptr> &FunctionType::param_types() const {
     return param_types_;
+}
+
+void FunctionType::append_param(IRType_ptr type) {
+    if (!type) {
+        throw std::runtime_error("FunctionType::append_param requires type");
+    }
+    param_types_.push_back(std::move(type));
 }
 
 std::string FunctionType::to_string() const {
@@ -535,6 +549,13 @@ IRFunction::IRFunction(std::string name, IRType_ptr fn_type,
 const std::string &IRFunction::name() const { return name_; }
 
 IRType_ptr IRFunction::type() const { return fn_type_; }
+
+void IRFunction::set_type(IRType_ptr type) {
+    if (!type) {
+        throw std::runtime_error("IRFunction requires valid type");
+    }
+    fn_type_ = std::move(type);
+}
 
 bool IRFunction::is_declaration() const { return is_declaration_; }
 

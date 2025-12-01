@@ -120,6 +120,7 @@ IR 相关的所有类型、builder、上下文统一置于 `namespace ir` 下：
   - `deduce_gep_pointee()`：根据数组/结构索引序列推导 `getelementptr` 结果指向的元素类型；`PointerType` 本身存着 `pointee`，因此 `create_load`/`create_store` 等只需直接查看指针类型即可，还可以在 `GlobalValue`/`alloca` 构造时立刻携带 pointee。
   - `string_literal_counters()` / `encode_string_literal()`：为 `create_string_literal()` 生成唯一的 `.str.N` 名称，同时把原始文本编码为 LLVM `c"..."` 语法（包含转义和结尾的 `\00`）。
   - `predicate_to_string()`、`opcode_to_string()`：把内部枚举（`ICmpPredicate`、`Opcode`）转换为 LLVM 指令助记符，便于 `IRInstruction::to_string()`。
+- 常用函数类型调整接口：`FunctionType::set_return_type`（修改返回类型）、`FunctionType::append_param`（在末尾追加参数）、`IRFunction::set_type`（替换函数签名）。聚合返回需依靠这些接口把“返回值”改成 `void + sret 指针`。
 - `void IRModule::dump() const;`、`void IRFunction::dump() const;` 输出到 `stderr`，用于调试。
 - 可以在序列化时为指令追加注释（如 `; node_id=123`）帮助排查问题。
 
@@ -159,3 +160,9 @@ IR 相关的所有类型、builder、上下文统一置于 `namespace ir` 下：
                           builder.create_gep(arr, {...}));
      ```
 这些示例展示了 IRBuilder 处理返回值、字符串 &str、数组常量等典型场景，可作为测试基准。
+
+### 2.4 聚合返回与 sret
+对于返回结构体/数组的函数，可通过以下流程实现 “caller 分配缓冲区 + 隐式 sret 参数”：
+- 检测 `FnDecl` 的返回类型是否为聚合，若是，则在生成 `FunctionType` 后调用 `set_return_type(void_type)`，并在参数列表末尾追加一个指向返回值的指针（`append_param(ptr_type)`）。
+- IR 函数在 `define_function` 时用 `add_param("ret.buf", ptr_type)` 追加这个隐藏参数，用作 `ctx.return_slot`。
+- 调用端需 `create_temp_alloca` 一块缓冲区，并将其作为第一个参数传给 `create_call`，之后的实参依次平移，自己通过 `expr_address_map_` 读取 call 结果。这样可以复用 `store_expression_result` 的 memcpy 逻辑，同时与 `TypeLowering::size_in_bytes` 的布局保持一致。

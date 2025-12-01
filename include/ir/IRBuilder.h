@@ -190,8 +190,10 @@ class FunctionType : public IRType {
 
     // 读取返回值类型。
     IRType_ptr return_type() const;
+    void set_return_type(IRType_ptr type);
     // 读取参数类型列表。
     const std::vector<IRType_ptr> &param_types() const;
+    void append_param(IRType_ptr type);
     // 输出函数类型在 LLVM 中的片段。
     std::string to_string() const override;
 
@@ -378,6 +380,7 @@ class IRFunction : public std::enable_shared_from_this<IRFunction> {
     const std::string &name() const;
     // 获取函数类型。
     IRType_ptr type() const;
+    void set_type(IRType_ptr type);
     // 是否为声明。
     bool is_declaration() const;
     // 标记为声明或定义。

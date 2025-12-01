@@ -102,6 +102,15 @@ void IRGenVisitor::visit(FnItem &node) {
         throw std::runtime_error("IR function already lowered");
     }
 
+    bool is_aggregate = is_aggregate_type(decl->return_type);
+    if (is_aggregate) {
+        auto return_type = fn_type->return_type();
+        fn_type->set_return_type(std::make_shared<VoidType>());
+        fn_type->append_param(std::make_shared<PointerType>(return_type));
+        ir_function->set_type(fn_type);
+        ir_function->add_param("sret", std::make_shared<PointerType>(return_type));
+    }
+
     // 每个函数节点单独创建 FunctionContext，避免跨函数污染状态。
     auto previous_fn_ctx = std::move(fn_ctx_);
     fn_ctx_ = std::make_unique<FunctionContext>();
@@ -131,7 +140,9 @@ void IRGenVisitor::visit(FnItem &node) {
         builder_.create_store(arg, slot);
         ctx.self_slot = slot;
     }
-    for (std::size_t idx = 0; param_idx < params.size(); ++idx, ++param_idx) {
+    for (std::size_t idx = 0; param_idx < params.size()
+                              && idx < decl->parameter_let_decls.size();
+                              ++idx, ++param_idx) {
         auto let_decl = decl->parameter_let_decls[idx];
         auto slot = ensure_slot_for_decl(let_decl);
         auto [name, type] = params[param_idx];
@@ -153,8 +164,15 @@ void IRGenVisitor::visit(FnItem &node) {
         ctx.return_slot = builder_.create_temp_alloca(ir_type, "ret.slot");
     }
     else if (needs_return_slot) {
-        auto ir_type = type_lowering_.lower(decl->return_type);
-        ctx.return_slot = builder_.create_temp_alloca(ir_type, "ret.slot");
+        if (is_aggregate) {
+            assert(param_idx < params.size());
+            auto [name, type] = params[param_idx];
+            ctx.return_slot = std::make_shared<RegisterValue>(name, type);
+        }
+        else {
+            auto ir_type = type_lowering_.lower(decl->return_type);
+            ctx.return_slot = builder_.create_temp_alloca(ir_type, "ret.slot");
+        }
     } else {
         ctx.return_slot = nullptr;
     }
@@ -166,8 +184,8 @@ void IRGenVisitor::visit(FnItem &node) {
     if (needs_return_slot && !decl->is_main &&
         current_block_has_next(node.body->NodeId)) {
         // 有返回值且函数体非终止，那么这个 block 的值结尾就是返回值。
-        builder_.create_store(get_rvalue(node.body->NodeId),
-                             ctx.return_slot);
+        store_expression_result(node.body->NodeId,
+            ctx.return_slot, decl->return_type);
     }
 
     if (ctx.current_block && !ctx.block_sealed) {
@@ -175,10 +193,11 @@ void IRGenVisitor::visit(FnItem &node) {
     }
     builder_.set_insertion_point(ctx.return_block);
     if (!ctx.return_block->get_terminator()) {
-        if (ctx.return_slot) {
+        if (ctx.return_slot && !is_aggregate) {
             auto ret_value = builder_.create_load(ctx.return_slot, "ret.val");
             builder_.create_ret(ret_value);
         } else {
+            // 如果是 aggregate，也是返回 void
             builder_.create_ret();
         }
     }
@@ -705,10 +724,19 @@ void IRGenVisitor::visit(CallExpr &node) {
         auto fn_type = type_lowering_.lower_function(fn_decl);
         module_.declare_function(fn_decl->name, fn_type, true);
     }
-    auto call_result =
-        builder_.create_call(fn_decl->name, call_args, ret_ir_type, "call.tmp");
-    if (call_result) {
-        expr_value_map_[node.NodeId] = call_result;
+    if (is_aggregate_type(ret_real_type)) {
+        auto call_result_slot = 
+            builder_.create_temp_alloca(ret_ir_type, "call.ret.slot");
+        call_args.push_back(call_result_slot);
+        ret_ir_type = std::make_shared<VoidType>();
+        builder_.create_call(fn_decl->name, call_args, ret_ir_type);
+        expr_address_map_[node.NodeId] = call_result_slot;
+    } else {
+        auto call_result =
+            builder_.create_call(fn_decl->name, call_args, ret_ir_type, "call.tmp");
+        if (call_result) {
+            expr_value_map_[node.NodeId] = call_result;
+        }
     }
 }
 

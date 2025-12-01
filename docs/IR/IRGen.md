@@ -44,7 +44,7 @@
   - `FnDecl_ptr decl`：语义阶段的函数声明。
   - `IRFunction_ptr ir_function`：global lowering 创建的 IR 函数对象。
   - `BasicBlock_ptr entry_block` / `BasicBlock_ptr current_block` / `BasicBlock_ptr return_block`：管理 builder 的插入点与统一的返回出口。
-  - `IRValue_ptr return_slot`：若函数返回非 `void` 类型，则在入口 `alloca` 一个槽，用于从任意分支写入返回值；返回 `void` 或 `Never` 时保持 `nullptr`。
+  - `IRValue_ptr return_slot`：若函数返回非 `void` 类型，则在入口 `alloca` 一个槽，用于从任意分支写入返回值；若返回类型是聚合（结构体/数组/String），则改写签名为 `void + sret`，并把调用者提供的 sret 指针直接存入 `return_slot` 供 `store_expression_result` 使用。
   - `unordered_map<LetDecl_ptr, IRValue_ptr> local_slots`：将语义阶段的局部声明映射到 `alloca` 结果。形参在 `visit(FnItem)` 之初生成槽并写入此表，函数体中的 `let` 语句在执行时追加。
   - `IRValue_ptr self_slot`：方法/impl 函数中 `SelfExpr` 对应的栈槽，仅在 `receiver_type != NO_RECEIVER` 时有效。
   - `bool block_sealed`：若当前基本块已经通过 `ret/br` 终结，设置为 `true` 并阻止在同一块继续插入指令。
@@ -125,7 +125,7 @@ private:
 - `current_block_has_next(node_id)` 查询 `node_outcome_state_map[node_id]` 中是否含 `OutcomeType::NEXT`；若缺失，则当前块在语义上已经终止（return/break），visitor 应将 `current_block` 标记为终结状态，阻止追加指令。
 
 #### visit 行为速查
-- **FnItem**：创建/清空 `entry` 与 `return_block`，为全部 `parameter_let_decls` 分配栈槽并 `store` 形参值，`alloca` `return_slot`（若返回非 void），处理 main/exit 特判，然后继续访问函数体 `BlockExpr`。
+- **FnItem**：创建/清空 `entry` 与 `return_block`。当返回聚合体时，借助 `FunctionType::set_return_type` + `append_param` 把签名改成 `void` 并在参数末尾附加 sret 指针，再把该寄存器写入 `return_slot`。其余情况维持“入口 `alloca` 返回槽”的策略。随后遍历 `FnDecl::parameter_let_decls` 调用 `ensure_slot_for_decl` 建立栈槽并把 `ir_function->params()` 写入；特判 main/exit，最后访问函数体 `BlockExpr`。
 - **LetStmt**：确保目标 `LetDecl` 已有 `alloca`。若有初始化表达式则先访问该表达式、通过 `get_rvalue` 拿到寄存器，再写入局部槽；语义阶段已保证类型匹配，因此无需额外 result slot。
 - **ExprStmt**：访问表达式；若 `OutcomeState` 无 `NEXT`，立刻把 `current_block` 置空；若语句末尾**没有**分号且表达式结果类型不是 `()`/`Never`，则把该寄存器结果写入 `expr_value_map[node.NodeId]`，这样父节点（例如 Block 的尾随表达式）可以继续使用。
 - **ReturnExpr**：若带值则写入 `return_slot`，随后 `br return_block` 并设置 `block_sealed = true`。
@@ -137,7 +137,7 @@ private:
   - 赋值/复合赋值：读取左值地址（`expr_address_map`），必要时 `load` 原值，与右值组合后写回地址并更新 `expr_value_map[node]`。
   - `&&`/`||`：构建 `lhs_block`/`rhs_block`/合流块，按短路规则跳转；为该表达式单独 `alloca` 一个布尔槽，分支将结果写入后在合流处 `load` 并放入 `expr_value_map[node]`。
 - **UnaryExpr**：`NEG/NOT` 直接对右值寄存器做算术：`!bool` 生成 `xor i1 %value, true`，整型 `!` 通过与全 1 常量 `xor` 实现按位取反；`REF/REF_MUT` 将右值地址写入 `expr_value_map[node]`；`DEREF` 把右值指针写入 `expr_address_map[node]`。
-- **CallExpr**：根据 `call_expr_to_decl_map` 找到目标 `FnDecl`，收集实参寄存器后调用 `create_call`。  
+- **CallExpr**：根据 `call_expr_to_decl_map` 找到目标 `FnDecl`，收集实参寄存器后调用 `create_call`。若返回类型是聚合，则在当前函数 `alloca` 一块缓冲区，把它附加在参数列表末尾并将返回类型改成 `void`，调用结束后把该地址记录到 `expr_address_map`。  
   若 `callee` 是 `FieldExpr` 且 `FnDecl::receiver_type != NO_RECEIVER`，则先获取 base 表达式的地址/右值并作为 `self` 插到参数列表最前面：`&mut self` 传地址、`&self` 传地址并标记只读、`self` 传右值。  
   main 中的 `exit` 特判为“写入 `return_slot` + `br return_block`”。
 - **IfExpr**：若表达式结果会被后续使用，则在当前函数中 `alloca` 临时槽承载该值；`then/else` 块根据 OutcomeState 选择性写入该槽，merge 处 `load` 并写入 `expr_value_map[node]`，父节点随后用 `get_rvalue` 读取即可。
@@ -191,10 +191,7 @@ private:
   - 聚合构造统一遵循“调用方决定目标地址”的规则：若上层提供了地址（`let foo = Struct { ... }`），就在该地址上就地写入；否则先在本函数里 `alloca` 一个临时槽再写入，最后 `load` 成寄存器值。
   - `StructExpr` 遍历 `node.fields`，对每个字段调用 `lower_expr(field_expr, /*dest=*/field_gep_address)`。
   - `ArrayExpr` 与 `RepeatArrayExpr` 通过 `create_gep` 定位 `[0, element_index]`，重复写入。Repeat 里的元素表达式只计算一次，随后生成一个显式的 while 循环来把该值填满整个数组，避免在 IR 中展开成过多的 store 指令。
-- **结构体/数组赋值（临时策略）**：第一版直接把整个聚合视为一个 SSA 值：
-  - `lower_place_expr(lhs)` 获取目标地址；`lower_expr(rhs)` 若返回地址则直接 `load struct_ty, ptr %rhs`。
-  - 将得到的聚合值 `store struct_ty %loaded, ptr %lhs_addr`。数组也沿用相同方式。
-  - 这种“整体 load → store” 的表达方式简单直观，后续如需规避 padding/`undef` 问题，再替换为 `llvm.memcpy` 或逐字段拷贝。
+- **结构体/数组赋值**：所有聚合的“= ”都复用 `store_expression_result`，即：父节点先获取目标地址，再把右值当作地址交给 `emit_memcpy`。这样无论是 `let arr = literal;`、`arr = other_arr;` 还是 `return struct_literal;` 都会转换成调用 `llvm.memcpy`，不会再发射 `load [N x T]`/`store [N x T]` 这类昂贵指令。
 - **ConstDecl 引用**：当 `IdentifierExpr` 绑定到 `ConstDecl` 时：
   - 若是数组常量，则 global lowering 已经创建了 `@const.NAME`，直接返回该 `GlobalValue`.
   - 若为标量，使用 `const_value_map` + `TypeLowering::lower_const` 得到 `ConstantValue`，无需额外 `load`。
@@ -215,6 +212,7 @@ private:
   - 若 `callee` 是 `FieldExpr`，意味着方法调用：在参数列表前注入 `self`（按 `receiver_type` 区分值/引用/可变引用），传参顺序与 `FnDecl::parameters` 一致。
   - `PathExpr` 代表关联函数通过 `Type::func` 被调用，直接使用语义阶段解析的 `FnDecl`。
   - 对内建函数（如 `print/println/exit`）不需特判，它们在语义阶段就以普通 `FnDecl` 注册，IR 侧只要调用对应符号即可。
+  - 若 `FnDecl` 返回聚合体，则调用前会在当前函数里 `alloca` 一块缓冲区，把它 push 到参数列表末尾，同时把 `create_call` 的 `ret_type` 改成 `void`。调用返回后把该地址写入 `expr_address_map[node]`，供父节点继续通过 `store_expression_result` 复制到最终目标。
   - main 函数里的 `exit(code)` 需要特殊处理：直接把 `code` 写入 `return_slot` 并跳转到 `return_block`，不再真正发出 `call @exit`。语义阶段限定 `exit` 只能在 main 中出现，因此其他函数仍按普通 `call` 处理。
 - **CastExpr**：根据 `node_type_and_place_kind_map` 判定源/目标类型。整数之间通过 `create_zext`/`create_sext`/`create_trunc`（必要时在 IRBuilder 中新增），引用相关的 cast 应在语义阶段禁止，这里只需 assert。
 
