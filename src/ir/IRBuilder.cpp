@@ -790,7 +790,8 @@ IRSerializer::IRSerializer(const IRModule &module) : module_(module) {}
 std::string IRSerializer::serialize() const { return module_.to_string(); }
 
 IRBuilder::IRBuilder(IRModule &module)
-    : module_(module), next_reg_index_(0), memcpy_declared_(false) {}
+    : module_(module), next_reg_index_(0), memcpy_declared_(false),
+      memset_declared_(false) {}
 
 IRModule &IRBuilder::module() { return module_; }
 
@@ -1154,6 +1155,34 @@ void IRBuilder::create_memcpy(IRValue_ptr dst, IRValue_ptr src,
         i1_type, static_cast<int64_t>(is_volatile ? 1 : 0));
     std::vector<IRValue_ptr> args = {dst, src, length, flag};
     create_call("llvm.memcpy.p0.p0.i32", args, std::make_shared<VoidType>());
+}
+
+void IRBuilder::ensure_memset_declared() {
+    if (memset_declared_) {
+        return;
+    }
+    auto byte_type = std::make_shared<IntegerType>(8);
+    auto ptr_type = std::make_shared<PointerType>(byte_type);
+    auto i32_type = std::make_shared<IntegerType>(32);
+    auto i1_type = std::make_shared<IntegerType>(1);
+    auto void_type = std::make_shared<VoidType>();
+    std::vector<IRType_ptr> params = {ptr_type, byte_type, i32_type, i1_type};
+    auto memset_type = std::make_shared<FunctionType>(void_type, params);
+    module_.declare_function("llvm.memset.p0.i32", memset_type, true);
+    memset_declared_ = true;
+}
+
+void IRBuilder::create_memset(IRValue_ptr dst, IRValue_ptr value,
+                              IRValue_ptr length, bool is_volatile) {
+    if (!dst || !value || !length) {
+        throw std::runtime_error("memset requires valid operands");
+    }
+    ensure_memset_declared();
+    auto i1_type = std::make_shared<IntegerType>(1);
+    auto flag = std::make_shared<ConstantValue>(
+        i1_type, static_cast<int64_t>(is_volatile ? 1 : 0));
+    std::vector<IRValue_ptr> args = {dst, value, length, flag};
+    create_call("llvm.memset.p0.i32", args, std::make_shared<VoidType>());
 }
 
 GlobalValue_ptr IRBuilder::create_string_literal(const std::string &text) {

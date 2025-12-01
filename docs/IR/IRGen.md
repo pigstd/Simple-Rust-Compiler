@@ -143,7 +143,7 @@ private:
 - **IfExpr**：若表达式结果会被后续使用，则在当前函数中 `alloca` 临时槽承载该值；`then/else` 块根据 OutcomeState 选择性写入该槽，merge 处 `load` 并写入 `expr_value_map[node]`，父节点随后用 `get_rvalue` 读取即可。
 - **BlockExpr**：顺序访问语句；若存在尾随表达式则访问它、把寄存器写入 `expr_value_map[node]`，由父节点自行决定是否 `store` 到其它地址。
 - **WhileExpr/LoopExpr**：创建 `cond`/`body`/`exit`（loop 的 `cond` 直接跳 body），更新 `LoopContext`，在 cond 中生成比较并据此跳转；loop 若需要返回值则在 `break_slot` 分配槽，break 时写入。
-- **StructExpr/ArrayExpr/RepeatArrayExpr**：若存在目标地址则就地写入，否则 `alloca` 临时槽，再逐字段/元素访问并写入；Repeat array 在写入首元素后用显式 `while` 循环复制其余元素，避免生成体量过大的静态 `store` 序列。
+- **StructExpr/ArrayExpr/RepeatArrayExpr**：若存在目标地址则就地写入，否则 `alloca` 临时槽，再逐字段/元素访问并写入；Repeat array 默认会写一次元素然后用显式 `while` 循环复制其余元素（避免生成几十行 `store` 指令）。若元素表达式可以在编译期判定为“全零”（字面量 `0/false`、嵌套的 repeat/array 都是零），则跳过循环，直接通过 `llvm.memset` 把整块数组清零。
 - **FieldExpr/IndexExpr/IdentifierExpr/SelfExpr**：把可寻址结果写入 `expr_address_map[node]`；若需要右值则 `load`。字段/索引使用 `create_gep` 计算偏移，SelfExpr 直接返回 `self_slot`。
 - **LiteralExpr**：生成 `ConstantValue` 填入 `expr_value_map[node]`；字符串通过 `create_string_literal` 生成全局字面量。
 - **ConstDecl 引用**：数组常量使用 global lowering 的 `GlobalValue`；标量常量直接转换为 `ConstantValue`。
@@ -190,7 +190,7 @@ private:
 - **StructExpr / ArrayExpr / RepeatArrayExpr**：
   - 聚合构造统一遵循“调用方决定目标地址”的规则：若上层提供了地址（`let foo = Struct { ... }`），就在该地址上就地写入；否则先在本函数里 `alloca` 一个临时槽再写入，最后 `load` 成寄存器值。
   - `StructExpr` 遍历 `node.fields`，对每个字段调用 `lower_expr(field_expr, /*dest=*/field_gep_address)`。
-  - `ArrayExpr` 与 `RepeatArrayExpr` 通过 `create_gep` 定位 `[0, element_index]`，重复写入。Repeat 里的元素表达式只计算一次，随后生成一个显式的 while 循环来把该值填满整个数组，避免在 IR 中展开成过多的 store 指令。
+  - `ArrayExpr` 与 `RepeatArrayExpr` 通过 `create_gep` 定位 `[0, element_index]`，重复写入。Repeat 里的元素表达式只计算一次，随后生成一个显式的 while 循环来把该值填满整个数组；如果元素被判定为零初始化，则直接调用 `llvm.memset` 填零，避免 5000 次循环造成 LLVM 崩溃。
 - **结构体/数组赋值**：所有聚合的“= ”都复用 `store_expression_result`，即：父节点先获取目标地址，再把右值当作地址交给 `emit_memcpy`。这样无论是 `let arr = literal;`、`arr = other_arr;` 还是 `return struct_literal;` 都会转换成调用 `llvm.memcpy`，不会再发射 `load [N x T]`/`store [N x T]` 这类昂贵指令。
 - **ConstDecl 引用**：当 `IdentifierExpr` 绑定到 `ConstDecl` 时：
   - 若是数组常量，则 global lowering 已经创建了 `@const.NAME`，直接返回该 `GlobalValue`.

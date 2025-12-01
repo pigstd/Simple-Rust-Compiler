@@ -101,6 +101,8 @@ class IRGenVisitor : public AST_Walker {
     void emit_memcpy(IRValue_ptr dst, IRValue_ptr src, RealType_ptr type);
     void store_expression_result(size_t node_id, IRValue_ptr address,
                                  RealType_ptr target_type = nullptr);
+    bool is_zero_initializer_expr(const Expr_ptr &expr) const;
+    void zero_initialize(IRValue_ptr address, RealType_ptr type);
 
     IRModule &module_;
     IRBuilder &builder_;

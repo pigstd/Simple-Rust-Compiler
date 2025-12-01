@@ -107,6 +107,8 @@ IR 相关的所有类型、builder、上下文统一置于 `namespace ir` 下：
     - `void create_store(IRValue_ptr value, IRValue_ptr ptr)`
     - `IRValue_ptr create_gep(IRValue_ptr base_ptr, IRType_ptr element_type, vector<IRValue_ptr> indices, string name_hint = "")`
     用于声明局部变量、读取/写入地址、计算偏移；`create_gep` 仍需显式提供元素类型（便于在 `ptr` 指向结构体/数组时精确定义索引），但 PointerType 自身已经记录 pointee，`load/store` 等接口可以直接读取指向类型做校验。
+    - `void create_memcpy(IRValue_ptr dst, IRValue_ptr src, IRValue_ptr length, bool is_volatile = false)`：封装 `llvm.memcpy.p0.p0.i32`，用于拷贝任意聚合或大块内存。
+    - `void create_memset(IRValue_ptr dst, IRValue_ptr value, IRValue_ptr length, bool is_volatile = false)`：封装 `llvm.memset.p0.i32`，常用于将结构体/数组按字节初始化为零。
   - **控制流**：
     - `void create_br(BasicBlock_ptr target)`
     - `void create_cond_br(IRValue_ptr cond, BasicBlock_ptr true_block, BasicBlock_ptr false_block)`

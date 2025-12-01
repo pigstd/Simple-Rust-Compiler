@@ -1047,6 +1047,11 @@ void IRGenVisitor::visit(RepeatArrayExpr &node) {
     auto ir_array_type = type_lowering_.lower(array_type);
     auto slot = builder_.create_temp_alloca(
         ir_array_type, "repeat.array.literal.slot");
+    if (is_zero_initializer_expr(node.element)) {
+        zero_initialize(slot, type);
+        expr_address_map_[node.NodeId] = slot;
+        return;
+    }
     node.element->accept(*this);
     const bool aggregate_element =
         is_aggregate_type(array_type->element_type);
@@ -1644,6 +1649,55 @@ void IRGenVisitor::store_expression_result(size_t node_id, IRValue_ptr address,
         ensure_current_insertion();
         builder_.create_store(value, address);
     }
+}
+
+bool IRGenVisitor::is_zero_initializer_expr(const Expr_ptr &expr) const {
+    if (!expr) {
+        return false;
+    }
+    if (auto literal = std::dynamic_pointer_cast<LiteralExpr>(expr)) {
+        switch (literal->literal_type) {
+        case LiteralType::NUMBER: {
+            try {
+                return safe_stoll(literal->value) == 0;
+            } catch (...) {
+                return false;
+            }
+        }
+        case LiteralType::BOOL:
+            return literal->value == "false";
+        default:
+            return false;
+        }
+    }
+    if (auto repeat = std::dynamic_pointer_cast<RepeatArrayExpr>(expr)) {
+        return is_zero_initializer_expr(repeat->element);
+    }
+    if (auto array_expr = std::dynamic_pointer_cast<ArrayExpr>(expr)) {
+        for (const auto &element : array_expr->elements) {
+            if (!is_zero_initializer_expr(element)) {
+                return false;
+            }
+        }
+        return true;
+    }
+    return false;
+}
+
+void IRGenVisitor::zero_initialize(IRValue_ptr address, RealType_ptr type) {
+    if (!address || !type) {
+        throw std::runtime_error("zero_initialize requires valid address/type");
+    }
+    auto bytes = type_lowering_.size_in_bytes(type);
+    if (bytes == 0) {
+        return;
+    }
+    ensure_current_insertion();
+    auto length =
+        builder_.create_i32_constant(static_cast<int64_t>(bytes));
+    auto i8_type = std::make_shared<IntegerType>(8);
+    auto zero_byte = std::make_shared<ConstantValue>(i8_type, 0);
+    builder_.create_memset(address, zero_byte, length);
 }
 
 TypeDecl_ptr IRGenVisitor::resolve_type_decl(Type_ptr type_node) const {

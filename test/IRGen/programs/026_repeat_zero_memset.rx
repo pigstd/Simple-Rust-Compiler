@@ -1,0 +1,36 @@
+// EXPECT_EXIT: 0
+// Ensure repeat-arrays filled with zero behave correctly.
+
+const LEN: usize = 8;
+
+fn main() {
+    let mut arr: [i32; LEN] = [0; LEN];
+    arr[0] = 10;
+    arr[7] = -3;
+    // Remaining slots should stay zero.
+    let mut i: usize = 1;
+    let mut code : i32 = 0;
+    while (i + 1 < LEN) {
+        if (arr[i] != 0) {
+            code = 1;
+            break;
+        }
+        i = i + 1;
+    }
+
+    let grid: [[i32; LEN]; 3] = [[0; LEN]; 3];
+    if (grid[1][5] != 0) {
+        code = 2;
+    }
+
+    let mut sum: i32 = 0;
+    i = 0;
+    while (i < LEN) {
+        sum = sum + arr[i];
+        i = i + 1;
+    }
+    if (sum != 7) {
+        code = 3;
+    }
+    exit(code);
+}

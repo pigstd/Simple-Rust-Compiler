@@ -579,6 +579,8 @@ class IRBuilder {
 
     void create_memcpy(IRValue_ptr dst, IRValue_ptr src, IRValue_ptr length,
                        bool is_volatile = false);
+    void create_memset(IRValue_ptr dst, IRValue_ptr value, IRValue_ptr length,
+                       bool is_volatile = false);
 
     // 创建字符串字面量全局并返回其引用。
     GlobalValue_ptr create_string_literal(const std::string &text);
@@ -605,8 +607,10 @@ class IRBuilder {
     std::size_t next_reg_index_;
     std::unordered_map<std::string, std::size_t> name_hint_counters_;
     bool memcpy_declared_ = false;
+    bool memset_declared_ = false;
 
     void ensure_memcpy_declared();
+    void ensure_memset_declared();
 };
 
 } // namespace ir
