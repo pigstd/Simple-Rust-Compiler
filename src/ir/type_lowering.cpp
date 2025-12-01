@@ -1,4 +1,5 @@
 #include "ir/type_lowering.h"
+#include <algorithm>
 #include <stdexcept>
 #include <string>
 
@@ -396,6 +397,61 @@ std::size_t TypeLowering::size_in_bytes(RealType_ptr type) {
     throw std::runtime_error("unsupported RealType for size_in_bytes");
 }
 
+std::size_t TypeLowering::align_to(std::size_t offset,
+                                   std::size_t alignment) const {
+    if (alignment == 0) {
+        return offset;
+    }
+    std::size_t remainder = offset % alignment;
+    if (remainder == 0) {
+        return offset;
+    }
+    return offset + (alignment - remainder);
+}
+
+std::size_t TypeLowering::alignment_of(RealType_ptr type) {
+    if (!type) {
+        return 1;
+    }
+    if (type->is_ref != ReferenceType::NO_REF) {
+        return kPointerSizeBytes;
+    }
+    switch (type->kind) {
+    case RealTypeKind::BOOL:
+    case RealTypeKind::CHAR:
+        return 1;
+    case RealTypeKind::UNIT:
+    case RealTypeKind::NEVER:
+        return 1;
+    case RealTypeKind::I32:
+    case RealTypeKind::ISIZE:
+    case RealTypeKind::U32:
+    case RealTypeKind::USIZE:
+    case RealTypeKind::ANYINT:
+    case RealTypeKind::ENUM:
+        return 4;
+    case RealTypeKind::ARRAY: {
+        auto array_type = std::dynamic_pointer_cast<ArrayRealType>(type);
+        return alignment_of(array_type->element_type);
+    }
+    case RealTypeKind::STRUCT: {
+        auto struct_type = std::dynamic_pointer_cast<StructRealType>(type);
+        auto decl = struct_type ? struct_type->decl.lock() : nullptr;
+        if (!decl) {
+            throw std::runtime_error("StructDecl missing for alignment");
+        }
+        return alignment_of_struct(decl->name, decl);
+    }
+    case RealTypeKind::STR:
+        return alignment_of_builtin_struct("Str");
+    case RealTypeKind::STRING:
+        return alignment_of_builtin_struct("String");
+    default:
+        break;
+    }
+    return 1;
+}
+
 std::size_t TypeLowering::size_of_struct(const std::string &name,
                                          StructDecl_ptr decl) {
     auto cached = struct_size_cache_.find(name);
@@ -407,20 +463,28 @@ std::size_t TypeLowering::size_of_struct(const std::string &name,
     }
     struct_size_in_progress_.insert(name);
     std::size_t total = 0;
+    std::size_t max_align = 1;
     if (!decl) {
         total = size_of_builtin_struct(name);
-    } else {
-        for (const auto &field_name : decl->field_order) {
-            auto it = decl->fields.find(field_name);
-            if (it == decl->fields.end()) {
-                throw std::runtime_error("struct field missing type: " +
-                                         field_name);
-            }
-            total += size_in_bytes(it->second);
-        }
+        struct_size_in_progress_.erase(name);
+        return total;
     }
+    for (const auto &field_name : decl->field_order) {
+        auto it = decl->fields.find(field_name);
+        if (it == decl->fields.end()) {
+            throw std::runtime_error("struct field missing type: " +
+                                     field_name);
+        }
+        auto field_size = size_in_bytes(it->second);
+        auto field_align = alignment_of(it->second);
+        max_align = std::max(max_align, field_align);
+        total = align_to(total, field_align);
+        total += field_size;
+    }
+    total = align_to(total, max_align);
     struct_size_in_progress_.erase(name);
     struct_size_cache_[name] = total;
+    struct_align_cache_[name] = max_align;
     return total;
 }
 
@@ -434,11 +498,46 @@ std::size_t TypeLowering::size_of_builtin_struct(const std::string &name) {
         throw std::runtime_error("builtin struct type missing: " + name);
     }
     std::size_t total = 0;
+    std::size_t max_align = 1;
     for (const auto &field : type_it->second->fields()) {
-        total += size_of_ir_type(field);
+        auto field_size = size_of_ir_type(field);
+        auto field_align = alignment_of_ir_type(field);
+        max_align = std::max(max_align, field_align);
+        total = align_to(total, field_align);
+        total += field_size;
     }
+    total = align_to(total, max_align);
     struct_size_cache_[name] = total;
+    struct_align_cache_[name] = max_align;
     return total;
+}
+
+std::size_t TypeLowering::alignment_of_struct(const std::string &name,
+                                              StructDecl_ptr decl) {
+    auto align_it = struct_align_cache_.find(name);
+    if (align_it != struct_align_cache_.end()) {
+        return align_it->second;
+    }
+    // ensure size computation also stores alignment
+    size_of_struct(name, decl);
+    auto cached = struct_align_cache_.find(name);
+    if (cached == struct_align_cache_.end()) {
+        throw std::runtime_error("struct alignment cache missing for " + name);
+    }
+    return cached->second;
+}
+
+std::size_t TypeLowering::alignment_of_builtin_struct(const std::string &name) {
+    auto align_it = struct_align_cache_.find(name);
+    if (align_it != struct_align_cache_.end()) {
+        return align_it->second;
+    }
+    size_of_builtin_struct(name);
+    auto cached = struct_align_cache_.find(name);
+    if (cached == struct_align_cache_.end()) {
+        throw std::runtime_error("builtin struct alignment missing: " + name);
+    }
+    return cached->second;
 }
 
 std::size_t TypeLowering::size_of_ir_type(const IRType_ptr &type) {
@@ -463,6 +562,35 @@ std::size_t TypeLowering::size_of_ir_type(const IRType_ptr &type) {
         return 0;
     }
     throw std::runtime_error("unsupported IRType for size computation");
+}
+
+std::size_t TypeLowering::alignment_of_ir_type(const IRType_ptr &type) {
+    if (!type) {
+        return 1;
+    }
+    if (std::dynamic_pointer_cast<PointerType>(type)) {
+        return kPointerSizeBytes;
+    }
+    if (auto int_type = std::dynamic_pointer_cast<IntegerType>(type)) {
+        auto bits = int_type->bit_width();
+        if (bits <= 8) {
+            return 1;
+        }
+        if (bits <= 32) {
+            return 4;
+        }
+        return kPointerSizeBytes;
+    }
+    if (auto array_type = std::dynamic_pointer_cast<ArrayType>(type)) {
+        return alignment_of_ir_type(array_type->element_type());
+    }
+    if (auto struct_type = std::dynamic_pointer_cast<StructType>(type)) {
+        return alignment_of_builtin_struct(struct_type->name());
+    }
+    if (std::dynamic_pointer_cast<VoidType>(type)) {
+        return 1;
+    }
+    throw std::runtime_error("unsupported IRType for alignment computation");
 }
 
 } // namespace ir

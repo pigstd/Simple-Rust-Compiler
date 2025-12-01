@@ -82,7 +82,7 @@ int main() {
     lowering.define_struct_fields(inner_decl);
     auto inner_rt = std::make_shared<StructRealType>(
         "Inner", ReferenceType::NO_REF, inner_decl);
-    assert(lowering.size_in_bytes(inner_rt) == 9);
+    assert(lowering.size_in_bytes(inner_rt) == 12);
 
     auto outer_decl =
         make_struct("Outer", {{"inner", inner_rt},
@@ -95,7 +95,7 @@ int main() {
     lowering.define_struct_fields(outer_decl);
     auto outer_rt = std::make_shared<StructRealType>(
         "Outer", ReferenceType::NO_REF, outer_decl);
-    assert(lowering.size_in_bytes(outer_rt) == 13);
+    assert(lowering.size_in_bytes(outer_rt) == 16);
 
     auto forward_decl = make_struct("Forward", {{"next", inner_rt}});
     auto pending_struct_rt = std::make_shared<StructRealType>(
@@ -105,7 +105,29 @@ int main() {
         [&]() { (void)lowering.size_in_bytes(pending_struct_rt); }));
 
     lowering.define_struct_fields(forward_decl);
-    assert(lowering.size_in_bytes(pending_struct_rt) == 9);
+    assert(lowering.size_in_bytes(pending_struct_rt) == 12);
+
+    auto bool_int_decl =
+        make_struct("BoolInt", {{"flag", bool_rt}, {"value", i32_rt}});
+    lowering.declare_struct_stub(bool_int_decl);
+    lowering.define_struct_fields(bool_int_decl);
+    auto bool_int_rt = std::make_shared<StructRealType>(
+        "BoolInt", ReferenceType::NO_REF, bool_int_decl);
+    assert(lowering.size_in_bytes(bool_int_rt) == 8);
+
+    auto nested_mixed_decl = make_struct(
+        "NestedMixed",
+        {{"head", bool_int_rt},
+         {"tail", std::make_shared<ArrayRealType>(bool_rt, nullptr,
+                                                  ReferenceType::NO_REF, 3)}});
+    auto tail_arr_nested =
+        std::dynamic_pointer_cast<ArrayRealType>(nested_mixed_decl->fields["tail"]);
+    tail_arr_nested->size = 3;
+    lowering.declare_struct_stub(nested_mixed_decl);
+    lowering.define_struct_fields(nested_mixed_decl);
+    auto nested_mixed_rt = std::make_shared<StructRealType>(
+        "NestedMixed", ReferenceType::NO_REF, nested_mixed_decl);
+    assert(lowering.size_in_bytes(nested_mixed_rt) == 12);
 
     std::cout << "Type size tests passed\n";
     return 0;

@@ -28,8 +28,13 @@ class TypeLowering {
 
   private:
     std::size_t size_of_struct(const std::string &name, StructDecl_ptr decl);
+    std::size_t alignment_of_struct(const std::string &name, StructDecl_ptr decl);
     std::size_t size_of_builtin_struct(const std::string &name);
+    std::size_t alignment_of_builtin_struct(const std::string &name);
     std::size_t size_of_ir_type(const IRType_ptr &type);
+    std::size_t alignment_of_ir_type(const IRType_ptr &type);
+    std::size_t alignment_of(RealType_ptr type);
+    std::size_t align_to(std::size_t offset, std::size_t alignment) const;
 
     IRModule &module_;
     VoidType_ptr void_type_;
@@ -39,6 +44,7 @@ class TypeLowering {
     std::unordered_map<std::string, std::shared_ptr<StructType>> struct_cache_;
     std::unordered_set<std::string> pending_struct_defs_;
     std::unordered_map<std::string, std::size_t> struct_size_cache_;
+    std::unordered_map<std::string, std::size_t> struct_align_cache_;
     std::unordered_set<std::string> struct_size_in_progress_;
 };
 
