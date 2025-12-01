@@ -237,7 +237,14 @@ void IRGenVisitor::visit(ExprStmt &node) {
             type_iter->second.first &&
             type_iter->second.first->kind != RealTypeKind::UNIT &&
             type_iter->second.first->kind != RealTypeKind::NEVER) {
-            expr_value_map_[node.NodeId] = get_rvalue(node.expr->NodeId);
+            auto expr_type = type_iter->second.first;
+            if (is_aggregate_type(expr_type)) {
+                expr_address_map_[node.NodeId] =
+                    get_lvalue(node.expr->NodeId);
+            } else {
+                expr_value_map_[node.NodeId] =
+                    get_rvalue(node.expr->NodeId);
+            }
         }
     }
 }
@@ -927,9 +934,14 @@ void IRGenVisitor::visit(BlockExpr &node) {
         // 如果返回值不是 void 才有值
         if (current_block_has_next(node.tail_statement->NodeId) &&
             node_type_and_place_kind_map_[node.tail_statement->NodeId].first->kind != RealTypeKind::UNIT) {
-            // std::cerr << "visit tail, NodeId = " << node.tail_statement->NodeId << "\n";
-            expr_value_map_[node.NodeId] =
-                get_rvalue(node.tail_statement->NodeId);
+            auto tail_type = node_type(node.tail_statement->NodeId);
+            if (is_aggregate_type(tail_type)) {
+                expr_address_map_[node.NodeId] =
+                    get_lvalue(node.tail_statement->NodeId);
+            } else {
+                expr_value_map_[node.NodeId] =
+                    get_rvalue(node.tail_statement->NodeId);
+            }
         }
     }
 }

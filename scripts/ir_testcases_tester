@@ -24,6 +24,7 @@ RUNTIME_LL = ROOT / "runtime" / "runtime.ll"
 PASS_MARK = "✅"
 FAIL_MARK = "❌"
 TMP_BASE = ROOT / "tmp" / "ir_tests"
+DEFAULT_COMPILE_TIMEOUT = 15
 
 
 def fail(msg: str, out: TextIO) -> None:
@@ -122,10 +123,10 @@ def run_case(case_dir: Path, out_stream: TextIO, case_limit: int) -> bool:
     rx_path, in_path, out_path = files
     info = load_case_info(case_dir)
     expected_compile = info.get("compileexitcode", 0)
-    compile_limit = info.get("compiletimelimit", 15)
+    compile_limit = info.get("compiletimelimit", DEFAULT_COMPILE_TIMEOUT)
     if compile_limit is None or compile_limit <= 0:
-        compile_limit = 15
-    link_limit = info.get("linktimelimit", max(compile_limit * 2, 180))
+        compile_limit = DEFAULT_COMPILE_TIMEOUT
+    link_limit = info.get("linktimelimit", compile_limit * 2)
     if link_limit is None or link_limit <= 0:
         link_limit = max(compile_limit * 2, 30)
     run_limit = info.get("runtimelimit", 5)

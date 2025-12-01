@@ -127,7 +127,7 @@ private:
 #### visit 行为速查
 - **FnItem**：创建/清空 `entry` 与 `return_block`。当返回聚合体时，借助 `FunctionType::set_return_type` + `append_param` 把签名改成 `void` 并在参数末尾附加 sret 指针，再把该寄存器写入 `return_slot`。其余情况维持“入口 `alloca` 返回槽”的策略。随后遍历 `FnDecl::parameter_let_decls` 调用 `ensure_slot_for_decl` 建立栈槽并把 `ir_function->params()` 写入；特判 main/exit，最后访问函数体 `BlockExpr`。
 - **LetStmt**：确保目标 `LetDecl` 已有 `alloca`。若有初始化表达式则先访问该表达式、通过 `get_rvalue` 拿到寄存器，再写入局部槽；语义阶段已保证类型匹配，因此无需额外 result slot。
-- **ExprStmt**：访问表达式；若 `OutcomeState` 无 `NEXT`，立刻把 `current_block` 置空；若语句末尾**没有**分号且表达式结果类型不是 `()`/`Never`，则把该寄存器结果写入 `expr_value_map[node.NodeId]`，这样父节点（例如 Block 的尾随表达式）可以继续使用。
+- **ExprStmt**：访问表达式；若 `OutcomeState` 无 `NEXT`，立刻把 `current_block` 置空；若语句末尾**没有**分号且表达式结果类型不是 `()`/`Never`，则把结果缓存起来：标量存入 `expr_value_map`，聚合型（数组/结构体/String）存入 `expr_address_map`，这样上层 block/if 可以直接复用地址而无需把整个聚合 `load` 到寄存器里。
 - **ReturnExpr**：若带值则写入 `return_slot`，随后 `br return_block` 并设置 `block_sealed = true`。
 - **BreakExpr/ContinueExpr**：Break 将值写入 `LoopContext.break_slot`（若存在）并 `br break_target`；Continue 直接 `br continue_target`。
 - **BlockExpr / 其它表达式返回值**：函数隐式返回、`if`/`loop` 结果等场景由 `get_rvalue(node_id)` 取寄存器值再写回父节点指定的槽位，完全由父节点掌控。只有 `ReturnExpr`、`BreakExpr` 等语义上固定的终止语句会直接写入 `FunctionContext::return_slot` 或 `LoopContext::break_slot`。
