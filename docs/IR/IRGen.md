@@ -149,8 +149,13 @@ private:
 - **ConstDecl 引用**：数组常量使用 global lowering 的 `GlobalValue`；标量常量直接转换为 `ConstantValue`。
 
 #### 语句 lowering
-- **LetStmt**：遇到声明时立即调用 `ensure_slot_for_decl` 为该 `LetDecl` 分配 `alloca` 并记录到 `local_slots`；若存在初始化器，则先访问该表达式，把结果寄存器写回 `expr_value_map`，随后 `store` 到刚分配的槽即可（不需要额外的 `current_result_slot_` 传递）。
-- **赋值表达式**：`BinaryExpr` 的 `ASSIGN`/`*_ASSIGN` 通过 `lower_place_expr(node.left)` 获取地址，然后将右值（或算术结果）写入该地址。对于 `+=` 等运算，先 `load` 左值，再使用算术 helper（`create_add` 等）计算后 `store`。
+- **LetStmt**：遇到声明时立即调用 `ensure_slot_for_decl` 为该 `LetDecl` 分配 `alloca` 并记录到 `local_slots`；若存在初始化器，则先访问该表达式。如果是聚合类型（数组 / 结构体 / `String` 等）则拿到左右地址并调用 `llvm.memcpy`，否则仍旧 `store` 标量寄存器。这样避免生成 `load [N x T]`/`store [N x T]` 的 IR。
+- **赋值表达式**：`BinaryExpr` 的 `ASSIGN`/`*_ASSIGN` 通过 `get_lvalue(node.left)` 获取地址。若左值类型是聚合，则右值也转成地址并调用 `llvm.memcpy`（仅支持 `=`，其余复合赋值仍限定标量）；否则按原本逻辑 `load` 左值、进行算术运算、再 `store`。
+- **Helper**：IRGenVisitor 额外暴露四个帮助函数：  
+  `node_type(node_id)` 从 `node_type_and_place_kind_map`/`type_map` 查询节点对应的 `RealType`；  
+  `is_aggregate_type(type)` 判断某个 `RealType` 是否属于数组/结构体/字符串等聚合；  
+  `emit_memcpy(dst, src, type)` 借助 `IRBuilder::create_memcpy` 发出 `llvm.memcpy`，拷贝字节数由 `TypeLowering::size_in_bytes(type)` 决定；  
+  `store_expression_result(node_id, address, target_type)` 统一聚合/标量写槽逻辑：聚合走 `emit_memcpy`，标量则直接 `load`/`store`。LetStmt、IfExpr、LoopExpr、Return、Break 等场景全部复用该 helper，避免重复判断。
 - **ExprStmt**：访问内部表达式，让其在 `expr_value_map`/`expr_address_map` 中生成相应的 IRValue；若语句末尾没有分号且结果类型不是 `()`/`Never`，则把寄存器写入 `expr_value_map[node]`，否则忽略该结果（除非子表达式发散，此时 `current_block` 将被置空）。
 - **ItemStmt**：函数体中的 `Item` 在语义阶段已展开，此处直接忽略或转交 `AST_Walker`（无副作用）。
 

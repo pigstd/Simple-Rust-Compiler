@@ -202,8 +202,7 @@ void IRGenVisitor::visit(LetStmt &node) {
         return;
     }
     node.initializer->accept(*this);
-    ensure_current_insertion();
-    builder_.create_store(get_rvalue(node.initializer->NodeId), slot);
+    store_expression_result(node.initializer->NodeId, slot, decl->let_type);
 }
 
 // 表达式语句，如果没有 ; 并且有值，则保存其值。
@@ -236,9 +235,8 @@ void IRGenVisitor::visit(ReturnExpr &node) {
     if (node.return_value) {
         node.return_value->accept(*this);
         if (ctx.return_slot) {
-            auto value = get_rvalue(node.return_value->NodeId);
-            ensure_current_insertion();
-            builder_.create_store(value, ctx.return_slot);
+            store_expression_result(node.return_value->NodeId,
+                                    ctx.return_slot, ctx.decl->return_type);
         }
     }
     branch_if_needed(ctx.return_block);
@@ -254,9 +252,8 @@ void IRGenVisitor::visit(BreakExpr &node) {
     auto &ctx = current_fn();
     if (node.break_value && loop->break_slot && ctx.current_block) {
         node.break_value->accept(*this);
-        ensure_current_insertion();
-        builder_.create_store(get_rvalue(node.break_value->NodeId),
-                             loop->break_slot);
+        store_expression_result(node.break_value->NodeId, loop->break_slot,
+                                node_type(node.break_value->NodeId));
     }
     branch_if_needed(loop->break_target);
     ctx.current_block = nullptr;
@@ -315,6 +312,17 @@ void IRGenVisitor::visit(BinaryExpr &node) {
     case Binary_Operator::SHR_ASSIGN: {
         eval_operands();
         auto addr = get_lvalue(node.left->NodeId);
+        auto lhs_type = node_type(node.left->NodeId);
+        const bool is_aggregate = is_aggregate_type(lhs_type);
+        if (is_aggregate && node.op != Binary_Operator::ASSIGN) {
+            throw std::runtime_error(
+                "compound assignment on aggregate is not supported");
+        }
+        if (is_aggregate) {
+            store_expression_result(node.right->NodeId, 
+                get_lvalue(node.left->NodeId));
+            return;
+        }
         auto rhs = get_rvalue(node.right->NodeId);
         ensure_current_insertion();
         IRValue_ptr result = rhs;
@@ -742,8 +750,8 @@ void IRGenVisitor::visit(IfExpr &node) {
     node.then_branch->accept(*this);
     if (ctx.current_block && !ctx.block_sealed) {
         if (need_result) {
-            auto then_value = get_rvalue(node.then_branch->NodeId);
-            builder_.create_store(then_value, result_slot);
+            store_expression_result(node.then_branch->NodeId, result_slot,
+                                    node_type(node.NodeId));
         }
         builder_.create_br(merge_block);
     }
@@ -755,8 +763,8 @@ void IRGenVisitor::visit(IfExpr &node) {
         node.else_branch->accept(*this);
         if (ctx.current_block && !ctx.block_sealed) {
             if (need_result) {
-                auto else_value = get_rvalue(node.else_branch->NodeId);
-                builder_.create_store(else_value, result_slot);
+                store_expression_result(node.else_branch->NodeId, result_slot,
+                                        node_type(node.NodeId));
             }
             builder_.create_br(merge_block);
         }
@@ -938,12 +946,18 @@ void IRGenVisitor::visit(StructExpr &node) {
         if (!expr) {
             throw std::runtime_error("StructExpr field expression missing");
         }
+        auto field_type_iter = struct_decl->fields.find(field_name);
+        if (field_type_iter == struct_decl->fields.end()) {
+            throw std::runtime_error("StructExpr field type missing: " +
+                                     field_name);
+        }
         expr->accept(*this);
         ensure_current_insertion();
         auto field_gep = builder_.create_gep(
             slot, ir_struct_type,
             {zero, builder_.create_i32_constant(static_cast<int64_t>(idx))});
-        builder_.create_store(get_rvalue(expr->NodeId), field_gep);
+        store_expression_result(expr->NodeId, field_gep,
+                                field_type_iter->second);
     }
 
     expr_address_map_[node.NodeId] = slot;
@@ -968,7 +982,6 @@ void IRGenVisitor::visit(ArrayExpr &node) {
     auto slot = builder_.create_temp_alloca(ir_array_type, "array.literal.slot");
 
     auto zero = builder_.create_i32_constant(0);
-    auto element_irs = type_lowering_.lower(array_type->element_type);
 
     for (std::size_t idx = 0; idx < node.elements.size(); ++idx) {
         auto &elem = node.elements[idx];
@@ -980,7 +993,8 @@ void IRGenVisitor::visit(ArrayExpr &node) {
         auto element_addr =
             builder_.create_gep(slot, ir_array_type,
                                 {zero, builder_.create_i32_constant(static_cast<int64_t>(idx))});
-        builder_.create_store(get_rvalue(elem->NodeId), element_addr);
+        store_expression_result(elem->NodeId, element_addr,
+                                array_type->element_type);
     }
 
     expr_address_map_[node.NodeId] = slot;
@@ -1006,7 +1020,19 @@ void IRGenVisitor::visit(RepeatArrayExpr &node) {
     auto slot = builder_.create_temp_alloca(
         ir_array_type, "repeat.array.literal.slot");
     node.element->accept(*this);
-    auto element_value = get_rvalue(node.element->NodeId);
+    const bool aggregate_element =
+        is_aggregate_type(array_type->element_type);
+    IRValue_ptr element_value = nullptr;
+    IRValue_ptr element_source_addr = nullptr;
+    if (aggregate_element) {
+        auto addr_it = expr_address_map_.find(node.element->NodeId);
+        element_source_addr =
+            addr_it != expr_address_map_.end()
+                ? addr_it->second
+                : get_lvalue(node.element->NodeId);
+    } else {
+        element_value = get_rvalue(node.element->NodeId);
+    }
     auto zero = builder_.create_i32_constant(0);
     // 改成手动写一个 while 循环来赋值，避免生成过大的 IR。
     auto idx = builder_.create_temp_alloca(
@@ -1031,7 +1057,12 @@ void IRGenVisitor::visit(RepeatArrayExpr &node) {
     auto element_addr = builder_.create_gep(
         slot, ir_array_type,
         {zero, current_idx_body});;
-    builder_.create_store(element_value, element_addr);
+    if (aggregate_element) {
+        emit_memcpy(element_addr, element_source_addr,
+                    array_type->element_type);
+    } else {
+        builder_.create_store(element_value, element_addr);
+    }
     auto one_const = builder_.create_i32_constant(1);
     auto next_idx = builder_.create_add(current_idx_body, one_const);
     builder_.create_store(next_idx, idx);
@@ -1524,6 +1555,67 @@ const LoopContext *IRGenVisitor::current_loop() const {
         return nullptr;
     }
     return &fn_ctx_->loop_stack.back();
+}
+
+RealType_ptr IRGenVisitor::node_type(size_t node_id) const {
+    auto iter = node_type_and_place_kind_map_.find(node_id);
+    if (iter != node_type_and_place_kind_map_.end() && iter->second.first) {
+        return iter->second.first;
+    }
+    auto type_iter = type_map_.find(node_id);
+    if (type_iter != type_map_.end()) {
+        return type_iter->second;
+    }
+    return nullptr;
+}
+
+bool IRGenVisitor::is_aggregate_type(RealType_ptr type) const {
+    if (!type) {
+        return false;
+    }
+    if (type->is_ref != ReferenceType::NO_REF) {
+        return false;
+    }
+    switch (type->kind) {
+    case RealTypeKind::ARRAY:
+    case RealTypeKind::STRUCT:
+    case RealTypeKind::STRING:
+    case RealTypeKind::STR:
+        return true;
+    default:
+        break;
+    }
+    return false;
+}
+
+void IRGenVisitor::emit_memcpy(IRValue_ptr dst, IRValue_ptr src,
+                               RealType_ptr type) {
+    if (!dst || !src || !type) {
+        throw std::runtime_error("emit_memcpy requires valid operands/type");
+    }
+    auto bytes = type_lowering_.size_in_bytes(type);
+    if (bytes == 0) {
+        return;
+    }
+    ensure_current_insertion();
+    auto length = builder_.create_i32_constant(static_cast<int64_t>(bytes));
+    builder_.create_memcpy(dst, src, length);
+}
+
+void IRGenVisitor::store_expression_result(size_t node_id, IRValue_ptr address,
+                                           RealType_ptr target_type) {
+    if (!address) {
+        throw std::runtime_error("store_expression_result missing address");
+    }
+    auto value_type = target_type ? target_type : node_type(node_id);
+    if (is_aggregate_type(value_type)) {
+        IRValue_ptr src = get_lvalue(node_id);
+        emit_memcpy(address, src, value_type);
+    } else {
+        auto value = get_rvalue(node_id);
+        ensure_current_insertion();
+        builder_.create_store(value, address);
+    }
 }
 
 TypeDecl_ptr IRGenVisitor::resolve_type_decl(Type_ptr type_node) const {

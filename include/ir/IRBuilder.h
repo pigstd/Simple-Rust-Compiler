@@ -574,6 +574,9 @@ class IRBuilder {
                             const std::vector<IRValue_ptr> &args,
                             IRType_ptr ret_type, const std::string &name = "");
 
+    void create_memcpy(IRValue_ptr dst, IRValue_ptr src, IRValue_ptr length,
+                       bool is_volatile = false);
+
     // 创建字符串字面量全局并返回其引用。
     GlobalValue_ptr create_string_literal(const std::string &text);
     // 创建 i32 常量。
@@ -598,6 +601,9 @@ class IRBuilder {
     BasicBlock_ptr insertion_block_;
     std::size_t next_reg_index_;
     std::unordered_map<std::string, std::size_t> name_hint_counters_;
+    bool memcpy_declared_ = false;
+
+    void ensure_memcpy_declared();
 };
 
 } // namespace ir

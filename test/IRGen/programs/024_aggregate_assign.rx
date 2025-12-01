@@ -1,0 +1,49 @@
+// EXPECT_EXIT: 0
+// Validate aggregate assignment for arrays/structs.
+
+struct Pair {
+    buf: [i32; 4],
+    bias: i32,
+}
+
+fn build_pair(seed: i32) -> Pair {
+    let mut arr: [i32; 4] = [seed; 4];
+    Pair { buf: arr, bias: seed * 2 }
+}
+
+fn main() {
+    let mut first: Pair = build_pair(3);
+    let mut second: Pair = build_pair(0);
+    second = first;
+
+    let mut numbers: [i32; 4] = [10, 11, 12, 13];
+    numbers = second.buf;
+
+    let mut total: i32 = numbers[0] + numbers[3] + second.bias;
+    let mut code : i32 = 0;
+    if (total != 12) {
+        code = 1;
+    }
+    const SIZE : usize = 200000;
+    let bigarray : [i32; SIZE] = [1; SIZE];
+    let mut sum : i32 = 0;
+    let mut i : usize = 0;
+    while (i < SIZE) {
+        sum = sum + bigarray[i];
+        i = i + 1;
+    }
+    if (sum != SIZE as i32) {
+        code = 2;
+    }
+    let copy : [i32; SIZE] = bigarray;
+    sum = 0;
+    i = 0;
+    while (i < SIZE) {
+        sum = sum + copy[i];
+        i = i + 1;
+    }
+    if (sum != SIZE as i32) {
+        code = 3;
+    }
+    exit(code);
+}

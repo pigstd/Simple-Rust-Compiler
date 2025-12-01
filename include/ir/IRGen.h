@@ -96,6 +96,11 @@ class IRGenVisitor : public AST_Walker {
     FunctionContext &current_fn();
     const FunctionContext &current_fn() const;
     TypeDecl_ptr resolve_type_decl(Type_ptr type_node) const;
+    RealType_ptr node_type(size_t node_id) const;
+    bool is_aggregate_type(RealType_ptr type) const;
+    void emit_memcpy(IRValue_ptr dst, IRValue_ptr src, RealType_ptr type);
+    void store_expression_result(size_t node_id, IRValue_ptr address,
+                                 RealType_ptr target_type = nullptr);
 
     IRModule &module_;
     IRBuilder &builder_;

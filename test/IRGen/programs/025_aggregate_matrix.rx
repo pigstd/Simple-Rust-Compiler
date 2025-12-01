@@ -1,0 +1,38 @@
+// EXPECT_EXIT: 0
+// Validate aggregate handling for 2D arrays (literal + repeat).
+
+
+fn main() {
+    let literal: [[i32; 5]; 3] = [[1, 2, 3, 4, 5],
+                         [6, 7, 8, 9, 10],
+                         [11, 12, 13, 14, 15]];
+    let mut matrix: [[i32; 5]; 3] = literal;
+    matrix[1][2] = 99;
+
+    let mut repeat: [[i32; 5]; 3] = [[0; 5]; 3];
+    repeat[0][4] = 7;
+    repeat[2][1] = 5;
+
+    let mut code: i32 = 0;
+    if (matrix[1][2] != 99 || matrix[0][0] != 1 || matrix[2][4] != 15) {
+        code = 1;
+    }
+    if (repeat[0][4] != 7 || repeat[2][1] != 5 || repeat[1][3] != 0) {
+        code = 2;
+    }
+    let huge_matrix: [[i32; 300]; 300] = [[1; 300]; 300];
+    let mut sum : i32 = 0;
+    let mut i: i32 = 0;
+    while (i < 300) {
+        let mut j: i32 = 0;
+        while (j < 300) {
+            sum = sum + huge_matrix[i as usize][j as usize];
+            j = j + 1;
+        }
+        i = i + 1;
+    }
+    if (sum != 300 * 300) {
+        code = 3;
+    }
+    exit(code);
+}

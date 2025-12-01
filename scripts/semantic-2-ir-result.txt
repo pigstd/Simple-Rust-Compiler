@@ -59,39 +59,39 @@
 warning: overriding the module target triple with x86_64-pc-linux-gnu [-Woverride-module]
 PLEASE submit a bug report to https://github.com/llvm/llvm-project/issues/ and include the crash backtrace, preprocessed source, and associated run script.
 Stack dump:
-0.	Program arguments: /usr/lib/llvm-18/bin/clang -cc1 -triple x86_64-pc-linux-gnu -emit-obj -mrelax-all -dumpdir /home/zhuzemu/homework/Simple-Rust-Compiler/tmp/ir_tests/tmpiv5ffwof/prog.out- -disable-free -clear-ast-before-backend -disable-llvm-verifier -discard-value-names -main-file-name program.ll -mrelocation-model pic -pic-level 2 -pic-is-pie -mframe-pointer=all -fmath-errno -ffp-contract=on -fno-rounding-math -mconstructor-aliases -funwind-tables=2 -target-cpu x86-64 -tune-cpu generic -debugger-tuning=gdb -fdebug-compilation-dir=/home/zhuzemu/homework/Simple-Rust-Compiler/scripts -fcoverage-compilation-dir=/home/zhuzemu/homework/Simple-Rust-Compiler/scripts -resource-dir /usr/lib/llvm-18/lib/clang/18 -ferror-limit 19 -fgnuc-version=4.2.1 -fskip-odr-check-in-gmf -faddrsig -D__GCC_HAVE_DWARF2_CFI_ASM=1 -o /tmp/program-dc4ec6.o -x ir /home/zhuzemu/homework/Simple-Rust-Compiler/tmp/ir_tests/tmpiv5ffwof/program.ll
+0.	Program arguments: /usr/lib/llvm-18/bin/clang -cc1 -triple x86_64-pc-linux-gnu -emit-obj -mrelax-all -dumpdir /home/zhuzemu/homework/Simple-Rust-Compiler/tmp/ir_tests/tmpc2tbqaju/prog.out- -disable-free -clear-ast-before-backend -disable-llvm-verifier -discard-value-names -main-file-name program.ll -mrelocation-model pic -pic-level 2 -pic-is-pie -mframe-pointer=all -fmath-errno -ffp-contract=on -fno-rounding-math -mconstructor-aliases -funwind-tables=2 -target-cpu x86-64 -tune-cpu generic -debugger-tuning=gdb -fdebug-compilation-dir=/home/zhuzemu/homework/Simple-Rust-Compiler/scripts -fcoverage-compilation-dir=/home/zhuzemu/homework/Simple-Rust-Compiler/scripts -resource-dir /usr/lib/llvm-18/lib/clang/18 -ferror-limit 19 -fgnuc-version=4.2.1 -fskip-odr-check-in-gmf -faddrsig -D__GCC_HAVE_DWARF2_CFI_ASM=1 -o /tmp/program-d6bc98.o -x ir /home/zhuzemu/homework/Simple-Rust-Compiler/tmp/ir_tests/tmpc2tbqaju/program.ll
 1.	Code generation
-2.	Running pass 'Function Pass Manager' on module '/home/zhuzemu/homework/Simple-Rust-Compiler/tmp/ir_tests/tmpiv5ffwof/program.ll'.
+2.	Running pass 'Function Pass Manager' on module '/home/zhuzemu/homework/Simple-Rust-Compiler/tmp/ir_tests/tmpc2tbqaju/program.ll'.
 3.	Running pass 'X86 DAG->DAG Instruction Selection' on function '@main'
- #0 0x00007b15b4fa63bf llvm::sys::PrintStackTrace(llvm::raw_ostream&, int) (/usr/lib/llvm-18/bin/../lib/libLLVM.so.18.1+0xda63bf)
- #1 0x00007b15b4fa44f9 llvm::sys::RunSignalHandlers() (/usr/lib/llvm-18/bin/../lib/libLLVM.so.18.1+0xda44f9)
- #2 0x00007b15b4fa6b00 (/usr/lib/llvm-18/bin/../lib/libLLVM.so.18.1+0xda6b00)
- #3 0x00007b15b3a45330 (/lib/x86_64-linux-gnu/libc.so.6+0x45330)
- #4 0x00007b15b580f8eb llvm::SelectionDAG::ReplaceAllUsesWith(llvm::SDNode*, llvm::SDValue const*) (/usr/lib/llvm-18/bin/../lib/libLLVM.so.18.1+0x160f8eb)
- #5 0x00007b15b561a880 (/usr/lib/llvm-18/bin/../lib/libLLVM.so.18.1+0x141a880)
- #6 0x00007b15b561934e (/usr/lib/llvm-18/bin/../lib/libLLVM.so.18.1+0x141934e)
- #7 0x00007b15b5616674 llvm::SelectionDAG::Combine(llvm::CombineLevel, llvm::AAResults*, llvm::CodeGenOptLevel) (/usr/lib/llvm-18/bin/../lib/libLLVM.so.18.1+0x1416674)
- #8 0x00007b15b582534a llvm::SelectionDAGISel::CodeGenAndEmitDAG() (/usr/lib/llvm-18/bin/../lib/libLLVM.so.18.1+0x162534a)
- #9 0x00007b15b58248de llvm::SelectionDAGISel::SelectAllBasicBlocks(llvm::Function const&) (/usr/lib/llvm-18/bin/../lib/libLLVM.so.18.1+0x16248de)
-#10 0x00007b15b5822934 llvm::SelectionDAGISel::runOnMachineFunction(llvm::MachineFunction&) (/usr/lib/llvm-18/bin/../lib/libLLVM.so.18.1+0x1622934)
-#11 0x00007b15b7d30086 (/usr/lib/llvm-18/bin/../lib/libLLVM.so.18.1+0x3b30086)
-#12 0x00007b15b53826b9 llvm::MachineFunctionPass::runOnFunction(llvm::Function&) (/usr/lib/llvm-18/bin/../lib/libLLVM.so.18.1+0x11826b9)
-#13 0x00007b15b50f7772 llvm::FPPassManager::runOnFunction(llvm::Function&) (/usr/lib/llvm-18/bin/../lib/libLLVM.so.18.1+0xef7772)
-#14 0x00007b15b50fd2f4 llvm::FPPassManager::runOnModule(llvm::Module&) (/usr/lib/llvm-18/bin/../lib/libLLVM.so.18.1+0xefd2f4)
-#15 0x00007b15b50f7e9f llvm::legacy::PassManagerImpl::run(llvm::Module&) (/usr/lib/llvm-18/bin/../lib/libLLVM.so.18.1+0xef7e9f)
-#16 0x00007b15bd617310 clang::EmitBackendOutput(clang::DiagnosticsEngine&, clang::HeaderSearchOptions const&, clang::CodeGenOptions const&, clang::TargetOptions const&, clang::LangOptions const&, llvm::StringRef, llvm::Module*, clang::BackendAction, llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem>, std::unique_ptr<llvm::raw_pwrite_stream, std::default_delete<llvm::raw_pwrite_stream>>, clang::BackendConsumer*) (/usr/lib/llvm-18/bin/../lib/libclang-cpp.so.18.1+0x1c17310)
-#17 0x00007b15bd9a4c31 clang::CodeGenAction::ExecuteAction() (/usr/lib/llvm-18/bin/../lib/libclang-cpp.so.18.1+0x1fa4c31)
-#18 0x00007b15be40662c clang::FrontendAction::Execute() (/usr/lib/llvm-18/bin/../lib/libclang-cpp.so.18.1+0x2a0662c)
-#19 0x00007b15be3830b4 clang::CompilerInstance::ExecuteAction(clang::FrontendAction&) (/usr/lib/llvm-18/bin/../lib/libclang-cpp.so.18.1+0x29830b4)
-#20 0x00007b15be48263d clang::ExecuteCompilerInvocation(clang::CompilerInstance*) (/usr/lib/llvm-18/bin/../lib/libclang-cpp.so.18.1+0x2a8263d)
-#21 0x00005c7b715ab42e cc1_main(llvm::ArrayRef<char const*>, char const*, void*) (/usr/lib/llvm-18/bin/clang+0x1442e)
-#22 0x00005c7b715a8894 (/usr/lib/llvm-18/bin/clang+0x11894)
-#23 0x00005c7b715a7a26 clang_main(int, char**, llvm::ToolContext const&) (/usr/lib/llvm-18/bin/clang+0x10a26)
-#24 0x00005c7b715b5383 main (/usr/lib/llvm-18/bin/clang+0x1e383)
-#25 0x00007b15b3a2a1ca __libc_start_call_main ./csu/../sysdeps/nptl/libc_start_call_main.h:74:3
-#26 0x00007b15b3a2a28b call_init ./csu/../csu/libc-start.c:128:20
-#27 0x00007b15b3a2a28b __libc_start_main ./csu/../csu/libc-start.c:347:5
-#28 0x00005c7b715a5255 _start (/usr/lib/llvm-18/bin/clang+0xe255)
+ #0 0x00007d5e25da63bf llvm::sys::PrintStackTrace(llvm::raw_ostream&, int) (/usr/lib/llvm-18/bin/../lib/libLLVM.so.18.1+0xda63bf)
+ #1 0x00007d5e25da44f9 llvm::sys::RunSignalHandlers() (/usr/lib/llvm-18/bin/../lib/libLLVM.so.18.1+0xda44f9)
+ #2 0x00007d5e25da6b00 (/usr/lib/llvm-18/bin/../lib/libLLVM.so.18.1+0xda6b00)
+ #3 0x00007d5e24845330 (/lib/x86_64-linux-gnu/libc.so.6+0x45330)
+ #4 0x00007d5e2660f8fc llvm::SelectionDAG::ReplaceAllUsesWith(llvm::SDNode*, llvm::SDValue const*) (/usr/lib/llvm-18/bin/../lib/libLLVM.so.18.1+0x160f8fc)
+ #5 0x00007d5e2641a880 (/usr/lib/llvm-18/bin/../lib/libLLVM.so.18.1+0x141a880)
+ #6 0x00007d5e2641934e (/usr/lib/llvm-18/bin/../lib/libLLVM.so.18.1+0x141934e)
+ #7 0x00007d5e26416674 llvm::SelectionDAG::Combine(llvm::CombineLevel, llvm::AAResults*, llvm::CodeGenOptLevel) (/usr/lib/llvm-18/bin/../lib/libLLVM.so.18.1+0x1416674)
+ #8 0x00007d5e2662534a llvm::SelectionDAGISel::CodeGenAndEmitDAG() (/usr/lib/llvm-18/bin/../lib/libLLVM.so.18.1+0x162534a)
+ #9 0x00007d5e266248de llvm::SelectionDAGISel::SelectAllBasicBlocks(llvm::Function const&) (/usr/lib/llvm-18/bin/../lib/libLLVM.so.18.1+0x16248de)
+#10 0x00007d5e26622934 llvm::SelectionDAGISel::runOnMachineFunction(llvm::MachineFunction&) (/usr/lib/llvm-18/bin/../lib/libLLVM.so.18.1+0x1622934)
+#11 0x00007d5e28b30086 (/usr/lib/llvm-18/bin/../lib/libLLVM.so.18.1+0x3b30086)
+#12 0x00007d5e261826b9 llvm::MachineFunctionPass::runOnFunction(llvm::Function&) (/usr/lib/llvm-18/bin/../lib/libLLVM.so.18.1+0x11826b9)
+#13 0x00007d5e25ef7772 llvm::FPPassManager::runOnFunction(llvm::Function&) (/usr/lib/llvm-18/bin/../lib/libLLVM.so.18.1+0xef7772)
+#14 0x00007d5e25efd2f4 llvm::FPPassManager::runOnModule(llvm::Module&) (/usr/lib/llvm-18/bin/../lib/libLLVM.so.18.1+0xefd2f4)
+#15 0x00007d5e25ef7e9f llvm::legacy::PassManagerImpl::run(llvm::Module&) (/usr/lib/llvm-18/bin/../lib/libLLVM.so.18.1+0xef7e9f)
+#16 0x00007d5e2e417310 clang::EmitBackendOutput(clang::DiagnosticsEngine&, clang::HeaderSearchOptions const&, clang::CodeGenOptions const&, clang::TargetOptions const&, clang::LangOptions const&, llvm::StringRef, llvm::Module*, clang::BackendAction, llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem>, std::unique_ptr<llvm::raw_pwrite_stream, std::default_delete<llvm::raw_pwrite_stream>>, clang::BackendConsumer*) (/usr/lib/llvm-18/bin/../lib/libclang-cpp.so.18.1+0x1c17310)
+#17 0x00007d5e2e7a4c31 clang::CodeGenAction::ExecuteAction() (/usr/lib/llvm-18/bin/../lib/libclang-cpp.so.18.1+0x1fa4c31)
+#18 0x00007d5e2f20662c clang::FrontendAction::Execute() (/usr/lib/llvm-18/bin/../lib/libclang-cpp.so.18.1+0x2a0662c)
+#19 0x00007d5e2f1830b4 clang::CompilerInstance::ExecuteAction(clang::FrontendAction&) (/usr/lib/llvm-18/bin/../lib/libclang-cpp.so.18.1+0x29830b4)
+#20 0x00007d5e2f28263d clang::ExecuteCompilerInvocation(clang::CompilerInstance*) (/usr/lib/llvm-18/bin/../lib/libclang-cpp.so.18.1+0x2a8263d)
+#21 0x00005a53d244942e cc1_main(llvm::ArrayRef<char const*>, char const*, void*) (/usr/lib/llvm-18/bin/clang+0x1442e)
+#22 0x00005a53d2446894 (/usr/lib/llvm-18/bin/clang+0x11894)
+#23 0x00005a53d2445a26 clang_main(int, char**, llvm::ToolContext const&) (/usr/lib/llvm-18/bin/clang+0x10a26)
+#24 0x00005a53d2453383 main (/usr/lib/llvm-18/bin/clang+0x1e383)
+#25 0x00007d5e2482a1ca __libc_start_call_main ./csu/../sysdeps/nptl/libc_start_call_main.h:74:3
+#26 0x00007d5e2482a28b call_init ./csu/../csu/libc-start.c:128:20
+#27 0x00007d5e2482a28b __libc_start_main ./csu/../csu/libc-start.c:347:5
+#28 0x00005a53d2443255 _start (/usr/lib/llvm-18/bin/clang+0xe255)
 clang: error: unable to execute command: Segmentation fault (core dumped)
 clang: error: clang frontend command failed due to signal (use -v to see invocation)
 Ubuntu clang version 18.1.3 (1ubuntu1)
