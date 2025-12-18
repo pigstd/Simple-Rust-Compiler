@@ -5,26 +5,29 @@ BUILD_TYPE ?= Debug
 
 .PHONY: all configure build clean distclean test run
 
-# default: configure + build
-all: configure build
+# default: just build (will auto-configure if needed)
+all: build
 
 # configure step (generates build system in $(BUILD_DIR))
-configure:
+# only runs cmake if CMakeCache.txt doesn't exist
+$(BUILD_DIR)/CMakeCache.txt:
 	@echo "Configuring (build dir: $(BUILD_DIR), type: $(BUILD_TYPE))"
 	$(CMAKE) -S . -B $(BUILD_DIR) -DCMAKE_BUILD_TYPE=$(BUILD_TYPE)
 
-# build using whatever generator CMake selected
-build:
+configure: $(BUILD_DIR)/CMakeCache.txt
+
+# build depends on configure (will auto-configure if needed)
+build: $(BUILD_DIR)/CMakeCache.txt
 	@echo "Building (dir: $(BUILD_DIR))"
 	$(CMAKE) --build $(BUILD_DIR)
 
 # run tests via ctest (if you use CTest)
-test:
+test: build
 	@echo "Running tests (dir: $(BUILD_DIR))"
 	cd $(BUILD_DIR) && ctest --output-on-failure
 
 # convenience: run compiled binary (adjust path/target as needed)
-run:
+run: build
 	@echo "Building then running default target"
 	$(CMAKE) --build $(BUILD_DIR)
 
