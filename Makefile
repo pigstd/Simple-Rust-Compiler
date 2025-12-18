@@ -21,15 +21,10 @@ build: $(BUILD_DIR)/CMakeCache.txt
 	@echo "Building (dir: $(BUILD_DIR))"
 	$(CMAKE) --build $(BUILD_DIR)
 
-# run tests via ctest (if you use CTest)
-test: build
-	@echo "Running tests (dir: $(BUILD_DIR))"
-	cd $(BUILD_DIR) && ctest --output-on-failure
-
-# convenience: run compiled binary (adjust path/target as needed)
+# run the main executable
 run: build
-	@echo "Building then running default target"
-	$(CMAKE) --build $(BUILD_DIR)
+	@echo "Running $(BUILD_DIR)/code"
+	./$(BUILD_DIR)/code
 
 # remove build artifacts but keep build dir
 clean:
