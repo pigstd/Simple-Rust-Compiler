@@ -221,6 +221,9 @@ void IRGenVisitor::visit(LetStmt &node) {
         return;
     }
     node.initializer->accept(*this);
+    if (!ctx.current_block) {
+        return; // 不可达
+    }
     store_expression_result(node.initializer->NodeId, slot, decl->let_type);
 }
 
