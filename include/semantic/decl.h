@@ -98,10 +98,12 @@ struct FnDecl : public ValueDecl {
     weak_ptr<StructDecl> self_struct; // 如果是 method，则存储这个 method 属于哪个 struct，第二轮填
     bool is_main, is_exit;
     bool is_builtin;
+    RealType_ptr builtin_method_self_type; // 如果是 builtin method，则存储这个 method 属于哪个类型
     bool is_array_len;
     FnDecl(FnItem_ptr ast_node_, Scope_ptr function_scope_, fn_reciever_type receiver_type_, string name_)
         : ValueDecl(ValueDeclKind::Function, std::move(name_)), ast_node(ast_node_), function_scope(function_scope_),
           receiver_type(receiver_type_), is_main(false), is_exit(false), is_builtin(false), is_array_len(false) {}
+    void set_builtin_method_self_type(RealType_ptr type);
 };
 
 struct ConstDecl : public ValueDecl {

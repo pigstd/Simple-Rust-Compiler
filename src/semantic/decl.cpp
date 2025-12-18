@@ -12,3 +12,7 @@ ConstDecl_ptr find_const_decl(Scope_ptr NowScope, string name) {
     }
     return nullptr;
 }
+
+void FnDecl::set_builtin_method_self_type(RealType_ptr self_type) {
+    builtin_method_self_type = self_type;
+}

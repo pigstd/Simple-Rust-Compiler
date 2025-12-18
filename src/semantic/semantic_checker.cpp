@@ -1,4 +1,5 @@
 #include "semantic/semantic_checker.h"
+#include "semantic/type.h"
 // #include "ast/visitor.h"
 #include <cstddef>
 // #include <iostream>
@@ -373,17 +374,32 @@ void Semantic_Checker::add_builtin_methods_and_associated_funcs() {
     Anyint can be converted u32 or usize, So Anyint has to_string method too.
     */
     {
-        auto to_string_fn_decl = std::make_shared<FnDecl>(
-            nullptr,
-            nullptr,
-            fn_reciever_type::SELF_REF,
-            "to_string"
-        );
-        to_string_fn_decl->is_builtin = true;
-        to_string_fn_decl->return_type = std::make_shared<StringRealType>(ReferenceType::NO_REF);
-        builtin_method_funcs.push_back({RealTypeKind::U32, "to_string", to_string_fn_decl});
-        builtin_method_funcs.push_back({RealTypeKind::USIZE, "to_string", to_string_fn_decl});
-        builtin_method_funcs.push_back({RealTypeKind::ANYINT, "to_string", to_string_fn_decl});
+        auto to_string_return =
+            std::make_shared<StringRealType>(ReferenceType::NO_REF);
+        auto make_to_string_decl = [&](RealType_ptr self_type) {
+            auto decl = std::make_shared<FnDecl>(
+                nullptr,
+                nullptr,
+                fn_reciever_type::SELF_REF,
+                "to_string"
+            );
+            decl->is_builtin = true;
+            decl->return_type = to_string_return;
+            decl->set_builtin_method_self_type(self_type);
+            return decl;
+        };
+        builtin_method_funcs.push_back(
+            {RealTypeKind::U32, "to_string",
+             make_to_string_decl(
+                 std::make_shared<U32RealType>(ReferenceType::NO_REF))});
+        builtin_method_funcs.push_back(
+            {RealTypeKind::USIZE, "to_string",
+             make_to_string_decl(
+                 std::make_shared<UsizeRealType>(ReferenceType::NO_REF))});
+        builtin_method_funcs.push_back(
+            {RealTypeKind::ANYINT, "to_string",
+             make_to_string_decl(
+                 std::make_shared<U32RealType>(ReferenceType::NO_REF))});
     }
     /*    
     as_str and as_mut_str
@@ -394,6 +410,8 @@ void Semantic_Checker::add_builtin_methods_and_associated_funcs() {
     Available on: String
     */
     {
+        auto string_self_type =
+            std::make_shared<StringRealType>(ReferenceType::NO_REF);
         auto as_str_fn_decl = std::make_shared<FnDecl>(
             nullptr,
             nullptr,
@@ -402,6 +420,7 @@ void Semantic_Checker::add_builtin_methods_and_associated_funcs() {
         );
         as_str_fn_decl->is_builtin = true;
         as_str_fn_decl->return_type = std::make_shared<StrRealType>(ReferenceType::REF);
+        as_str_fn_decl->set_builtin_method_self_type(string_self_type);
         builtin_method_funcs.push_back({RealTypeKind::STRING, "as_str", as_str_fn_decl});
         auto as_mut_str_fn_decl = std::make_shared<FnDecl>(
             nullptr,
@@ -411,6 +430,7 @@ void Semantic_Checker::add_builtin_methods_and_associated_funcs() {
         );
         as_mut_str_fn_decl->is_builtin = true;
         as_mut_str_fn_decl->return_type = std::make_shared<StrRealType>(ReferenceType::REF_MUT);
+        as_mut_str_fn_decl->set_builtin_method_self_type(string_self_type);
         builtin_method_funcs.push_back({RealTypeKind::STRING, "as_mut_str", as_mut_str_fn_decl});
     }
     /*
@@ -419,6 +439,9 @@ void Semantic_Checker::add_builtin_methods_and_associated_funcs() {
     Available on: [T; N], String, &str
     */
     {
+        auto array_self_type = std::make_shared<ArrayRealType>(
+            std::make_shared<AnyIntRealType>(ReferenceType::NO_REF), nullptr,
+            ReferenceType::NO_REF, 0);
         auto arr_len_fn_decl = std::make_shared<FnDecl>(
             nullptr,
             nullptr,
@@ -428,8 +451,11 @@ void Semantic_Checker::add_builtin_methods_and_associated_funcs() {
         arr_len_fn_decl->is_builtin = true;
         arr_len_fn_decl->is_array_len = true;
         arr_len_fn_decl->return_type = std::make_shared<UsizeRealType>(ReferenceType::NO_REF);
+        arr_len_fn_decl->set_builtin_method_self_type(array_self_type);
         builtin_method_funcs.push_back({RealTypeKind::ARRAY, "len", arr_len_fn_decl});
 
+        auto string_self_type =
+            std::make_shared<StringRealType>(ReferenceType::NO_REF);
         auto string_len_fn_decl = std::make_shared<FnDecl>(
             nullptr,
             nullptr,
@@ -438,8 +464,10 @@ void Semantic_Checker::add_builtin_methods_and_associated_funcs() {
         );
         string_len_fn_decl->is_builtin = true;
         string_len_fn_decl->return_type = std::make_shared<UsizeRealType>(ReferenceType::NO_REF);
+        string_len_fn_decl->set_builtin_method_self_type(string_self_type);
         builtin_method_funcs.push_back({RealTypeKind::STRING, "len", string_len_fn_decl});
 
+        auto str_self_type = std::make_shared<StrRealType>(ReferenceType::NO_REF);
         auto str_len_fn_decl = std::make_shared<FnDecl>(
             nullptr,
             nullptr,
@@ -448,6 +476,7 @@ void Semantic_Checker::add_builtin_methods_and_associated_funcs() {
         );
         str_len_fn_decl->is_builtin = true;
         str_len_fn_decl->return_type = std::make_shared<UsizeRealType>(ReferenceType::NO_REF);
+        str_len_fn_decl->set_builtin_method_self_type(str_self_type);
         builtin_method_funcs.push_back({RealTypeKind::STR, "len", str_len_fn_decl});
     }
     /*
@@ -485,6 +514,8 @@ void Semantic_Checker::add_builtin_methods_and_associated_funcs() {
     modifies the String in place.
     */
     {
+        auto string_self_type =
+            std::make_shared<StringRealType>(ReferenceType::NO_REF);
         auto append_fn_decl = std::make_shared<FnDecl>(
             nullptr,
             nullptr,
@@ -495,6 +526,7 @@ void Semantic_Checker::add_builtin_methods_and_associated_funcs() {
         append_fn_decl->parameters.push_back({append_id_pattern, std::make_shared<StrRealType>(ReferenceType::REF)});
         append_fn_decl->is_builtin = true;
         append_fn_decl->return_type = std::make_shared<UnitRealType>(ReferenceType::NO_REF);
+        append_fn_decl->set_builtin_method_self_type(string_self_type);
         builtin_method_funcs.push_back({RealTypeKind::STRING, "append", append_fn_decl});
     }
 }

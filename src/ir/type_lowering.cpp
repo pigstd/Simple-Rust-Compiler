@@ -1,5 +1,8 @@
 #include "ir/type_lowering.h"
+#include "semantic/decl.h"
 #include <algorithm>
+#include <iostream>
+#include <ostream>
 #include <stdexcept>
 #include <string>
 
@@ -200,13 +203,21 @@ std::shared_ptr<FunctionType> TypeLowering::lower_function(FnDecl_ptr decl) {
     vector<IRType_ptr> params;
     if (decl->receiver_type != fn_reciever_type::NO_RECEIVER) {
         auto self_decl = decl->self_struct.lock();
+        RealType_ptr self_real;
         if (!self_decl) {
-            throw std::runtime_error("method missing self struct");
+            if (!decl->is_builtin) {
+                throw std::runtime_error("method missing self struct");
+            }
+
+            // builtin 函数的 self 可能不是 struct，但是已经被记录在 decl 里面
+            std::cerr << "warning: builtin method " << decl->name
+                << " has no self struct decl" << std::endl;
+            self_real = decl->builtin_method_self_type;
+        } else {
+            std::string self_name = decl->self_struct.lock()->name;
+            ReferenceType ref = receiver_to_ref(decl->receiver_type);
+            self_real = std::make_shared<StructRealType>(self_name, ref, self_decl);
         }
-        std::string self_name = decl->self_struct.lock()->name;
-        ReferenceType ref = receiver_to_ref(decl->receiver_type);
-        auto self_real =
-            std::make_shared<StructRealType>(self_name, ref, self_decl);
         params.push_back(lower(self_real));
     }
     for (const auto &param : decl->parameters) {
