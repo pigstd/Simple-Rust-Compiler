@@ -110,6 +110,27 @@ RealType_ptr strip_reference(const RealType_ptr &type) {
     throw std::runtime_error("strip_reference: unsupported RealType");
 }
 
+RealType_ptr clone_with_ref(const RealType_ptr &type, ReferenceType ref) {
+    auto base = strip_reference(type);
+    base->is_ref = ref;
+    return base;
+}
+
+bool is_aggregate_return(const RealType_ptr &type) {
+    if (!type || type->is_ref != ReferenceType::NO_REF) {
+        return false;
+    }
+    switch (type->kind) {
+    case RealTypeKind::ARRAY:
+    case RealTypeKind::STRUCT:
+    case RealTypeKind::STRING:
+    case RealTypeKind::STR:
+        return true;
+    default:
+        return false;
+    }
+}
+
 } // namespace
 
 TypeLowering::TypeLowering(IRModule &module)
@@ -202,32 +223,34 @@ std::shared_ptr<FunctionType> TypeLowering::lower_function(FnDecl_ptr decl) {
     }
     vector<IRType_ptr> params;
     if (decl->receiver_type != fn_reciever_type::NO_RECEIVER) {
+        ReferenceType ref = receiver_to_ref(decl->receiver_type);
+        RealType_ptr self_real = nullptr;
         auto self_decl = decl->self_struct.lock();
-        RealType_ptr self_real;
-        if (!self_decl) {
-            if (!decl->is_builtin) {
-                throw std::runtime_error("method missing self struct");
-            }
-
-            // builtin 函数的 self 可能不是 struct，但是已经被记录在 decl 里面
-            std::cerr << "warning: builtin method " << decl->name
-                << " has no self struct decl" << std::endl;
-            self_real = decl->builtin_method_self_type;
+        if (self_decl) {
+            std::string self_name = self_decl->name;
+            self_real =
+                std::make_shared<StructRealType>(self_name, ref, self_decl);
+        } else if (decl->is_builtin && decl->builtin_method_self_type) {
+            self_real = clone_with_ref(decl->builtin_method_self_type, ref);
         } else {
-            std::string self_name = decl->self_struct.lock()->name;
-            ReferenceType ref = receiver_to_ref(decl->receiver_type);
-            self_real = std::make_shared<StructRealType>(self_name, ref, self_decl);
+            throw std::runtime_error("method missing self struct");
         }
         params.push_back(lower(self_real));
     }
     for (const auto &param : decl->parameters) {
         params.push_back(lower(param.second));
     }
-    IRType_ptr ret_type =
-        decl->return_type ? lower(decl->return_type) : void_type_;
+    auto ret_real_type = decl->return_type
+                             ? decl->return_type
+                             : std::make_shared<UnitRealType>(
+                                   ReferenceType::NO_REF);
+    IRType_ptr ret_type = lower(ret_real_type);
     // 如果是 main 函数要特判成 i32 返回类型
     if (decl->is_main) {
         ret_type = i32_type_;
+    } else if (is_aggregate_return(ret_real_type)) {
+        params.push_back(std::make_shared<PointerType>(ret_type));
+        ret_type = void_type_;
     }
     return std::make_shared<FunctionType>(ret_type, params);
 }

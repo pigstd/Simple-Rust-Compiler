@@ -1,0 +1,10 @@
+fn main() {
+    let num: u32 = getInt() as u32;
+
+    print(num.to_string().as_str());
+
+    
+    print(3.to_string().as_str());
+
+    exit(0);
+}
