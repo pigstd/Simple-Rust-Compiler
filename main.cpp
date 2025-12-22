@@ -42,7 +42,7 @@ int main() {
     try {
         std::cout << run_full_pipeline();
         // 往 stderr 输出 runtime/runtime.c 的内容
-        std::ifstream rt_file("runtime/runtime.c");
+        std::ifstream rt_file("runtime/builtin.c");
         if (rt_file) {
             std::cerr << rt_file.rdbuf();
         } else {
