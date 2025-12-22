@@ -44,7 +44,7 @@ int main() {
         // 往 stderr 输出 runtime/runtime.c 的内容
         std::ifstream rt_file("runtime/runtime.c");
         if (rt_file) {
-            std::cout << rt_file.rdbuf();
+            std::cerr << rt_file.rdbuf();
         } else {
             std::cerr << "Error: failed to open runtime/runtime.c\n";
         }

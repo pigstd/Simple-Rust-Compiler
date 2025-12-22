@@ -22,9 +22,8 @@ build: $(BUILD_DIR)/CMakeCache.txt
 	$(CMAKE) --build $(BUILD_DIR)
 
 # run the main executable
-run: build
-	@echo "Running $(BUILD_DIR)/code"
-	./$(BUILD_DIR)/code
+run:
+	@./build/code
 
 # remove build artifacts but keep build dir
 clean:
